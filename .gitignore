@@ -39,8 +39,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Docker
-.dockerignore
 
 # Alembic
 alembic/versions/*.pyc

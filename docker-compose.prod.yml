@@ -1,0 +1,235 @@
+# ===================================================================
+# AI-Sourcing Hub — Production Docker Compose
+# ===================================================================
+# Production overrides for docker-compose.yml.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Changes from development:
+#   - No hot-reload (--reload removed)
+#   - Multiple uvicorn workers
+#   - Resource limits (CPU/memory)
+#   - Healthchecks on all services
+#   - Log rotation configured
+#   - Restart policy: always
+#   - No local volume mounts (use built image)
+# ===================================================================
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────────
+  postgres:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+        reservations:
+          cpus: "0.5"
+          memory: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Redis ──────────────────────────────────────────────────────────
+  redis:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512m
+        reservations:
+          cpus: "0.25"
+          memory: 128m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── FastAPI Application ─────────────────────────────────────────────
+  api:
+    restart: always
+    # Use the built image (no local volume mount in production)
+    # Image built via: docker compose build api
+    # Or pre-pulled from registry
+    image: aisourcing-hub-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      /bin/sh -c "
+      chmod +x /app/scripts/entrypoint.sh &&
+      /app/scripts/entrypoint.sh
+      "
+    environment:
+      ENVIRONMENT: production
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+        reservations:
+          cpus: "0.5"
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # No volumes mounted in production — the image is self-contained
+
+  # ── Celery Worker ──────────────────────────────────────────────────
+  celery_worker:
+    restart: always
+    image: aisourcing-hub-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A app.shared.celery_app worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=10
+      --prefetch-multiplier=1
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
+    environment:
+      ENVIRONMENT: production
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 2g
+        reservations:
+          cpus: "1"
+          memory: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.shared.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Celery Beat (Scheduler) ─────────────────────────────────────────
+  celery_beat:
+    restart: always
+    image: aisourcing-hub-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A app.shared.celery_app beat
+      --loglevel=info
+    environment:
+      ENVIRONMENT: production
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+        reservations:
+          cpus: "0.1"
+          memory: 64m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── MinIO Object Storage ───────────────────────────────────────────
+  minio:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+        reservations:
+          cpus: "0.5"
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Nginx Reverse Proxy ────────────────────────────────────────────
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # SSL certificates (mounted from host)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      # Static files (shared with api service)
+      - static_volume:/app/static:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+        reservations:
+          cpus: "0.1"
+          memory: 64m
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── ChromaDB Vector Store ───────────────────────────────────────────
+  chromadb:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1g
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ── Shared Volumes ────────────────────────────────────────────────────
+volumes:
+  pg_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  chroma_data:
+    driver: local
+  static_volume:
+    driver: local

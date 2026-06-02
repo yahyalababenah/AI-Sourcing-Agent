@@ -1,0 +1,68 @@
+# ===================================================================
+# AI-Sourcing Hub — Docker Build Context Exclusions
+# ===================================================================
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Version Control
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.report
+*.coverage.*
+test.db
+
+# Linting
+.ruff_cache/
+.mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Documentation (not needed at runtime)
+README.md
+plans/
+gemini-code-*.md
+ai-sourcing-agent-notion.md
+
+# Local persistent data (MinIO, ChromaDB)
+chroma_data/
+minio_data/
+pg_data/
+redis_data/
+
+# Static source files (fonts/logos are copied separately)
+app/static/fonts/
+app/static/logos/
