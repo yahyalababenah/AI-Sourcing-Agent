@@ -14,6 +14,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8, max_length=128, examples=["secure_password"])
     full_name: str = Field(..., min_length=1, max_length=255, examples=["Ahmed Al-Masri"])
     phone: Optional[str] = Field(None, max_length=50, examples=["+962791234567"])
+    role: Optional[str] = Field(None, description="User role (admin/agent/client); defaults to agent")
 
 
 class UserLogin(BaseModel):

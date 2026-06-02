@@ -87,13 +87,24 @@ async def register_user(db: AsyncSession, user_data: UserCreate) -> User:
             details={"email": user_data.email},
         )
 
+    # Determine role from payload, defaulting to AGENT
+    role_value = UserRole.AGENT
+    if user_data.role:
+        try:
+            role_value = UserRole(user_data.role)
+        except ValueError:
+            raise ValidationError(
+                message=f"Invalid role '{user_data.role}'. Must be one of: {', '.join(r.value for r in UserRole)}",
+                details={"valid_roles": [r.value for r in UserRole]},
+            )
+
     # Create user
     user = User(
         email=user_data.email,
         password_hash=_hash_password(user_data.password),
         full_name=user_data.full_name,
         phone=user_data.phone,
-        role=UserRole.AGENT,
+        role=role_value,
     )
     db.add(user)
     await db.flush()
