@@ -1,18 +1,25 @@
 """
 AI-Sourcing Hub — Pricing Calculation Engine
 
-Implements the 16 pricing rules for Chinese import quotation:
-- Exchange rates (CNY→JOD/USD)
-- Freight costs per port
-- Customs duties
-- Commission rates
-- MOQ discounts
-- Tax / margin calculations
+Implements the landed cost calculation for Chinese import quotation:
+  1. Convert RMB → USD
+  2. Convert USD → local currency
+  3. Estimate volume (CBM) from weight
+  4. Calculate freight per unit (sea_freight_cbm × volume_cbm / quantity)
+  5. Calculate customs duty (% of price_local)
+  6. Add clearance fee (flat, divided across units)
+  7. Calculate commission on (price + freight + customs + clearance)
+  8. Sum total per unit
+  9. Return full breakdown dict
+
+Exchange rates follow: 1 source_currency = rate * target_currency
+  e.g. exchange_rate_cny_usd = 0.14 means 1 CNY = 0.14 USD
 """
 # ═══════════════════════════════════════════════════════════
 # Imports
 # ═══════════════════════════════════════════════════════════
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Optional
 
 from app.shared.logging import get_logger
@@ -66,6 +73,7 @@ class LineItemInput:
     product_name: str
     quantity: int
     unit_price_cny: float
+    weight_kg: float = 0.0  # Per-unit weight for CBM estimation
 
 
 @dataclass
@@ -80,6 +88,7 @@ class LineItemResult:
     unit_price_converted: float
     freight_cost: float
     customs_duty: float
+    clearance_fee: float
     commission: float
     subtotal: float
     discount: float
@@ -91,21 +100,22 @@ class LineItemResult:
 # ═══════════════════════════════════════════════════════════
 
 class PricingEngine:
-    """Core pricing engine applying the 16 rules."""
+    """Core pricing engine applying the landed cost algorithm."""
 
     # ── Default rule values (overridden by DB rules) ──
     DEFAULTS = {
         # Exchange rates
         "exchange_rate_cny_jod": 0.077,  # 1 CNY ≈ 0.077 JOD
         "exchange_rate_cny_usd": 0.14,   # 1 CNY ≈ 0.14 USD
-        # Freight (USD, will be converted)
-        "freight_aqaba_20ft": 1200.0,
-        "freight_aqaba_40ft": 2000.0,
-        "freight_beirut_20ft": 1000.0,
-        "freight_beirut_40ft": 1800.0,
+        # Sea freight per CBM (roadmap §2.4.1)
+        "sea_freight_aqaba": 75.0,       # $75 / CBM to Aqaba
+        "sea_freight_jeddah": 60.0,      # $60 / CBM to Jeddah
+        "sea_freight_default": 80.0,     # $80 / CBM fallback
         # Customs duty rate (Jordan)
         "customs_duty_rate_general": 0.05,  # 5% general
         "customs_duty_rate_reduced": 0.0,   # 0% for certain goods
+        # Clearance fee (flat, USD)
+        "clearance_fee": 150.0,          # $150 flat clearance fee
         # Commission
         "commission_rate_standard": 0.03,   # 3%
         "commission_rate_premium": 0.05,    # 5%
@@ -131,169 +141,177 @@ class PricingEngine:
             extra={"rule_count": len(self.rules)},
         )
 
-    # ── Rule 1-2: Exchange Rate ──
+    # ═══════════════════════════════════════════════════════════
+    # Helpers
+    # ═══════════════════════════════════════════════════════════
 
-    def _resolve_exchange_rate(self, ctx: PricingContext) -> float:
-        """Resolve exchange rate from CNY to target currency.
+    @staticmethod
+    def estimate_volume_cbm(weight_kg: float) -> float:
+        """Estimate volume in cubic metres from weight.
 
-        Rules:
-            R1: CNY→JOD exchange rate
-            R2: CNY→USD exchange rate (fallback for USD-based freight)
+        Standard sea freight density: ~500 kg per CBM.
+        If weight is unknown (zero), returns a minimum estimate of 0.1 CBM.
+
+        Args:
+            weight_kg: Weight of goods in kilograms.
+
+        Returns:
+            Estimated volume in cubic metres.
         """
-        if ctx.target_currency.upper() == "JOD":
-            rate = self.rules.get("exchange_rate_cny_jod", 0.077)
-            ctx.exchange_rate_source = "CNY→JOD (direct)"
-        elif ctx.target_currency.upper() == "USD":
-            rate = self.rules.get("exchange_rate_cny_usd", 0.14)
-            ctx.exchange_rate_source = "CNY→USD (direct)"
-        else:
-            # Fallback: use JOD rate and convert via USD
-            rate = self.rules.get("exchange_rate_cny_jod", 0.077)
-            ctx.exchange_rate_source = f"CNY→JOD→{ctx.target_currency} (via USD)"
+        if weight_kg <= 0:
+            return 0.1
+        return weight_kg / 500.0
 
-        ctx.rules_applied.append(f"exchange_rate:{ctx.exchange_rate_source}={rate}")
-        return rate
+    def _get_rule_value(self, name: str, default: float = 0.0) -> float:
+        """Get a rule value from the merged rules dict.
 
-    # ── Rule 3-6: Freight Costs ──
+        Args:
+            name: Rule name.
+            default: Fallback value if rule not found.
 
-    def _calculate_freight(self, ctx: PricingContext, total_quantity: int) -> float:
-        """Calculate freight cost based on destination port and volume.
-
-        Rules:
-            R3: Freight to Aqaba (20ft container)
-            R4: Freight to Aqaba (40ft container)
-            R5: Freight to Beirut (20ft container)
-            R6: Freight to Beirut (40ft container)
-
-        Assumes ~1000 units per 20ft container for estimation.
+        Returns:
+            Rule value as float.
         """
-        port_lower = ctx.destination_port.lower()
-        units_per_20ft = 1000  # estimate
-
-        if "aqaba" in port_lower:
-            if total_quantity >= 2000:
-                freight = self.rules.get("freight_aqaba_40ft", 2000.0)
-                ctx.rules_applied.append("freight:aqaba_40ft")
-            else:
-                freight = self.rules.get("freight_aqaba_20ft", 1200.0)
-                ctx.rules_applied.append("freight:aqaba_20ft")
-        elif "beirut" in port_lower:
-            if total_quantity >= 2000:
-                freight = self.rules.get("freight_beirut_40ft", 1800.0)
-                ctx.rules_applied.append("freight:beirut_40ft")
-            else:
-                freight = self.rules.get("freight_beirut_20ft", 1000.0)
-                ctx.rules_applied.append("freight:beirut_20ft")
-        else:
-            # Default to Aqaba 20ft
-            freight = self.rules.get("freight_aqaba_20ft", 1200.0)
-            ctx.rules_applied.append(f"freight:default_{port_lower}")
-
-        ctx.freight_cost_total = freight
-        ctx.freight_per_unit = freight / max(total_quantity, 1)
-        return freight
-
-    # ── Rule 7-8: Customs Duties ──
-
-    def _calculate_customs_duty(
-        self, ctx: PricingContext, subtotal: float
-    ) -> float:
-        """Calculate customs duty.
-
-        Rules:
-            R7: General customs duty rate (5% for most goods)
-            R8: Reduced customs duty rate (0% for certain exemptions)
-        """
-        # Default to general rate
-        rate = self.rules.get("customs_duty_rate_general", 0.05)
-        ctx.customs_duty_rate = rate
-        ctx.rules_applied.append(f"customs:general_rate={rate}")
-        return subtotal * rate
-
-    # ── Rule 9-10: Commission ──
-
-    def _calculate_commission(
-        self, ctx: PricingContext, subtotal: float
-    ) -> float:
-        """Calculate agent commission.
-
-        Rules:
-            R9: Standard commission (3%)
-            R10: Premium commission (5% for high-value deals)
-        """
-        rate = self.rules.get("commission_rate_standard", 0.03)
-        ctx.commission_rate = rate
-        ctx.rules_applied.append(f"commission:standard={rate}")
-        return subtotal * rate
-
-    # ── Rule 11-13: MOQ Discounts ──
-
-    def _calculate_moq_discount(
-        self, ctx: PricingContext, quantity: int
-    ) -> float:
-        """Calculate MOQ-based discount rate.
-
-        Rules:
-            R11: 2% discount for ≥1,000 units
-            R12: 5% discount for ≥5,000 units
-            R13: 8% discount for ≥10,000 units
-        """
-        if quantity >= 10000:
-            rate = self.rules.get("moq_discount_10000_plus", 0.08)
-            ctx.rules_applied.append(f"moq_discount:10000_plus={rate}")
-        elif quantity >= 5000:
-            rate = self.rules.get("moq_discount_5000_plus", 0.05)
-            ctx.rules_applied.append(f"moq_discount:5000_plus={rate}")
-        elif quantity >= 1000:
-            rate = self.rules.get("moq_discount_1000_plus", 0.02)
-            ctx.rules_applied.append(f"moq_discount:1000_plus={rate}")
-        else:
-            rate = 0.0
-
-        ctx.moq_discount_rate = rate
-        return rate
-
-    # ── Rule 14: VAT ──
-
-    def _calculate_vat(self, ctx: PricingContext, amount: float) -> float:
-        """Calculate VAT.
-
-        Rule:
-            R14: VAT rate (16% Jordan standard)
-        """
-        rate = self.rules.get("vat_rate", 0.16)
-        ctx.vat_rate = rate
-        ctx.rules_applied.append(f"vat:rate={rate}")
-        return amount * rate
-
-    # ── Rule 15: Early Payment Discount ──
-
-    def _early_payment_discount(self, ctx: PricingContext) -> float:
-        """Early payment discount rate.
-
-        Rule:
-            R15: 2% discount for early payment
-        """
-        rate = self.rules.get("early_payment_discount", 0.02)
-        ctx.early_payment_discount = rate
-        ctx.rules_applied.append(f"early_payment_discount={rate}")
-        return rate
-
-    # ── Rule 16: Target Margin ──
-
-    def _target_margin(self, ctx: PricingContext) -> float:
-        """Target profit margin.
-
-        Rule:
-            R16: 15% target margin
-        """
-        rate = self.rules.get("target_margin", 0.15)
-        ctx.target_margin = rate
-        ctx.rules_applied.append(f"target_margin={rate}")
-        return rate
+        return float(self.rules.get(name, default))
 
     # ═══════════════════════════════════════════════════════════
-    # Main Calculation
+    # Landed Cost Calculation (per-product)
+    # ═══════════════════════════════════════════════════════════
+
+    def calculate_landed_cost(
+        self,
+        price_rmb: float,
+        weight_kg: float,
+        quantity: int,
+        destination_port: str,
+        currency: str,
+        agent_commission_pct: float = 3.0,
+    ) -> dict:
+        """Calculate landed cost for a single product (9-step algorithm).
+
+        Implements the roadmap §2.4.1 algorithm:
+
+          1. ``price_usd = price_rmb * exchange_rate_cny_usd``
+          2. ``price_local = price_usd × (USD → currency)``
+          3. ``volume_cbm = estimate_volume_cbm(weight_kg)``
+          4. ``freight_per_unit = (sea_freight_{port} × volume_cbm) / quantity``
+          5. ``customs_per_unit = price_local × (customs_rate / 100)``
+          6. ``clearance_per_unit = clearance_fee / quantity``
+          7. ``commission_per_unit = (price_local + freight + customs + clearance)
+                                   × (agent_commission_pct / 100)``
+          8. ``total_per_unit = price_local + freight + customs + clearance + commission``
+          9. Return full breakdown dict
+
+        Args:
+            price_rmb: Unit price in RMB/CNY.
+            weight_kg: Per-unit weight in kilograms.
+            quantity: Number of units.
+            destination_port: Destination port name (e.g. "Aqaba", "Jeddah").
+            currency: Target currency code (e.g. "JOD", "USD").
+            agent_commission_pct: Commission percentage (default 3.0%).
+
+        Returns:
+            Dict with all intermediate and final values.
+
+        Raises:
+            ValueError: If quantity <= 0 or price_rmb < 0.
+        """
+        if quantity <= 0:
+            raise ValueError(f"Quantity must be > 0, got {quantity}")
+        if price_rmb < 0:
+            raise ValueError(f"Price must be >= 0, got {price_rmb}")
+
+        currency_upper = currency.upper()
+
+        # ── Step 1: Convert RMB → USD ──
+        cny_to_usd = self._get_rule_value("exchange_rate_cny_usd", 0.14)
+        price_usd = price_rmb * cny_to_usd
+
+        # ── Step 2: Convert USD → local currency ──
+        if currency_upper == "USD":
+            price_local = price_usd
+            usd_rate = 1.0
+        elif currency_upper == "JOD":
+            # Derive USD→JOD from CNY→JOD and CNY→USD
+            cny_to_jod = self._get_rule_value("exchange_rate_cny_jod", 0.077)
+            usd_to_jod = cny_to_jod / cny_to_usd if cny_to_usd else 0.55
+            price_local = price_usd * usd_to_jod
+            usd_rate = usd_to_jod
+        else:
+            # Unknown currency — fallback to JOD
+            cny_to_jod = self._get_rule_value("exchange_rate_cny_jod", 0.077)
+            usd_to_jod = cny_to_jod / cny_to_usd if cny_to_usd else 0.55
+            price_local = price_usd * usd_to_jod
+            usd_rate = usd_to_jod
+            logger.warning(
+                "Unknown target currency, falling back to JOD",
+                extra={"currency": currency_upper},
+            )
+
+        # ── Step 3: Estimate volume ──
+        volume_cbm = self.estimate_volume_cbm(weight_kg)
+
+        # ── Step 4: Sea freight ──
+        port_lower = destination_port.lower().replace(" ", "_")
+        port_rule_name = f"sea_freight_{port_lower}"
+        sea_freight_cbm = self._get_rule_value(port_rule_name)
+        if sea_freight_cbm == 0.0:
+            sea_freight_cbm = self._get_rule_value("sea_freight_default", 80.0)
+
+        total_freight = sea_freight_cbm * volume_cbm
+        freight_per_unit = total_freight / max(quantity, 1)
+
+        # ── Step 5: Customs duty ──
+        customs_rate = self._get_rule_value("customs_duty_rate_general", 0.05)
+        customs_per_unit = price_local * customs_rate
+
+        # ── Step 6: Clearance fee ──
+        clearance_fee_total = self._get_rule_value("clearance_fee", 150.0)
+        clearance_per_unit = clearance_fee_total / max(quantity, 1)
+
+        # ── Step 7: Commission ──
+        total_before_commission = (
+            price_local + freight_per_unit + customs_per_unit + clearance_per_unit
+        )
+        commission_pct = agent_commission_pct / 100.0
+        commission_per_unit = total_before_commission * commission_pct
+
+        # ── Step 8: Total per unit ──
+        total_per_unit = total_before_commission + commission_per_unit
+        grand_total = total_per_unit * quantity
+
+        # ── Step 9: Build breakdown ──
+        applied_rules = [
+            f"exchange_rate:cny_usd={cny_to_usd}",
+            f"exchange_rate:usd_{currency_upper}={usd_rate}",
+            f"sea_freight:{port_rule_name}={sea_freight_cbm}",
+            f"volume_cbm={volume_cbm:.4f}",
+            f"customs_rate={customs_rate}",
+            f"clearance_fee={clearance_fee_total}",
+            f"commission_pct={agent_commission_pct}%",
+        ]
+
+        return {
+            "price_rmb": price_rmb,
+            "price_usd": round(price_usd, 4),
+            "price_local": round(price_local, 4),
+            "volume_cbm": round(volume_cbm, 4),
+            "sea_freight_cbm": sea_freight_cbm,
+            "freight_per_unit": round(freight_per_unit, 2),
+            "customs_per_unit": round(customs_per_unit, 2),
+            "clearance_per_unit": round(clearance_per_unit, 2),
+            "commission_per_unit": round(commission_per_unit, 2),
+            "total_per_unit": round(total_per_unit, 2),
+            "grand_total": round(grand_total, 2),
+            "quantity": quantity,
+            "destination_port": destination_port,
+            "currency": currency_upper,
+            "exchange_rate_used": usd_rate if currency_upper != "USD" else 1.0,
+            "rules_applied": applied_rules,
+        }
+
+    # ═══════════════════════════════════════════════════════════
+    # Main Multi-Product Calculation
     # ═══════════════════════════════════════════════════════════
 
     def calculate(
@@ -302,17 +320,22 @@ class PricingEngine:
         target_currency: str,
         destination_port: str,
         products: list[LineItemInput],
+        agent_commission_pct: float = 3.0,
     ) -> dict:
         """Run full pricing calculation for a set of products.
+
+        Uses the landed cost algorithm (``calculate_landed_cost``) per product
+        and aggregates results.
 
         Args:
             rfq_id: RFQ UUID.
             target_currency: Target currency code (JOD, USD).
             destination_port: Destination port name.
             products: List of product line items.
+            agent_commission_pct: Commission percentage (default 3.0%).
 
         Returns:
-            Dict with line_items, grand_total, exchange_rate, etc.
+            Dict with line_items, grand_total, exchange_rate, rules_applied, etc.
         """
         ctx = PricingContext(
             rfq_id=rfq_id,
@@ -320,67 +343,62 @@ class PricingEngine:
             destination_port=destination_port,
         )
 
-        # Step 1: Resolve exchange rate
-        ctx.exchange_rate = self._resolve_exchange_rate(ctx)
-
-        # Step 2: Calculate total volume for freight estimation
-        total_quantity = sum(p.quantity for p in products)
-        self._calculate_freight(ctx, total_quantity)
-
-        # Step 3: Calculate each line item
         line_items: list[LineItemResult] = []
         grand_total = 0.0
         discount_total = 0.0
+        total_freight = 0.0
+        total_customs = 0.0
+        total_clearance = 0.0
+        total_commission = 0.0
 
         for product in products:
-            # Convert unit price
-            unit_converted = product.unit_price_cny * ctx.exchange_rate
-
-            # Subtotal (before adjustments)
-            subtotal = unit_converted * product.quantity
-
-            # Freight allocation (per product proportionally)
-            freight_alloc = ctx.freight_per_unit * product.quantity
-
-            # Customs duty (on converted value + freight)
-            duty_base = subtotal + freight_alloc
-            customs = self._calculate_customs_duty(ctx, duty_base)
-
-            # Commission
-            commission_base = subtotal + freight_alloc + customs
-            commission = self._calculate_commission(ctx, commission_base)
+            # Run landed cost for this product
+            lc = self.calculate_landed_cost(
+                price_rmb=product.unit_price_cny,
+                weight_kg=product.weight_kg,
+                quantity=product.quantity,
+                destination_port=destination_port,
+                currency=target_currency,
+                agent_commission_pct=agent_commission_pct,
+            )
 
             # MOQ discount
             moq_rate = self._calculate_moq_discount(ctx, product.quantity)
-            discount = subtotal * moq_rate
+            discount = lc["total_per_unit"] * product.quantity * moq_rate
 
-            # Total for line
-            line_total = subtotal + freight_alloc + customs + commission - discount
+            line_total = lc["grand_total"] - discount
 
-            line_items.append(LineItemResult(
+            line_item = LineItemResult(
                 product_id=product.product_id,
                 product_name=product.product_name,
                 quantity=product.quantity,
                 unit_price_cny=product.unit_price_cny,
-                exchange_rate=ctx.exchange_rate,
-                unit_price_converted=round(unit_converted, 4),
-                freight_cost=round(freight_alloc, 2),
-                customs_duty=round(customs, 2),
-                commission=round(commission, 2),
-                subtotal=round(subtotal, 2),
+                exchange_rate=lc["exchange_rate_used"],
+                unit_price_converted=lc["price_local"],
+                freight_cost=lc["freight_per_unit"] * product.quantity,
+                customs_duty=lc["customs_per_unit"] * product.quantity,
+                clearance_fee=lc["clearance_per_unit"] * product.quantity,
+                commission=lc["commission_per_unit"] * product.quantity,
+                subtotal=lc["price_local"] * product.quantity,
                 discount=round(discount, 2),
                 total=round(line_total, 2),
-            ))
+            )
+            line_items.append(line_item)
 
             grand_total += line_total
             discount_total += discount
+            total_freight += lc["freight_per_unit"] * product.quantity
+            total_customs += lc["customs_per_unit"] * product.quantity
+            total_clearance += lc["clearance_per_unit"] * product.quantity
+            total_commission += lc["commission_per_unit"] * product.quantity
+            ctx.rules_applied.extend(lc["rules_applied"])
 
-        # Apply early payment discount to grand total
+        # Early payment discount
         early_discount_rate = self._early_payment_discount(ctx)
         early_discount = grand_total * early_discount_rate
         discount_total += early_discount
 
-        # VAT on grand total (before early payment discount)
+        # VAT on grand total
         vat = self._calculate_vat(ctx, grand_total)
 
         # Final total
@@ -392,7 +410,7 @@ class PricingEngine:
         return {
             "rfq_id": rfq_id,
             "target_currency": target_currency.upper(),
-            "exchange_rate_used": ctx.exchange_rate,
+            "exchange_rate_used": line_items[0].exchange_rate if line_items else 0.0,
             "line_items": [
                 {
                     "product_id": li.product_id,
@@ -403,6 +421,7 @@ class PricingEngine:
                     "unit_price_converted": li.unit_price_converted,
                     "freight_cost": li.freight_cost,
                     "customs_duty": li.customs_duty,
+                    "clearance_fee": li.clearance_fee,
                     "commission": li.commission,
                     "subtotal": li.subtotal,
                     "discount": li.discount,
@@ -417,3 +436,77 @@ class PricingEngine:
             "discount_total": round(discount_total, 2),
             "rules_applied": list(set(ctx.rules_applied)),
         }
+
+    # ═══════════════════════════════════════════════════════════
+    # MOQ Discount  (Rules 11-13)
+    # ═══════════════════════════════════════════════════════════
+
+    def _calculate_moq_discount(
+        self, ctx: PricingContext, quantity: int
+    ) -> float:
+        """Calculate MOQ-based discount rate.
+
+        Rules:
+            R11: 2% discount for ≥1,000 units
+            R12: 5% discount for ≥5,000 units
+            R13: 8% discount for ≥10,000 units
+        """
+        if quantity >= 10000:
+            rate = self._get_rule_value("moq_discount_10000_plus", 0.08)
+            ctx.rules_applied.append(f"moq_discount:10000_plus={rate}")
+        elif quantity >= 5000:
+            rate = self._get_rule_value("moq_discount_5000_plus", 0.05)
+            ctx.rules_applied.append(f"moq_discount:5000_plus={rate}")
+        elif quantity >= 1000:
+            rate = self._get_rule_value("moq_discount_1000_plus", 0.02)
+            ctx.rules_applied.append(f"moq_discount:1000_plus={rate}")
+        else:
+            rate = 0.0
+
+        ctx.moq_discount_rate = rate
+        return rate
+
+    # ═══════════════════════════════════════════════════════════
+    # VAT  (Rule 14)
+    # ═══════════════════════════════════════════════════════════
+
+    def _calculate_vat(self, ctx: PricingContext, amount: float) -> float:
+        """Calculate VAT.
+
+        Rule:
+            R14: VAT rate (16% Jordan standard)
+        """
+        rate = self._get_rule_value("vat_rate", 0.16)
+        ctx.vat_rate = rate
+        ctx.rules_applied.append(f"vat:rate={rate}")
+        return amount * rate
+
+    # ═══════════════════════════════════════════════════════════
+    # Early Payment Discount  (Rule 15)
+    # ═══════════════════════════════════════════════════════════
+
+    def _early_payment_discount(self, ctx: PricingContext) -> float:
+        """Early payment discount rate.
+
+        Rule:
+            R15: 2% discount for early payment
+        """
+        rate = self._get_rule_value("early_payment_discount", 0.02)
+        ctx.early_payment_discount = rate
+        ctx.rules_applied.append(f"early_payment_discount={rate}")
+        return rate
+
+    # ═══════════════════════════════════════════════════════════
+    # Target Margin  (Rule 16)
+    # ═══════════════════════════════════════════════════════════
+
+    def _target_margin(self, ctx: PricingContext) -> float:
+        """Target profit margin.
+
+        Rule:
+            R16: 15% target margin
+        """
+        rate = self._get_rule_value("target_margin", 0.15)
+        ctx.target_margin = rate
+        ctx.rules_applied.append(f"target_margin={rate}")
+        return rate
