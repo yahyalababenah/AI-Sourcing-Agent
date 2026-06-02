@@ -12,10 +12,14 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.intake.llm_client import translate_and_extract
+from app.modules.intake.llm_client import extract_entities, translate_and_extract
 from app.modules.intake.models import RFQ, Product, RFQStatus, ProductStatus
 from app.modules.intake.schemas import RFQCreate, RFQResponse, RFQListResponse
-from app.shared.exceptions import NotFoundException, ValidationError
+from app.shared.exceptions import (
+    IncompleteExtractionError,
+    NotFoundException,
+    ValidationError,
+)
 from app.shared.logging import get_logger
 from app.shared.pagination import PaginationParams
 
@@ -32,14 +36,50 @@ async def translate_request(
 ) -> dict:
     """Translate an Arabic client request and extract entities.
 
+    Two-stage pipeline:
+        1. Extract product entities from Arabic (Prompt A)
+        2. Translate to Chinese (Prompt B)
+
+    Validates that extracted entities contain at least one product with
+    valid name and positive quantity.
+
     Args:
         arabic_text: Raw Arabic text from the client.
         provider: Optional LLM provider override.
 
     Returns:
         Dict with request_id, chinese_query, entities, confidence.
+
+    Raises:
+        IncompleteExtractionError: If extraction yields no valid products.
+        ProviderUnavailableError: If all LLM providers fail.
     """
-    return await translate_and_extract(arabic_text, provider=provider)
+    result = await translate_and_extract(arabic_text, provider=provider)
+
+    # Defense-in-depth: validate entities at service layer
+    entities = result.get("entities", {})
+    products = entities.get("products", [])
+    if not products:
+        raise IncompleteExtractionError(
+            message="No products extracted from Arabic text",
+            details={"arabic_text_preview": arabic_text[:200]},
+        )
+
+    for i, product in enumerate(products):
+        name = (product.get("name_arabic") or "").strip()
+        if not name:
+            raise IncompleteExtractionError(
+                message=f"Product at index {i} is missing a name",
+                details={"product_index": i, "product": product},
+            )
+        quantity = product.get("quantity", 0)
+        if not isinstance(quantity, (int, float)) or quantity <= 0:
+            raise IncompleteExtractionError(
+                message=f"Product '{name}' has invalid quantity: {quantity}",
+                details={"product_index": i, "product": product, "quantity": quantity},
+            )
+
+    return result
 
 
 # ═══════════════════════════════════════════════════════════
@@ -215,21 +255,37 @@ async def add_product(
     Args:
         db: Database session.
         rfq_id: RFQ UUID string.
-        name: Product name.
-        quantity: Product quantity.
+        name: Product name (must be non-empty).
+        quantity: Product quantity (must be > 0).
         specifications: Optional technical specifications.
         target_price: Optional target/budget price.
         extracted_metadata: Optional extracted data from documents.
 
     Returns:
         Created Product instance.
+
+    Raises:
+        NotFoundException: If RFQ not found.
+        ValidationError: If name is empty or quantity <= 0.
     """
+    # Validate inputs
+    if not name or not name.strip():
+        raise ValidationError(
+            message="Product name is required and cannot be empty",
+            details={"field": "name"},
+        )
+    if quantity < 1:
+        raise ValidationError(
+            message="Product quantity must be at least 1",
+            details={"field": "quantity", "value": quantity},
+        )
+
     # Verify RFQ exists
     await get_rfq(db, rfq_id)
 
     product = Product(
         rfq_id=uuid.UUID(rfq_id),
-        name=name,
+        name=name.strip(),
         quantity=quantity,
         specifications=specifications,
         target_price=target_price,
