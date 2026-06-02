@@ -34,7 +34,7 @@ logger = get_logger(__name__)
 
 # Default models per provider
 TOGETHER_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-OPENROUTER_MODEL = "deepseek/deepseek-chat"
+OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
 
 TOGETHER_BASE_URL = "https://api.together.xyz/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -141,7 +141,7 @@ async def _call_with_retry(
 ) -> dict:
     """Call an LLM provider with retry logic and exponential backoff.
 
-    Tries Together AI first, then falls back to OpenRouter if configured.
+    Tries OpenRouter first, then falls back to Together AI if configured.
     Within each provider, retries up to MAX_RETRIES times with increasing delays.
 
     Args:
@@ -208,8 +208,8 @@ async def _call_with_fallback(
 
     Provider preference order:
         1. preferred_provider (if specified and configured)
-        2. Together AI (if configured)
-        3. OpenRouter (if configured, as fallback)
+        2. OpenRouter (if configured — primary, uses free-tier models)
+        3. Together AI (if configured, as fallback)
 
     Each provider gets its own retry loop before fallback kicks in.
 
@@ -235,10 +235,11 @@ async def _call_with_fallback(
         if settings.TOGETHER_API_KEY:
             providers.append(("together", TOGETHER_MODEL))
     else:
-        if settings.TOGETHER_API_KEY:
-            providers.append(("together", TOGETHER_MODEL))
+        # Default: OpenRouter first (free-tier), Together AI as fallback
         if settings.OPENROUTER_API_KEY:
             providers.append(("openrouter", OPENROUTER_MODEL))
+        if settings.TOGETHER_API_KEY:
+            providers.append(("together", TOGETHER_MODEL))
 
     if not providers:
         raise ProviderUnavailableError(

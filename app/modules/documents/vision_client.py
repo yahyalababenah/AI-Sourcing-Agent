@@ -34,7 +34,7 @@ logger = get_logger(__name__)
 # Constants
 # ═══════════════════════════════════════════════════════════
 
-OPENROUTER_VL_MODEL = "qwen/qwen2.5-vl-72b-instruct"
+OPENROUTER_VL_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free"
 TOGETHER_VL_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct-Turbo"
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -97,9 +97,9 @@ def _get_retry_delay_with_jitter(attempt: int) -> float:
     """
     delay = RETRY_BASE_DELAY * (2 ** attempt)
     delay = min(delay, RETRY_MAX_DELAY)
-    # Apply jitter: ±50%
+    # Apply jitter: ±50%, then cap at max delay
     jitter = delay * RETRY_JITTER_FACTOR
-    return delay + random.uniform(-jitter, jitter)
+    return min(delay + random.uniform(-jitter, jitter), RETRY_MAX_DELAY)
 
 
 def _is_retryable_status(status_code: int) -> bool:
