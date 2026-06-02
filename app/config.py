@@ -47,14 +47,22 @@ class Settings(BaseSettings):
             return self.REDIS_URL
         return f"redis://:{self.REDIS_PASSWORD}@redis:6379/0"
 
+    # Celery URL overrides (for production/PaaS like Railway where Redis URL is provided directly)
+    CELERY_BROKER_URL: str | None = None
+    CELERY_RESULT_BACKEND: str | None = None
+
     @computed_field
     @cached_property
     def celery_broker_url(self) -> str:
+        if self.CELERY_BROKER_URL:
+            return self.CELERY_BROKER_URL
         return f"redis://:{self.REDIS_PASSWORD}@redis:6379/1"
 
     @computed_field
     @cached_property
     def celery_result_backend(self) -> str:
+        if self.CELERY_RESULT_BACKEND:
+            return self.CELERY_RESULT_BACKEND
         return f"redis://:{self.REDIS_PASSWORD}@redis:6379/2"
 
     # ---- JWT Authentication ----
