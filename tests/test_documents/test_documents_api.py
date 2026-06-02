@@ -104,10 +104,9 @@ class TestRepairVisionJson:
         assert result is None
 
     def test_empty_array(self):
-        """Should return empty list for '[]'."""
+        """Should return None for '[]' (empty arrays have no valid items)."""
         result = repair_vision_json("[]")
-        assert result is not None
-        assert result == []
+        assert result is None
 
     def test_numeric_coercion(self):
         """Should coerce unit_price_rmb→float, moq→int, weight_kg→float."""
@@ -160,10 +159,9 @@ class TestValidateResult:
         assert len(result) == 1
 
     def test_empty_list(self):
-        """Should return empty list for empty input."""
+        """Should return None for empty input (no valid items to validate)."""
         result = _validate_result([])
-        assert result is not None
-        assert result == []
+        assert result is None
 
     def test_none_input(self):
         """Should return None for None input."""
@@ -283,7 +281,13 @@ async def auth_headers(client: AsyncClient, db_session) -> dict:
     }
     resp = await client.post("/api/v1/auth/register", json=register_payload)
     assert resp.status_code == 201
-    token = resp.json()["access_token"]
+    # Login to get access token (register returns UserResponse, not tokens)
+    login_resp = await client.post("/api/v1/auth/login", json={
+        "email": register_payload["email"],
+        "password": register_payload["password"],
+    })
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -298,7 +302,13 @@ async def admin_headers(client: AsyncClient, db_session) -> dict:
     }
     resp = await client.post("/api/v1/auth/register", json=register_payload)
     assert resp.status_code == 201
-    token = resp.json()["access_token"]
+    # Login to get access token (register returns UserResponse, not tokens)
+    login_resp = await client.post("/api/v1/auth/login", json={
+        "email": register_payload["email"],
+        "password": register_payload["password"],
+    })
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -387,11 +397,17 @@ class TestUploadDocument:
             "email": f"viewer-{uuid.uuid4().hex[:8]}@example.com",
             "password": "ViewerPass123!",
             "full_name": "Viewer User",
-            "role": "viewer",
+            "role": "client",
         }
         resp = await client.post("/api/v1/auth/register", json=register_payload)
         assert resp.status_code == 201
-        viewer_token = resp.json()["access_token"]
+        # Login to get access token
+        login_resp = await client.post(
+            "/api/v1/auth/login",
+            json={"email": register_payload["email"], "password": register_payload["password"]},
+        )
+        assert login_resp.status_code == 200
+        viewer_token = login_resp.json()["access_token"]
         viewer_headers = {"Authorization": f"Bearer {viewer_token}"}
 
         # Create RFQ as admin
@@ -403,7 +419,13 @@ class TestUploadDocument:
         }
         resp = await client.post("/api/v1/auth/register", json=admin_payload)
         assert resp.status_code == 201
-        admin_token = resp.json()["access_token"]
+        # Login to get access token
+        login_resp = await client.post(
+            "/api/v1/auth/login",
+            json={"email": admin_payload["email"], "password": admin_payload["password"]},
+        )
+        assert login_resp.status_code == 200
+        admin_token = login_resp.json()["access_token"]
         admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
         rfq_resp = await client.post(
@@ -587,11 +609,17 @@ class TestDocumentItems:
             "email": f"viewer2-{uuid.uuid4().hex[:8]}@example.com",
             "password": "ViewerPass123!",
             "full_name": "Viewer",
-            "role": "viewer",
+            "role": "client",
         }
         resp = await client.post("/api/v1/auth/register", json=viewer_payload)
         assert resp.status_code == 201
-        viewer_headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+        # Login to get access token
+        login_resp = await client.post(
+            "/api/v1/auth/login",
+            json={"email": viewer_payload["email"], "password": viewer_payload["password"]},
+        )
+        assert login_resp.status_code == 200
+        viewer_headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
 
         # Viewer should not be able to override items
         put_resp = await client.put(
@@ -756,11 +784,17 @@ class TestDeleteDocument:
             "email": f"viewer3-{uuid.uuid4().hex[:8]}@example.com",
             "password": "ViewerPass123!",
             "full_name": "Viewer",
-            "role": "viewer",
+            "role": "client",
         }
         resp = await client.post("/api/v1/auth/register", json=viewer_payload)
         assert resp.status_code == 201
-        viewer_headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+        # Login to get access token
+        login_resp = await client.post(
+            "/api/v1/auth/login",
+            json={"email": viewer_payload["email"], "password": viewer_payload["password"]},
+        )
+        assert login_resp.status_code == 200
+        viewer_headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
 
         resp = await client.delete(
             f"/api/v1/documents/{doc_id}",
