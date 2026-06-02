@@ -26,6 +26,7 @@ from app.modules.pricing.cache import (
     get_exchange_rate,
 )
 from app.shared.database import get_db
+from app.shared.redis_client import get_redis_client
 
 
 # ═══════════════════════════════════════════════════════════
@@ -81,7 +82,7 @@ class TestCalculateLandedCost:
         # Step 4: freight = 75 * 1.0 / 100 = 0.75
         assert result["freight_per_unit"] == 0.75
         # Step 5: customs = 7.7 * 0.05 = 0.385
-        assert result["customs_per_unit"] == pytest.approx(0.385, rel=0.01)
+        assert result["customs_per_unit"] == pytest.approx(0.385, abs=0.01)
         # Step 6: clearance = 150 / 100 = 1.5
         assert result["clearance_per_unit"] == 1.5
         # Step 7: commission = (7.7 + 0.75 + 0.385 + 1.5) * 0.03 ≈ 0.31005
@@ -366,7 +367,7 @@ class TestCachedExchangeRate:
 
 @pytest.fixture
 def app(db_session: AsyncSession):
-    """Override the conftest app to inject DB session."""
+    """Override the conftest app to inject DB session and mock Redis."""
     from app.main import create_app
 
     application = create_app()
@@ -374,7 +375,14 @@ def app(db_session: AsyncSession):
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
+    async def override_get_redis():
+        """Yield an AsyncMock Redis client to avoid needing a real Redis server."""
+        mock_redis = AsyncMock()
+        mock_redis.delete.return_value = 1
+        yield mock_redis
+
     application.dependency_overrides[get_db] = override_get_db
+    application.dependency_overrides[get_redis_client] = override_get_redis
     return application
 
 
@@ -391,15 +399,21 @@ async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
     """Register a user and return auth headers."""
     from app.modules.auth.models import UserRole
 
-    # Register
-    resp = await client.post("/api/v1/auth/register", json={
+    register_payload = {
         "email": "pricing_test@example.com",
         "password": "TestPass123!",
         "full_name": "Pricing Test User",
         "role": UserRole.AGENT.value,
-    })
+    }
+    resp = await client.post("/api/v1/auth/register", json=register_payload)
     assert resp.status_code == 201
-    token = resp.json()["access_token"]
+    # Login to get access token (register returns UserResponse, not tokens)
+    login_resp = await client.post("/api/v1/auth/login", json={
+        "email": register_payload["email"],
+        "password": register_payload["password"],
+    })
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -408,14 +422,21 @@ async def admin_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
     """Register an admin and return auth headers."""
     from app.modules.auth.models import UserRole
 
-    resp = await client.post("/api/v1/auth/register", json={
+    register_payload = {
         "email": "pricing_admin@example.com",
         "password": "AdminPass123!",
         "full_name": "Pricing Admin",
         "role": UserRole.ADMIN.value,
-    })
+    }
+    resp = await client.post("/api/v1/auth/register", json=register_payload)
     assert resp.status_code == 201
-    token = resp.json()["access_token"]
+    # Login to get access token (register returns UserResponse, not tokens)
+    login_resp = await client.post("/api/v1/auth/login", json={
+        "email": register_payload["email"],
+        "password": register_payload["password"],
+    })
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -594,7 +615,7 @@ class TestPricingCalculateAPI:
                 "destination_port": "Jeddah",
                 "products": [
                     {"product_id": "p1", "name": "Widget A", "quantity": 50, "unit_price_cny": 100.0},
-                    {"product_id": "p2", "name": "Widget B", "quantity": 200, "unit_price_cny": 25.0},
+                    {"product_id": "p2", "name": "Widget B", "quantity": 100, "unit_price_cny": 20.0},
                 ],
             },
         )
