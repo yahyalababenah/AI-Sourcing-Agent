@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -27,7 +28,7 @@ class PricingRuleCreate(BaseModel):
 class PricingRuleResponse(BaseModel):
     """Pricing rule detail response."""
 
-    id: str
+    id: UUID
     name: str
     description: Optional[str] = None
     category: str

@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -41,8 +42,8 @@ class RFQCreate(BaseModel):
 class RFQResponse(BaseModel):
     """RFQ detail response."""
 
-    id: str
-    agent_id: str
+    id: UUID
+    agent_id: UUID
     client_name: Optional[str] = None
     client_phone: Optional[str] = None
     client_request_arabic: Optional[str] = None

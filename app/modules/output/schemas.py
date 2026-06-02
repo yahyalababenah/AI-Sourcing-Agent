@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -46,9 +47,9 @@ class QuotationCreate(BaseModel):
 class QuotationResponse(BaseModel):
     """Quotation detail response."""
 
-    id: str
-    rfq_id: str
-    agent_id: str
+    id: UUID
+    rfq_id: UUID
+    agent_id: UUID
     quotation_number: str
     status: str
     target_currency: str
@@ -85,3 +86,35 @@ class QuotationGeneratePdfResponse(BaseModel):
     quotation_id: str
     pdf_path: str
     pdf_url: str
+
+
+class QuotationGenerateRequest(BaseModel):
+    """Request to generate a quotation asynchronously.
+
+    Accepts pricing data and creates a Quotation record,
+    then enqueues a Celery task for background PDF generation.
+    """
+
+    rfq_id: str
+    target_currency: str = Field(default="JOD", max_length=10)
+    exchange_rate_used: float
+    line_items: list[QuotationLineItemSchema]
+    subtotal: float = Field(ge=0)
+    freight_total: Optional[float] = 0.0
+    customs_total: Optional[float] = 0.0
+    commission_total: Optional[float] = 0.0
+    discount_total: Optional[float] = 0.0
+    vat_total: Optional[float] = 0.0
+    grand_total: float = Field(ge=0)
+    payment_terms: Optional[str] = None
+    delivery_terms: Optional[str] = None
+    validity_days: int = Field(default=30, ge=1, le=365)
+    notes: Optional[str] = None
+
+
+class QuotationGenerateAcceptedResponse(BaseModel):
+    """202 Accepted response after enqueuing PDF generation."""
+
+    quotation_id: str
+    status: str = "pending"
+    message: str = "Quotation created. PDF generation is in progress."

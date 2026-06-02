@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Any, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -27,9 +28,9 @@ class DocumentUploadResponse(BaseModel):
 class DocumentResponse(BaseModel):
     """Full document detail response."""
 
-    id: str
-    rfq_id: str
-    uploaded_by_id: str
+    id: UUID
+    rfq_id: UUID
+    uploaded_by_id: UUID
     file_name: str
     file_path: str
     file_size_bytes: Optional[int] = None
@@ -60,7 +61,7 @@ class DocumentListResponse(BaseModel):
 class DocumentStatusResponse(BaseModel):
     """Lightweight status response for polling endpoint."""
 
-    id: str
+    id: UUID
     status: str
     extracted_entities: Optional[dict] = None
     error_message: Optional[str] = None
