@@ -99,8 +99,8 @@ async def get_pricing_rule(
     rule = result.scalar_one_or_none()
     if not rule:
         raise NotFoundException(
-            message="Pricing rule not found",
-            details={"rule_id": rule_id},
+            resource="Pricing rule",
+            resource_id=rule_id,
         )
     return rule
 

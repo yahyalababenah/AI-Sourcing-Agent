@@ -41,6 +41,15 @@ from app.modules.documents.router import router as documents_router
 from app.modules.intake.router import router as intake_router
 from app.modules.output.router import router as output_router
 from app.modules.pricing.router import router as pricing_router
+from app.shared.metrics import (
+    PrometheusMiddleware,
+    register_metrics_endpoint,
+)
+from app.shared.rate_limiter import RateLimitMiddleware
+from app.shared.security_middleware import (
+    AuditMiddleware,
+    SecurityHeadersMiddleware,
+)
 
 
 # ---- Lifespan ----
@@ -118,6 +127,7 @@ def create_app() -> FastAPI:
     )
 
     # ---- Middleware Stack (order matters) ----
+    # Outermost: TrustedHost → CORS → SecurityHeaders → RateLimit → Prometheus → Audit (innermost)
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=settings.ALLOWED_HOSTS,
@@ -126,6 +136,10 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         **settings.cors_config,
     )
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(PrometheusMiddleware)
+    app.add_middleware(AuditMiddleware)
 
     # ---- Global Error Handlers ----
     register_error_handlers(app)
@@ -209,6 +223,9 @@ def create_app() -> FastAPI:
                 },
             },
         )
+
+    # ---- Prometheus Metrics ----
+    register_metrics_endpoint(app)
 
     return app
 

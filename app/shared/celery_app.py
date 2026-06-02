@@ -6,8 +6,11 @@ Uses autodiscovery to find tasks across all modules.
 
 Task discovery:
     - app.modules.documents.tasks    -> parse_document
-    - app.modules.output.tasks       -> generate_quotation_pdf
-    - app.modules.pricing.tasks      -> refresh_exchange_rates
+    - app.modules.output.tasks       -> generate_quotation_pdf, cleanup-expired-quotes
+    - app.modules.pricing.tasks      -> refresh-exchange-rates
+
+Prometheus metrics:
+    - Setup Celery signal handlers for task metrics at import time.
 """
 
 from celery import Celery
@@ -57,13 +60,27 @@ celery_app.autodiscover_tasks(
 )
 
 # ---- Beat Schedule ----
+# ⚠️ CRITICAL: The "task" value must match the `name=` parameter in the
+# @celery_app.task decorator, NOT the Python function name.
 celery_app.conf.beat_schedule = {
     "refresh-exchange-rates": {
-        "task": "app.modules.pricing.tasks.refresh_exchange_rates",
+        "task": "refresh-exchange-rates",
         "schedule": crontab(minute="*/15"),  # Every 15 minutes
     },
     "cleanup-expired-quotes": {
-        "task": "app.modules.output.tasks.cleanup_expired_quotes",
+        "task": "cleanup-expired-quotes",
         "schedule": crontab(hour=0, minute=0),  # Daily at midnight
     },
 }
+
+# ---- Prometheus Metrics ----
+# Setup Celery signal handlers to track task metrics.
+# This must be imported at Celery worker startup, not at app import.
+# The import triggers signal handler registration via setup_celery_metrics().
+# We import lazily to avoid circular imports during web app startup.
+try:
+    from app.shared.metrics import setup_celery_metrics
+
+    setup_celery_metrics()
+except Exception:
+    pass  # Metrics setup is best-effort; will log warning internally

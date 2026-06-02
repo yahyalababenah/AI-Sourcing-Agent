@@ -106,7 +106,7 @@ class QuotationLineItem(Base):
 
     # ---- Relationships ----
     quotation = relationship("app.modules.output.models.Quotation", back_populates="line_items")
-    product = relationship("app.modules.intake.models.Product", back_populates="quotations")
+    product = relationship("app.modules.intake.models.Product", back_populates="line_items")
 
     def __repr__(self) -> str:
         return f"<QuotationLineItem(id={self.id}, product={self.product_name})>"

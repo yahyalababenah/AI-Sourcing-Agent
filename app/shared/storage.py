@@ -190,3 +190,15 @@ async def download_file(key: str, bucket: Optional[str] = None) -> Optional[byte
             extra={"bucket": bucket, "key": key, "error": str(e)},
         )
         return None
+
+
+class _StorageClient:
+    """Convenience wrapper exposing module-level storage functions as methods."""
+
+    upload_file = staticmethod(upload_file)
+    delete_file = staticmethod(delete_file)
+    download_file = staticmethod(download_file)
+    get_presigned_url = staticmethod(get_presigned_url)
+
+
+storage_client = _StorageClient()
