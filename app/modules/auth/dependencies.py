@@ -15,6 +15,7 @@ Usage:
 """
 
 from typing import Annotated
+from uuid import UUID
 
 import jwt
 from fastapi import Depends, Header
@@ -75,10 +76,18 @@ async def get_current_user(
             details={"error": str(e)},
         )
 
-    user_id = payload.get("sub")
-    if not user_id:
+    raw_user_id = payload.get("sub")
+    if not raw_user_id:
         raise AuthenticationError(
             message="Token missing subject claim",
+        )
+
+    # Convert string UUID to UUID object for SQLAlchemy binding
+    try:
+        user_id = UUID(raw_user_id)
+    except ValueError:
+        raise AuthenticationError(
+            message="Invalid user ID in token",
         )
 
     # Fetch user from DB

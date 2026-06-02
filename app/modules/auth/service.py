@@ -12,6 +12,7 @@ Handles:
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from uuid import UUID
 
 import bcrypt
 import jwt
@@ -189,10 +190,18 @@ async def refresh_access_token(
             message="Invalid token type. Expected refresh token.",
         )
 
-    user_id = payload.get("sub")
-    if not user_id:
+    raw_user_id = payload.get("sub")
+    if not raw_user_id:
         raise AuthenticationError(
             message="Invalid refresh token payload",
+        )
+
+    # Convert string UUID to UUID object for SQLAlchemy binding
+    try:
+        user_id = UUID(raw_user_id)
+    except ValueError:
+        raise AuthenticationError(
+            message="Invalid user ID in refresh token",
         )
 
     # Verify user still exists and is active
