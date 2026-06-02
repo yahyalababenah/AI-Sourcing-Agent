@@ -1,9 +1,14 @@
 """Documents module request/response Pydantic schemas."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
+
+
+# ═══════════════════════════════════════════════════════════
+# Upload / Core
+# ═══════════════════════════════════════════════════════════
 
 
 class DocumentUploadResponse(BaseModel):
@@ -45,3 +50,55 @@ class DocumentListResponse(BaseModel):
 
     items: list[DocumentResponse]
     total: int
+
+
+# ═══════════════════════════════════════════════════════════
+# Status Polling
+# ═══════════════════════════════════════════════════════════
+
+
+class DocumentStatusResponse(BaseModel):
+    """Lightweight status response for polling endpoint."""
+
+    id: str
+    status: str
+    extracted_entities: Optional[dict] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════
+# Extracted Items
+# ═══════════════════════════════════════════════════════════
+
+
+class ProductItem(BaseModel):
+    """A single product row extracted from a Chinese factory table."""
+
+    product_name: Optional[str] = None
+    model_number: Optional[str] = None
+    unit_price_rmb: Optional[float] = None
+    moq: Optional[int] = None
+    weight_kg: Optional[float] = None
+    dimensions: Optional[str] = None
+    material: Optional[str] = None
+
+
+class ItemsUpdateRequest(BaseModel):
+    """Manual override of extracted items."""
+
+    items: list[ProductItem] = Field(
+        ..., description="Replacement list of extracted product items"
+    )
+
+
+class ItemsUpdateResponse(BaseModel):
+    """Response after updating document items."""
+
+    id: str
+    status: str
+    extracted_entities: Optional[dict] = None
+    updated_at: datetime

@@ -6,6 +6,9 @@ AI-Sourcing Hub — Document Management Endpoints
 /api/v1/documents/{id}             DELETE Delete document
 /api/v1/documents/rfq/{rfq_id}     GET    List documents for RFQ
 /api/v1/documents/{id}/process     POST   Trigger vision processing
+/api/v1/documents/{id}/status      GET    Poll processing status
+/api/v1/documents/{id}/items       PUT    Override extracted items
+/api/v1/documents/{id}/items       GET    List extracted items
 """
 # ═══════════════════════════════════════════════════════════
 # Imports
@@ -20,13 +23,19 @@ from app.modules.auth.models import User
 from app.modules.documents.schemas import (
     DocumentListResponse,
     DocumentResponse,
+    DocumentStatusResponse,
     DocumentUploadResponse,
+    ItemsUpdateRequest,
+    ItemsUpdateResponse,
 )
 from app.modules.documents.service import (
     delete_document,
     get_document,
+    get_document_items,
+    get_document_status,
     list_documents,
     process_document_vision,
+    update_document_items,
     upload_document,
 )
 from app.shared.database import get_db
@@ -124,3 +133,77 @@ async def process_doc(
         "status": "processed",
         "extracted_entities": result,
     }
+
+
+# ═══════════════════════════════════════════════════════════
+# Status Polling
+# ═══════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/{document_id}/status",
+    response_model=DocumentStatusResponse,
+    summary="Poll document processing status",
+)
+async def get_doc_status(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Get lightweight document status for polling.
+
+    Clients should poll this endpoint every 2-3 seconds after
+    triggering ``POST /{id}/process`` to check for completion.
+
+    Status transitions:
+        - ``uploaded`` → ``processing`` → ``extracted`` (success)
+        - ``uploaded`` → ``processing`` → ``failed`` (error)
+    """
+    return await get_document_status(db, document_id)
+
+
+# ═══════════════════════════════════════════════════════════
+# Extracted Items (Human-in-the-Loop)
+# ═══════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/{document_id}/items",
+    summary="List extracted product items",
+)
+async def get_items(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Get the extracted product items from a processed document.
+
+    Returns an empty list if the document hasn't been processed yet
+    or no items were extracted.
+    """
+    items = await get_document_items(db, document_id)
+    return {"items": items, "total": len(items)}
+
+
+@router.put(
+    "/{document_id}/items",
+    response_model=ItemsUpdateResponse,
+    summary="Override extracted items",
+)
+async def update_items(
+    document_id: str,
+    body: ItemsUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(require_agent_or_admin),
+):
+    """Manually override extracted product items.
+
+    Used for Human-in-the-Loop corrections. Replaces the
+    ``extracted_entities`` with the submitted items and resets
+    the document status to ``extracted``.
+    """
+    return await update_document_items(
+        db,
+        document_id,
+        items=[item.model_dump(exclude_none=True) for item in body.items],
+    )

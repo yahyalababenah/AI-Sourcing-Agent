@@ -9,7 +9,7 @@ and PDF-to-image conversion for the VLM pipeline.
 # ═══════════════════════════════════════════════════════════
 import io
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +21,12 @@ from app.modules.documents.models import (
     DocumentStatus,
     DocumentType,
 )
-from app.modules.documents.schemas import DocumentResponse, DocumentListResponse
+from app.modules.documents.schemas import (
+    DocumentResponse,
+    DocumentListResponse,
+    DocumentStatusResponse,
+    ItemsUpdateResponse,
+)
 from app.modules.documents.vision_client import extract_from_image
 from app.shared.exceptions import NotFoundException, DocumentProcessingError
 from app.shared.logging import get_logger
@@ -267,6 +272,88 @@ async def process_document_vision(
             message="Document vision processing failed",
             details={"document_id": document_id, "error": str(exc)},
         )
+
+
+# ═══════════════════════════════════════════════════════════
+# Status & Items
+# ═══════════════════════════════════════════════════════════
+
+
+async def get_document_status(
+    db: AsyncSession,
+    document_id: str,
+) -> DocumentStatusResponse:
+    """Get lightweight document status for polling.
+
+    Args:
+        db: Database session.
+        document_id: Document UUID string.
+
+    Returns:
+        Status response with current status and extraction data.
+
+    Raises:
+        NotFoundException: If document not found.
+    """
+    doc = await get_document(db, document_id)
+    return DocumentStatusResponse.model_validate(doc)
+
+
+async def update_document_items(
+    db: AsyncSession,
+    document_id: str,
+    items: list[dict[str, Any]],
+) -> ItemsUpdateResponse:
+    """Manually override the extracted items for a document.
+
+    Used for Human-in-the-Loop corrections after failed or
+    partially-successful vision extraction.
+
+    Args:
+        db: Database session.
+        document_id: Document UUID string.
+        items: Replacement list of product item dicts.
+
+    Returns:
+        Update response with new extracted_entities.
+
+    Raises:
+        NotFoundException: If document not found.
+    """
+    doc = await get_document(db, document_id)
+    doc.extracted_entities = {"products": items}
+    doc.status = DocumentStatus.EXTRACTED
+    doc.error_message = None  # Clear any previous error
+    await db.flush()
+    await db.refresh(doc)
+    return ItemsUpdateResponse(
+        id=str(doc.id),
+        status=doc.status.value,
+        extracted_entities=doc.extracted_entities,
+        updated_at=doc.updated_at,
+    )
+
+
+async def get_document_items(
+    db: AsyncSession,
+    document_id: str,
+) -> list[dict[str, Any]]:
+    """Get the extracted product items for a document.
+
+    Args:
+        db: Database session.
+        document_id: Document UUID string.
+
+    Returns:
+        List of extracted product item dicts, or empty list.
+
+    Raises:
+        NotFoundException: If document not found.
+    """
+    doc = await get_document(db, document_id)
+    if not doc.extracted_entities:
+        return []
+    return doc.extracted_entities.get("products", [])
 
 
 # ═══════════════════════════════════════════════════════════
