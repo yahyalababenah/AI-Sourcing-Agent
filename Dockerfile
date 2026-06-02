@@ -37,6 +37,7 @@ RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY pyproject.toml ./
+COPY . .
 RUN pip install --no-cache-dir .
 
 # ---- Stage 3: Production ----
