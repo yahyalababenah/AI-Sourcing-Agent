@@ -120,8 +120,8 @@ async def get_document(db: AsyncSession, document_id: str) -> Document:
     doc = result.scalar_one_or_none()
     if not doc:
         raise NotFoundException(
-            message="Document not found",
-            details={"document_id": document_id},
+            resource="Document",
+            resource_id=document_id,
         )
     return doc
 

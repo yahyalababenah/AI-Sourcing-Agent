@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 class DocumentUploadResponse(BaseModel):
     """Response after uploading a document."""
 
-    id: str
+    id: UUID
     file_name: str
     content_type: Optional[str] = None
     file_size_bytes: Optional[int] = None
@@ -99,7 +99,7 @@ class ItemsUpdateRequest(BaseModel):
 class ItemsUpdateResponse(BaseModel):
     """Response after updating document items."""
 
-    id: str
+    id: UUID
     status: str
     extracted_entities: Optional[dict] = None
     updated_at: datetime

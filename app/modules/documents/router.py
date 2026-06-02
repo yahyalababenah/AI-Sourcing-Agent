@@ -53,7 +53,8 @@ async def upload(
     rfq_id: str = Form(..., description="RFQ UUID to attach document to"),
     file: UploadFile = File(..., description="Document file (PDF, image, etc.)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_agent_or_admin),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
 ):
     """Upload a document and associate it with an RFQ."""
     file_bytes = await file.read()
