@@ -201,6 +201,40 @@ table.items tfoot td:first-child {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Bank Details
+   ═══════════════════════════════════════════════════════════ */
+
+.bank-details {
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+}
+
+.bank-details h3 {
+    margin: 0 0 8px 0;
+    font-size: 10pt;
+    color: #1a56db;
+}
+
+.bank-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+}
+
+.bank-table td {
+    padding: 3px 8px;
+    vertical-align: top;
+}
+
+.bank-table td:first-child {
+    font-weight: bold;
+    width: 140px;
+    color: #555;
+}
+
+/* ═══════════════════════════════════════════════════════════
    Terms & Notes
    ═══════════════════════════════════════════════════════════ */
 
@@ -221,6 +255,55 @@ table.items tfoot td:first-child {
 
 .terms p {
     margin: 2px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Signature
+   ═══════════════════════════════════════════════════════════ */
+
+.signature {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-top: 10px;
+}
+
+.signature-box {
+    width: 45%;
+}
+
+.signature-box p {
+    margin: 0 0 4px 0;
+    font-size: 9pt;
+}
+
+.signature-line {
+    border-bottom: 1px solid #1a1a1a;
+    height: 40px;
+    margin-bottom: 4px;
+}
+
+.signature-label {
+    font-size: 8pt;
+    color: #666;
+    text-align: center;
+}
+
+.signature-stamp {
+    width: 45%;
+    text-align: left;
+}
+
+.signature-stamp p {
+    margin: 0 0 4px 0;
+    font-size: 9pt;
+}
+
+.stamp-box {
+    border: 2px dashed #1a56db;
+    height: 50px;
+    width: 100px;
+    border-radius: 6px;
 }
 
 /* ═══════════════════════════════════════════════════════════

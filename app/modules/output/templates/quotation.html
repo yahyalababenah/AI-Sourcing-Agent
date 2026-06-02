@@ -3,6 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>عرض سعر - {{ quotation_number }}</title>
+    <style>
+        @font-face {
+            font-family: "NotoSansArabic";
+            src: url("{{ font_path }}") format("truetype");
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: "NotoSansArabic";
+            src: url("{{ font_bold_path }}") format("truetype");
+            font-weight: bold;
+            font-style: normal;
+        }
+    </style>
     <link rel="stylesheet" href="{{ css_path }}">
 </head>
 <body>
@@ -13,9 +27,9 @@
 <div class="header">
     <div class="company-info">
         <h1>AI-Sourcing Hub</h1>
-        <p>Amman, Jordan</p>
-        <p>Tel: +962-XXX-XXXX</p>
-        <p>Email: info@aisourcing.example.com</p>
+        <p>عمان، الأردن</p>
+        <p>هاتف: +962-XXX-XXXX</p>
+        <p>بريد إلكتروني: info@aisourcing.example.com</p>
     </div>
     {% if logo_path %}
     <img src="{{ logo_path }}" alt="Logo" class="logo">
@@ -141,6 +155,31 @@
 {% endif %}
 
 <!-- ═══════════════════════════════════════════════════════════
+     Bank Details
+     ═══════════════════════════════════════════════════════════ -->
+<div class="bank-details">
+    <h3>بيانات الحساب البنكي</h3>
+    <table class="bank-table">
+        <tr>
+            <td>اسم البنك:</td>
+            <td>{{ bank_name }}</td>
+        </tr>
+        <tr>
+            <td>اسم المستفيد:</td>
+            <td>{{ bank_beneficiary }}</td>
+        </tr>
+        <tr>
+            <td>رقم الحساب (IBAN):</td>
+            <td dir="ltr">{{ bank_iban }}</td>
+        </tr>
+        <tr>
+            <td>رمز السويفت (SWIFT):</td>
+            <td dir="ltr">{{ bank_swift }}</td>
+        </tr>
+    </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      Terms & Conditions
      ═══════════════════════════════════════════════════════════ -->
 <div class="terms">
@@ -155,6 +194,21 @@
     {% if notes %}
     <p><strong>ملاحظات:</strong> {{ notes }}</p>
     {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Signature
+     ═══════════════════════════════════════════════════════════ -->
+<div class="signature">
+    <div class="signature-box">
+        <p><strong>التوقيع:</strong></p>
+        <div class="signature-line"></div>
+        <p class="signature-label">المفوض بالتوقيع</p>
+    </div>
+    <div class="signature-stamp">
+        <p><strong>الختم:</strong></p>
+        <div class="stamp-box"></div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════

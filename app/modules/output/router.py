@@ -3,9 +3,11 @@ AI-Sourcing Hub — Quotation Endpoints
 
 /api/v1/quotes                  POST   Create quotation
 /api/v1/quotes                  GET    List quotations
+/api/v1/quotes/generate         POST   Create quotation + enqueue Celery PDF gen (async)
 /api/v1/quotes/{id}             GET    Get quotation details
 /api/v1/quotes/{id}/status      PUT    Update quotation status
-/api/v1/quotes/{id}/pdf         POST   Generate PDF for quotation
+/api/v1/quotes/{id}/pdf         POST   Generate PDF for quotation (synchronous)
+/api/v1/quotes/{id}/pdf         GET    Redirect to presigned PDF URL
 /api/v1/quotes/{id}/finalize    POST   Finalize quotation (PDF + status)
 """
 # ═══════════════════════════════════════════════════════════
@@ -13,7 +15,8 @@ AI-Sourcing Hub — Quotation Endpoints
 # ═══════════════════════════════════════════════════════════
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status as fastapi_status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
@@ -21,7 +24,9 @@ from app.modules.auth.models import User
 from app.modules.output.models import QuotationStatus
 from app.modules.output.schemas import (
     QuotationCreate,
+    QuotationGenerateAcceptedResponse,
     QuotationGeneratePdfResponse,
+    QuotationGenerateRequest,
     QuotationListResponse,
     QuotationResponse,
 )
@@ -47,7 +52,8 @@ router = APIRouter()
 async def create(
     data: QuotationCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_agent_or_admin),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
 ):
     """Create a new quotation from calculated pricing data."""
     quotation = await create_quotation(db, agent_id=str(current_user.id), data=data)
@@ -69,6 +75,57 @@ async def list_quotes(
     agent_id = str(current_user.id) if current_user.role != "admin" else None
     return await list_quotations(
         db, agent_id=agent_id, rfq_id=rfq_id, status=status
+    )
+
+
+@router.post(
+    "/generate",
+    response_model=QuotationGenerateAcceptedResponse,
+    status_code=fastapi_status.HTTP_202_ACCEPTED,
+    summary="Generate quotation asynchronously (Celery)",
+)
+async def generate_async(
+    data: QuotationGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
+):
+    """Create a quotation and enqueue background PDF generation.
+
+    Accepts pricing data, creates a Quotation record, then dispatches
+    a Celery task to generate the PDF asynchronously.
+
+    Returns 202 Accepted immediately with the quotation_id.
+    The client can poll ``GET /api/v1/quotes/{id}`` to check
+    ``pdf_generated_at`` for completion.
+    """
+    # Create quotation
+    create_data = QuotationCreate(
+        rfq_id=data.rfq_id,
+        target_currency=data.target_currency,
+        exchange_rate_used=data.exchange_rate_used,
+        line_items=data.line_items,
+        subtotal=data.subtotal,
+        freight_total=data.freight_total,
+        customs_total=data.customs_total,
+        commission_total=data.commission_total,
+        discount_total=data.discount_total,
+        vat_total=data.vat_total,
+        grand_total=data.grand_total,
+        payment_terms=data.payment_terms,
+        delivery_terms=data.delivery_terms,
+        validity_days=data.validity_days,
+        notes=data.notes,
+    )
+    quotation = await create_quotation(db, agent_id=str(current_user.id), data=create_data)
+
+    # Enqueue Celery task
+    from app.modules.output.tasks import generate_quotation_pdf_task
+
+    generate_quotation_pdf_task.delay(str(quotation.id))
+
+    return QuotationGenerateAcceptedResponse(
+        quotation_id=str(quotation.id),
     )
 
 
@@ -106,7 +163,7 @@ async def update_status(
 @router.post(
     "/{quotation_id}/pdf",
     response_model=QuotationGeneratePdfResponse,
-    summary="Generate PDF for quotation",
+    summary="Generate PDF for quotation (synchronous)",
 )
 async def generate_pdf(
     quotation_id: str,
@@ -114,8 +171,45 @@ async def generate_pdf(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_agent_or_admin),
 ):
-    """Generate a PDF document for a quotation using Jinja2 + WeasyPrint."""
+    """Generate a PDF document for a quotation using Jinja2 + WeasyPrint (synchronous)."""
     return await generate_quotation_pdf(db, quotation_id, show_details=show_details)
+
+
+@router.get(
+    "/{quotation_id}/pdf",
+    response_class=RedirectResponse,
+    summary="Redirect to presigned PDF URL",
+)
+async def get_pdf_redirect(
+    quotation_id: str,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Redirect to the presigned MinIO URL for the quotation PDF.
+
+    Returns a 302 redirect to a temporary (1-hour) presigned URL.
+    Returns 404 if no PDF has been generated yet.
+    """
+    from app.modules.output.service import get_quotation
+
+    quotation = await get_quotation(db, quotation_id)
+
+    if not quotation.pdf_path:
+        raise HTTPException(
+            status_code=404,
+            detail="PDF not yet generated for this quotation",
+        )
+
+    from app.shared.storage import storage_client
+    from app.config import settings
+
+    pdf_url = await storage_client.get_presigned_url(
+        key=quotation.pdf_path,
+        bucket=settings.STORAGE_BUCKET_QUOTES,
+        expiry=3600,
+    )
+
+    return RedirectResponse(url=pdf_url)
 
 
 @router.post(

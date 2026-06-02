@@ -75,8 +75,8 @@ async def create_quotation(
     rfq = result.scalar_one_or_none()
     if not rfq:
         raise NotFoundException(
-            message="RFQ not found",
-            details={"rfq_id": data.rfq_id},
+            resource="RFQ",
+            resource_id=data.rfq_id,
         )
 
     # Create quotation
@@ -145,8 +145,8 @@ async def get_quotation(db: AsyncSession, quotation_id: str) -> Quotation:
     quotation = result.scalar_one_or_none()
     if not quotation:
         raise NotFoundException(
-            message="Quotation not found",
-            details={"quotation_id": quotation_id},
+            resource="Quotation",
+            resource_id=quotation_id,
         )
     return quotation
 
@@ -262,6 +262,14 @@ async def generate_quotation_pdf(
             days=quotation.validity_days or 30
         )
 
+        # Look for bundled Noto Sans Arabic font files
+        font_path = os.path.join(template_dir, "..", "..", "..", "static", "fonts", "NotoSansArabic-Regular.ttf")
+        font_bold_path = os.path.join(template_dir, "..", "..", "..", "static", "fonts", "NotoSansArabic-Bold.ttf")
+        if not os.path.exists(font_path):
+            font_path = ""
+        if not os.path.exists(font_bold_path):
+            font_bold_path = ""
+
         html = template.render(
             quotation_number=quotation.quotation_number,
             status=quotation.status.value,
@@ -299,7 +307,14 @@ async def generate_quotation_pdf(
             validity_days=quotation.validity_days or 30,
             notes=quotation.notes or "",
             css_path=os.path.join(template_dir, "styles.css"),
+            font_path=font_path,
+            font_bold_path=font_bold_path,
             logo_path=None,
+            # Bank details
+            bank_name="",
+            bank_beneficiary="",
+            bank_iban="",
+            bank_swift="",
             year=datetime.now(timezone.utc).year,
         )
 
