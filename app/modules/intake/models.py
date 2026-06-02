@@ -7,7 +7,7 @@ AI-Sourcing Hub — RFQ & Product Models
 import enum
 import uuid
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -79,7 +79,7 @@ class Product(Base):
     specifications = Column(Text, nullable=True)
     quantity = Column(Integer, nullable=False)
     target_price = Column(  # nullable; client's budget expectation
-        "target_price",  # type: ignore
+        Float(precision=10),
         nullable=True,
     )
     status = Column(

@@ -44,7 +44,7 @@ class Document(Base):
     file_name = Column(String(500), nullable=False)
     file_path = Column(String(1000), nullable=False)  # MinIO/S3 object key
     file_size_bytes = Column(
-        "file_size_bytes",
+        Integer,
         nullable=True,
     )
     content_type = Column(String(100), nullable=True)

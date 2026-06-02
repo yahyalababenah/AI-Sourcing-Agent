@@ -9,7 +9,7 @@ Stores finalized quotations with calculated pricing, Jinja2/WeasyPrint PDF outpu
 import enum
 import uuid
 
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -60,7 +60,7 @@ class Quotation(Base):
     payment_terms = Column(Text, nullable=True)
     delivery_terms = Column(Text, nullable=True)
     validity_days = Column(
-        "validity_days", default=30, nullable=False
+        Integer, default=30, nullable=False
     )
     notes = Column(Text, nullable=True)
 
