@@ -9,6 +9,7 @@ For lightweight runs, uses SQLite (aiosqlite) as a substitute.
 # ═══════════════════════════════════════════════════════════
 import asyncio
 from typing import AsyncGenerator, Generator
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -21,6 +22,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.main import create_app
 from app.shared.database import Base, get_db
+from app.shared.redis_client import get_redis_client
 
 # ═══════════════════════════════════════════════════════════
 # Settings Override for Tests
@@ -38,6 +40,28 @@ os.environ["REDIS_URL"] = "redis://localhost:6379/9"
 os.environ["MINIO_ENDPOINT"] = "localhost:9000"
 os.environ["ALLOWED_HOSTS"] = '["*"]'
 os.environ["CORS_ORIGINS"] = '["*"]'
+
+# ═══════════════════════════════════════════════════════════
+# SQLite Compiler Workaround for JSONB Columns
+# ═══════════════════════════════════════════════════════════
+
+# Our production models use PostgreSQL's JSONB for strict performance,
+# but SQLite cannot natively compile JSONB.  The @compiles decorator
+# below registers a custom compiler that tells SQLite to treat JSONB
+# columns as plain JSON (stored as TEXT), which is fully compatible
+# for test/development purposes.
+#
+# IMPORTANT: This does NOT alter any model definitions — production
+# deployments using real PostgreSQL will continue to use JSONB natively.
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
+
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_as_json(element, compiler, **kw):
+    """Render JSONB columns as JSON (TEXT) when using SQLite."""
+    return compiler.visit_JSON(element, **kw)
+
 
 # ═══════════════════════════════════════════════════════════
 # Event Loop
@@ -89,13 +113,19 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest_asyncio.fixture
 async def app(db_session: AsyncSession):
-    """Create the FastAPI app with overridden DB dependency."""
+    """Create the FastAPI app with overridden DB and Redis dependencies."""
     application = create_app()
 
     async def override_get_db():
         yield db_session
 
+    async def override_get_redis():
+        """Yield an AsyncMock Redis client to avoid needing a real Redis server."""
+        mock_redis = AsyncMock()
+        yield mock_redis
+
     application.dependency_overrides[get_db] = override_get_db
+    application.dependency_overrides[get_redis_client] = override_get_redis
     return application
 
 

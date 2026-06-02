@@ -13,12 +13,15 @@ Covers all Phase 1 verification steps from the roadmap.
 # ═══════════════════════════════════════════════════════════
 # Imports
 # ═══════════════════════════════════════════════════════════
+from unittest.mock import AsyncMock
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import create_app
 from app.shared.database import get_db
+from app.shared.redis_client import get_redis_client
 
 
 # ═══════════════════════════════════════════════════════════
@@ -27,13 +30,19 @@ from app.shared.database import get_db
 
 @pytest.fixture
 def app(db_session: AsyncSession):
-    """Create app with test DB session override."""
+    """Create app with test DB session override and mock Redis."""
     application = create_app()
 
     async def override_get_db():
         yield db_session
 
+    async def override_get_redis():
+        """Yield an AsyncMock Redis client to avoid needing a real Redis server."""
+        mock_redis = AsyncMock()
+        yield mock_redis
+
     application.dependency_overrides[get_db] = override_get_db
+    application.dependency_overrides[get_redis_client] = override_get_redis
     return application
 
 
