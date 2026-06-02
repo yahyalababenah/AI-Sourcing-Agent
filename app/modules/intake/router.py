@@ -82,7 +82,8 @@ async def translate(
 async def create_rfq_endpoint(
     rfq_data: RFQCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_agent_or_admin),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
 ):
     """Create a new Request for Quotation."""
     rfq = await create_rfq(db, rfq_data, agent_id=str(current_user.id))

@@ -137,8 +137,8 @@ async def get_rfq(db: AsyncSession, rfq_id: str) -> RFQ:
     rfq = result.scalar_one_or_none()
     if not rfq:
         raise NotFoundException(
-            message="RFQ not found",
-            details={"rfq_id": rfq_id},
+            resource="RFQ",
+            resource_id=rfq_id,
         )
     return rfq
 

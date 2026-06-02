@@ -91,8 +91,8 @@ class Product(Base):
 
     # ---- Relationships ----
     rfq = relationship("RFQ", back_populates="products")
-    quotations = relationship(
-        "app.modules.output.models.Quotation", back_populates="product"
+    line_items = relationship(
+        "app.modules.pricing.models.QuotationLineItem", back_populates="product"
     )
 
     def __repr__(self) -> str:
