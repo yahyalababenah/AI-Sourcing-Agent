@@ -146,11 +146,13 @@ async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
     """Register a user and return auth headers."""
     from app.modules.auth.service import register_user
     from app.modules.auth.schemas import UserCreate
+    import uuid
 
+    unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     user = await register_user(
         db_session,
         UserCreate(
-            email="test@example.com",
+            email=unique_email,
             password="testpass123",
             full_name="Test Agent",
         ),
@@ -159,7 +161,7 @@ async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
     # Login to get tokens
     response = await client.post(
         "/api/v1/auth/login",
-        json={"email": "test@example.com", "password": "testpass123"},
+        json={"email": unique_email, "password": "testpass123"},
     )
     tokens = response.json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
