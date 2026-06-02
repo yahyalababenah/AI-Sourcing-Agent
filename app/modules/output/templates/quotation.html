@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>عرض سعر - {{ quotation_number }}</title>
+    <link rel="stylesheet" href="{{ css_path }}">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Header
+     ═══════════════════════════════════════════════════════════ -->
+<div class="header">
+    <div class="company-info">
+        <h1>AI-Sourcing Hub</h1>
+        <p>Amman, Jordan</p>
+        <p>Tel: +962-XXX-XXXX</p>
+        <p>Email: info@aisourcing.example.com</p>
+    </div>
+    {% if logo_path %}
+    <img src="{{ logo_path }}" alt="Logo" class="logo">
+    {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Quotation Metadata
+     ═══════════════════════════════════════════════════════════ -->
+<table class="meta-table">
+    <tr>
+        <td>رقم عرض السعر:</td>
+        <td><strong>{{ quotation_number }}</strong></td>
+        <td>التاريخ:</td>
+        <td>{{ created_at }}</td>
+    </tr>
+    <tr>
+        <td>الحالة:</td>
+        <td>{{ status }}</td>
+        <td>صالح حتى:</td>
+        <td>{{ valid_until }}</td>
+    </tr>
+    <tr>
+        <td>العملة:</td>
+        <td>{{ target_currency }}</td>
+        <td>سعر الصرف:</td>
+        <td>1 CNY = {{ exchange_rate }} {{ target_currency }}</td>
+    </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Client Information
+     ═══════════════════════════════════════════════════════════ -->
+<div class="client-info">
+    <h3>بيانات العميل</h3>
+    <p><strong>الاسم:</strong> {{ client_name }}</p>
+    <p><strong>الهاتف:</strong> {{ client_phone }}</p>
+    <p><strong>ميناء الوصول:</strong> {{ destination_port }}</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Line Items
+     ═══════════════════════════════════════════════════════════ -->
+<table class="items">
+    <thead>
+        <tr>
+            <th>المنتج</th>
+            <th>الكمية</th>
+            <th>سعر الوحدة (CNY)</th>
+            <th>سعر الوحدة ({{ target_currency }})</th>
+            {% if show_details %}
+            <th>الشحن</th>
+            <th>الجمارك</th>
+            <th>العمولة</th>
+            {% endif %}
+            <th>الخصم</th>
+            <th>الإجمالي</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in line_items %}
+        <tr>
+            <td>{{ item.product_name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ "%.2f"|format(item.unit_price_cny) }}</td>
+            <td>{{ "%.4f"|format(item.unit_price_converted) }}</td>
+            {% if show_details %}
+            <td>{{ "%.2f"|format(item.freight_cost) }}</td>
+            <td>{{ "%.2f"|format(item.customs_duty) }}</td>
+            <td>{{ "%.2f"|format(item.commission) }}</td>
+            {% endif %}
+            <td>{{ "%.2f"|format(item.discount) }}</td>
+            <td><strong>{{ "%.2f"|format(item.total) }}</strong></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% if not show_details %}
+    <tfoot>
+        <tr>
+            <td colspan="7">المجموع الكلي</td>
+            <td><strong>{{ "%.2f"|format(grand_total) }}</strong></td>
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Detailed Totals (if show_details)
+     ═══════════════════════════════════════════════════════════ -->
+{% if show_details %}
+<div class="totals">
+    <table>
+        <tr>
+            <td>المجموع الفرعي:</td>
+            <td>{{ "%.2f"|format(subtotal) }}</td>
+        </tr>
+        <tr>
+            <td>الشحن:</td>
+            <td>{{ "%.2f"|format(freight_total) }}</td>
+        </tr>
+        <tr>
+            <td>الجمارك:</td>
+            <td>{{ "%.2f"|format(customs_total) }}</td>
+        </tr>
+        <tr>
+            <td>العمولة:</td>
+            <td>{{ "%.2f"|format(commission_total) }}</td>
+        </tr>
+        <tr>
+            <td>الخصم:</td>
+            <td>-{{ "%.2f"|format(discount_total) }}</td>
+        </tr>
+        <tr>
+            <td>ضريبة القيمة المضافة:</td>
+            <td>{{ "%.2f"|format(vat_total) }}</td>
+        </tr>
+        <tr class="grand-total">
+            <td>المجموع الكلي:</td>
+            <td>{{ "%.2f"|format(grand_total) }} {{ target_currency }}</td>
+        </tr>
+    </table>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════
+     Terms & Conditions
+     ═══════════════════════════════════════════════════════════ -->
+<div class="terms">
+    <h3>الشروط والأحكام</h3>
+    {% if payment_terms %}
+    <p><strong>شروط الدفع:</strong> {{ payment_terms }}</p>
+    {% endif %}
+    {% if delivery_terms %}
+    <p><strong>شروط التسليم:</strong> {{ delivery_terms }}</p>
+    {% endif %}
+    <p><strong>مدة صلاحية العرض:</strong> {{ validity_days }} يوم</p>
+    {% if notes %}
+    <p><strong>ملاحظات:</strong> {{ notes }}</p>
+    {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Footer
+     ═══════════════════════════════════════════════════════════ -->
+<div class="footer">
+    <p>AI-Sourcing Hub — جميع الحقوق محفوظة © {{ year }}</p>
+    <p>هذا العرض ساري لمدة {{ validity_days }} يوم من تاريخه</p>
+</div>
+
+</body>
+</html>

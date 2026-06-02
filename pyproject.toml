@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-sourcing-hub"
+version = "1.0.0"
+description = "B2B Sourcing Automation Platform bridging China and MENA markets"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [
+    { name = "AI-Sourcing Hub Team" },
+]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.25",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "psycopg2-binary>=2.9.9",
+
+    # Redis & Caching
+    "redis>=5.0.0",
+
+    # Async task queue
+    "celery>=5.3.6",
+
+    # Configuration
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "python-dotenv>=1.0.0",
+
+    # Auth
+    "pyjwt[crypto]>=2.8.0",
+    "bcrypt>=4.1.0",
+    "passlib[bcrypt]>=1.7.4",
+
+    # HTTP client
+    "httpx>=0.26.0",
+
+    # PDF & Document processing
+    "WeasyPrint>=61.0",
+    "jinja2>=3.1.2",
+    "pdf2image>=1.17.0",
+    "pypdf2>=3.0.0",
+
+    # LLM JSON repair
+    "json-repair>=0.25.0",
+
+    # Object storage
+    "boto3>=1.34.0",
+
+    # Logging
+    "python-json-logger>=2.0.7",
+
+    # Monitoring
+    "sentry-sdk[fastapi]>=2.0.0",
+    "prometheus-client>=0.19.0",
+
+    # Rate limiting
+    "slowapi>=0.1.9",
+
+    # Image processing
+    "pillow>=10.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
+    "mypy>=1.8.0",
+    "sqlalchemy2-stubs>=0.0.2a36",
+    "ruff>=0.2.0",
+    "coverage>=7.4.0",
+    "testcontainers[postgres]>=4.0.0",
+    "ipython>=8.20.0",
+    "watchfiles>=0.21.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_configs = true
+ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

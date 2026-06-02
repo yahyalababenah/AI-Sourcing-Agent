@@ -1,0 +1,87 @@
+"""Output (Quotation) module request/response Pydantic schemas."""
+
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+
+class QuotationLineItemSchema(BaseModel):
+    """A single line item in a quotation."""
+
+    product_id: str
+    product_name: str
+    quantity: int
+    unit_price_cny: float
+    unit_price_converted: float
+    exchange_rate: float
+    freight_cost: float
+    customs_duty: float
+    commission: float
+    subtotal: float
+    discount: float
+    total: float
+
+
+class QuotationCreate(BaseModel):
+    """Create a quotation from calculated prices."""
+
+    rfq_id: str
+    target_currency: str = Field(default="JOD", max_length=10)
+    exchange_rate_used: float
+    line_items: list[QuotationLineItemSchema]
+    subtotal: float = Field(ge=0)
+    freight_total: Optional[float] = 0.0
+    customs_total: Optional[float] = 0.0
+    commission_total: Optional[float] = 0.0
+    discount_total: Optional[float] = 0.0
+    vat_total: Optional[float] = 0.0
+    grand_total: float = Field(ge=0)
+    payment_terms: Optional[str] = None
+    delivery_terms: Optional[str] = None
+    validity_days: int = Field(default=30, ge=1, le=365)
+    notes: Optional[str] = None
+
+
+class QuotationResponse(BaseModel):
+    """Quotation detail response."""
+
+    id: str
+    rfq_id: str
+    agent_id: str
+    quotation_number: str
+    status: str
+    target_currency: str
+    exchange_rate_used: float
+    subtotal: float
+    freight_total: Optional[float] = None
+    customs_total: Optional[float] = None
+    commission_total: Optional[float] = None
+    discount_total: Optional[float] = None
+    vat_total: Optional[float] = None
+    grand_total: float
+    payment_terms: Optional[str] = None
+    delivery_terms: Optional[str] = None
+    validity_days: Optional[int] = None
+    notes: Optional[str] = None
+    pdf_path: Optional[str] = None
+    pdf_generated_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class QuotationListResponse(BaseModel):
+    """Paginated quotation list."""
+
+    items: list[QuotationResponse]
+    total: int
+
+
+class QuotationGeneratePdfResponse(BaseModel):
+    """Response after PDF generation."""
+
+    quotation_id: str
+    pdf_path: str
+    pdf_url: str

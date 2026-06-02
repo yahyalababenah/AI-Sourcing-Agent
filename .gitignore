@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.report
+*.coverage.*
+
+# Ruff
+.ruff_cache/
+
+# mypy
+.mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Alembic
+alembic/versions/*.pyc
+
+# Logs
+*.log
+
+# Static files (runtime)
+app/static/fonts/*.ttf
+app/static/fonts/*.otf
+app/static/logos/*
+
+# ChromaDB (local persistent data)
+chroma_data/
+
+# MinIO data (local)
+minio_data/
+
+# Backup
+*.bak
+*.backup

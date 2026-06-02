@@ -1,0 +1,241 @@
+/*
+ * AI-Sourcing Hub — Quotation PDF Styles
+ *
+ * WeasyPrint-compatible CSS for Arabic RTL + English quotation PDFs.
+ * Font: NotoSansArabic (bundled in Docker image).
+ */
+
+/* ═══════════════════════════════════════════════════════════
+   Base & Typography
+   ═══════════════════════════════════════════════════════════ */
+
+@page {
+    size: A4;
+    margin: 2cm 1.5cm;
+    @top-center {
+        content: element(header);
+        font-size: 8pt;
+        color: #666;
+    }
+    @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 8pt;
+        color: #666;
+        font-family: "NotoSansArabic", sans-serif;
+    }
+}
+
+body {
+    font-family: "NotoSansArabic", "DejaVu Sans", sans-serif;
+    font-size: 10pt;
+    line-height: 1.6;
+    color: #1a1a1a;
+    direction: rtl;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Header / Branding
+   ═══════════════════════════════════════════════════════════ */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #1a56db;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.header .logo {
+    max-height: 60px;
+}
+
+.header .company-info {
+    text-align: left;
+    direction: ltr;
+    font-size: 9pt;
+    color: #555;
+}
+
+.header .company-info h1 {
+    margin: 0;
+    font-size: 14pt;
+    color: #1a56db;
+    direction: rtl;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Quotation Metadata
+   ═══════════════════════════════════════════════════════════ */
+
+.meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 9pt;
+}
+
+.meta-table td {
+    padding: 4px 8px;
+    vertical-align: top;
+}
+
+.meta-table td:first-child {
+    font-weight: bold;
+    width: 120px;
+    color: #555;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Client Info
+   ═══════════════════════════════════════════════════════════ */
+
+.client-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+}
+
+.client-info h3 {
+    margin: 0 0 8px 0;
+    font-size: 10pt;
+    color: #1a56db;
+}
+
+.client-info p {
+    margin: 2px 0;
+    font-size: 9pt;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Line Items Table
+   ═══════════════════════════════════════════════════════════ */
+
+table.items {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 9pt;
+}
+
+table.items thead {
+    background: #1a56db;
+    color: white;
+}
+
+table.items th {
+    padding: 8px 10px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 9pt;
+}
+
+table.items th:first-child {
+    text-align: right;
+}
+
+table.items td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: center;
+}
+
+table.items td:first-child {
+    text-align: right;
+}
+
+table.items tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+table.items tbody tr:hover {
+    background: #eef2ff;
+}
+
+table.items tfoot td {
+    font-weight: bold;
+    border-top: 2px solid #1a56db;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+table.items tfoot td:first-child {
+    text-align: left;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Totals Summary
+   ═══════════════════════════════════════════════════════════ */
+
+.totals {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.totals table {
+    width: 40%;
+    margin-left: auto;
+    direction: ltr;
+    border-collapse: collapse;
+    font-size: 9pt;
+}
+
+.totals td {
+    padding: 4px 12px;
+    text-align: right;
+}
+
+.totals td:first-child {
+    font-weight: bold;
+    color: #555;
+}
+
+.totals .grand-total td {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #1a56db;
+    border-top: 2px solid #1a56db;
+    padding-top: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Terms & Notes
+   ═══════════════════════════════════════════════════════════ */
+
+.terms {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 9pt;
+}
+
+.terms h3 {
+    margin: 0 0 8px 0;
+    font-size: 10pt;
+    color: #1a56db;
+}
+
+.terms p {
+    margin: 2px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Footer
+   ═══════════════════════════════════════════════════════════ */
+
+.footer {
+    text-align: center;
+    font-size: 8pt;
+    color: #999;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 10px;
+    margin-top: 30px;
+}
+
+.footer p {
+    margin: 2px 0;
+}

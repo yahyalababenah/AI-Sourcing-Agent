@@ -1,0 +1,266 @@
+"""
+AI-Sourcing Hub — Intake Service Layer
+
+Business logic for RFQ intake, translation, and entity extraction.
+"""
+# ═══════════════════════════════════════════════════════════
+# Imports
+# ═══════════════════════════════════════════════════════════
+import uuid
+from typing import Optional
+
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.intake.llm_client import translate_and_extract
+from app.modules.intake.models import RFQ, Product, RFQStatus, ProductStatus
+from app.modules.intake.schemas import RFQCreate, RFQResponse, RFQListResponse
+from app.shared.exceptions import NotFoundException, ValidationError
+from app.shared.logging import get_logger
+from app.shared.pagination import PaginationParams
+
+logger = get_logger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════
+# Translation
+# ═══════════════════════════════════════════════════════════
+
+async def translate_request(
+    arabic_text: str,
+    provider: Optional[str] = None,
+) -> dict:
+    """Translate an Arabic client request and extract entities.
+
+    Args:
+        arabic_text: Raw Arabic text from the client.
+        provider: Optional LLM provider override.
+
+    Returns:
+        Dict with request_id, chinese_query, entities, confidence.
+    """
+    return await translate_and_extract(arabic_text, provider=provider)
+
+
+# ═══════════════════════════════════════════════════════════
+# CRUD
+# ═══════════════════════════════════════════════════════════
+
+async def create_rfq(
+    db: AsyncSession,
+    rfq_data: RFQCreate,
+    agent_id: str,
+) -> RFQ:
+    """Create a new RFQ.
+
+    Args:
+        db: Database session.
+        rfq_data: RFQ creation data.
+        agent_id: UUID of the creating agent.
+
+    Returns:
+        Created RFQ instance.
+    """
+    rfq = RFQ(
+        agent_id=uuid.UUID(agent_id),
+        client_name=rfq_data.client_name,
+        client_phone=rfq_data.client_phone,
+        client_request_arabic=rfq_data.client_request_arabic,
+        translated_query_chinese=rfq_data.translated_query_chinese,
+        extracted_entities=rfq_data.extracted_entities,
+        destination_port=rfq_data.destination_port,
+        target_currency=rfq_data.target_currency,
+        status=RFQStatus.OPEN,
+    )
+    db.add(rfq)
+    await db.flush()
+    await db.refresh(rfq)
+    return rfq
+
+
+async def get_rfq(db: AsyncSession, rfq_id: str) -> RFQ:
+    """Get an RFQ by ID.
+
+    Args:
+        db: Database session.
+        rfq_id: RFQ UUID string.
+
+    Returns:
+        RFQ instance.
+
+    Raises:
+        NotFoundException: If RFQ not found.
+    """
+    result = await db.execute(
+        select(RFQ).where(RFQ.id == uuid.UUID(rfq_id))
+    )
+    rfq = result.scalar_one_or_none()
+    if not rfq:
+        raise NotFoundException(
+            message="RFQ not found",
+            details={"rfq_id": rfq_id},
+        )
+    return rfq
+
+
+async def list_rfqs(
+    db: AsyncSession,
+    pagination: PaginationParams,
+    agent_id: Optional[str] = None,
+    status: Optional[RFQStatus] = None,
+) -> RFQListResponse:
+    """List RFQs with optional filtering and pagination.
+
+    Args:
+        db: Database session.
+        pagination: Pagination parameters.
+        agent_id: Optional filter by agent.
+        status: Optional filter by status.
+
+    Returns:
+        Paginated RFQ list response.
+    """
+    query = select(RFQ)
+
+    if agent_id:
+        query = query.where(RFQ.agent_id == uuid.UUID(agent_id))
+    if status:
+        query = query.where(RFQ.status == status)
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Fetch page
+    query = (
+        query.order_by(RFQ.created_at.desc())
+        .offset(pagination.skip)
+        .limit(pagination.limit)
+    )
+    result = await db.execute(query)
+    rfqs = result.scalars().all()
+
+    return RFQListResponse(
+        items=[RFQResponse.model_validate(r) for r in rfqs],
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        total_pages=max(1, (total + pagination.page_size - 1) // pagination.page_size),
+    )
+
+
+async def update_rfq_status(
+    db: AsyncSession,
+    rfq_id: str,
+    new_status: RFQStatus,
+) -> RFQ:
+    """Update the status of an RFQ.
+
+    Args:
+        db: Database session.
+        rfq_id: RFQ UUID string.
+        new_status: Target status.
+
+    Returns:
+        Updated RFQ instance.
+
+    Raises:
+        NotFoundException: If RFQ not found.
+        ValidationError: If status transition is invalid.
+    """
+    rfq = await get_rfq(db, rfq_id)
+
+    # Basic state machine validation
+    valid_transitions = {
+        RFQStatus.OPEN: [RFQStatus.PROCESSING, RFQStatus.CANCELLED],
+        RFQStatus.PROCESSING: [RFQStatus.QUOTED, RFQStatus.CLOSED, RFQStatus.CANCELLED],
+        RFQStatus.QUOTED: [RFQStatus.CLOSED],
+        RFQStatus.CLOSED: [],
+        RFQStatus.CANCELLED: [],
+    }
+
+    allowed = valid_transitions.get(rfq.status, [])
+    if new_status not in allowed:
+        raise ValidationError(
+            message=f"Cannot transition from {rfq.status.value} to {new_status.value}",
+            details={
+                "current_status": rfq.status.value,
+                "requested_status": new_status.value,
+                "allowed_transitions": [s.value for s in allowed],
+            },
+        )
+
+    rfq.status = new_status
+    await db.flush()
+    await db.refresh(rfq)
+    return rfq
+
+
+# ═══════════════════════════════════════════════════════════
+# Products
+# ═══════════════════════════════════════════════════════════
+
+async def add_product(
+    db: AsyncSession,
+    rfq_id: str,
+    name: str,
+    quantity: int,
+    specifications: Optional[str] = None,
+    target_price: Optional[float] = None,
+    extracted_metadata: Optional[dict] = None,
+) -> Product:
+    """Add a product to an RFQ.
+
+    Args:
+        db: Database session.
+        rfq_id: RFQ UUID string.
+        name: Product name.
+        quantity: Product quantity.
+        specifications: Optional technical specifications.
+        target_price: Optional target/budget price.
+        extracted_metadata: Optional extracted data from documents.
+
+    Returns:
+        Created Product instance.
+    """
+    # Verify RFQ exists
+    await get_rfq(db, rfq_id)
+
+    product = Product(
+        rfq_id=uuid.UUID(rfq_id),
+        name=name,
+        quantity=quantity,
+        specifications=specifications,
+        target_price=target_price,
+        extracted_metadata=extracted_metadata,
+        status=ProductStatus.PENDING,
+    )
+    db.add(product)
+    await db.flush()
+    await db.refresh(product)
+    return product
+
+
+async def list_products(
+    db: AsyncSession,
+    rfq_id: str,
+) -> list[Product]:
+    """List all products for an RFQ.
+
+    Args:
+        db: Database session.
+        rfq_id: RFQ UUID string.
+
+    Returns:
+        List of Product instances.
+    """
+    # Verify RFQ exists
+    await get_rfq(db, rfq_id)
+
+    result = await db.execute(
+        select(Product)
+        .where(Product.rfq_id == uuid.UUID(rfq_id))
+        .order_by(Product.created_at.asc())
+    )
+    return list(result.scalars().all())
