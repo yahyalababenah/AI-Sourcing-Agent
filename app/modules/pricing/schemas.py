@@ -85,6 +85,7 @@ class LineItemResult(BaseModel):
     unit_price_converted: float
     freight_cost: float
     customs_duty: float
+    clearance_fee: float = 0.0
     commission: float
     subtotal: float
     discount: float
@@ -98,6 +99,9 @@ class CalculatePriceResponse(BaseModel):
     target_currency: str
     exchange_rate_used: float
     line_items: list[LineItemResult]
+    subtotal_before_vat: float = 0.0
+    vat: float = 0.0
+    early_payment_discount: float = 0.0
     grand_total: float
     discount_total: float
     rules_applied: list[str]

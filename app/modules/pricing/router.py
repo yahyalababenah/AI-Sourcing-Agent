@@ -1,13 +1,14 @@
 """
 AI-Sourcing Hub — Pricing Endpoints
 
-/api/v1/pricing/rules            GET    List pricing rules
-/api/v1/pricing/rules            POST   Create pricing rule
-/api/v1/pricing/rules/{id}       GET    Get rule details
-/api/v1/pricing/rules/{id}       PUT    Update pricing rule
-/api/v1/pricing/rules/{id}       DELETE Delete pricing rule
-/api/v1/pricing/calculate        POST   Run price calculation
-/api/v1/pricing/exchange-rates   POST   Refresh exchange rates
+/api/v1/pricing/rules              GET    List pricing rules
+/api/v1/pricing/rules              POST   Create pricing rule
+/api/v1/pricing/rules/{id}         GET    Get rule details
+/api/v1/pricing/rules/{id}         PUT    Update pricing rule
+/api/v1/pricing/rules/{id}         DELETE Delete pricing rule
+/api/v1/pricing/rules/{id}/history GET    Get rule change history
+/api/v1/pricing/calculate          POST   Run price calculation
+/api/v1/pricing/exchange-rates     POST   Refresh exchange rates
 """
 # ═══════════════════════════════════════════════════════════
 # Imports
@@ -114,6 +115,32 @@ async def update_rule(
     from app.modules.pricing.cache import invalidate_rules_cache
     await invalidate_rules_cache(redis)
     return PricingRuleResponse.model_validate(rule)
+
+
+@router.get(
+    "/rules/{rule_id}/history",
+    summary="Get pricing rule change history",
+)
+async def get_rule_history(
+    rule_id: str,
+    _current_user: User = Depends(require_agent_or_admin),
+):
+    """Get audit history for a pricing rule.
+
+    NOTE: The audit log table is planned for Phase 5 (Security Hardening).
+    Currently returns an empty list with a placeholder message.
+
+    Once the audit middleware is implemented, this endpoint will return
+    a chronological list of changes to this rule including:
+      - Previous value → new value
+      - Changed by (user_id)
+      - Timestamp of change
+    """
+    return {
+        "rule_id": rule_id,
+        "history": [],
+        "message": "Audit logging is planned for Phase 5. This endpoint will be fully implemented once the audit table is available.",
+    }
 
 
 @router.delete(

@@ -16,9 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.pricing.cache import (
     get_cached_rules,
     get_cached_exchange_rate,
+    get_exchange_rate,
     set_cached_rules,
     set_cached_exchange_rate,
+    set_exchange_rate,
     invalidate_rules_cache,
+    invalidate_exchange_rate,
 )
 from app.modules.pricing.engine import PricingEngine, LineItemInput
 from app.modules.pricing.models import (
@@ -246,13 +249,17 @@ async def calculate_price(
     # Load rules from DB/cache
     rules_override = await _load_rules_for_engine(db, redis=redis)
 
-    # Try to get cached exchange rate
+    # Try to get exchange rate with auto-fetch (cache → API fallback)
     if redis:
-        cached_rate = await get_cached_exchange_rate(
+        rate = await get_exchange_rate(
             redis, "CNY", request.target_currency
         )
-        if cached_rate and "exchange_rate" not in rules_override:
-            rules_override["exchange_rate_cny_jod"] = cached_rate
+        if rate is not None:
+            # Store in rules_override so engine uses it
+            if request.target_currency.upper() == "JOD":
+                rules_override["exchange_rate_cny_jod"] = rate
+            elif request.target_currency.upper() == "USD":
+                rules_override["exchange_rate_cny_usd"] = rate
 
     # Initialize engine
     engine = PricingEngine(rules_override=rules_override)
@@ -276,20 +283,25 @@ async def calculate_price(
         products=products,
     )
 
-    # Cache exchange rate for next time
+    # Cache exchange rate for next time (via set_exchange_rate)
     if redis:
-        await set_cached_exchange_rate(
+        await set_exchange_rate(
             redis, "CNY", request.target_currency, result["exchange_rate_used"]
         )
 
-    # Build response
+    # Build response — line items may contain clearance_fee from new engine
+    line_items = []
+    for li in result["line_items"]:
+        line_items.append(LineItemResult(**li))
+
     return CalculatePriceResponse(
         rfq_id=result["rfq_id"],
         target_currency=result["target_currency"],
         exchange_rate_used=result["exchange_rate_used"],
-        line_items=[
-            LineItemResult(**li) for li in result["line_items"]
-        ],
+        line_items=line_items,
+        subtotal_before_vat=result.get("subtotal_before_vat", 0.0),
+        vat=result.get("vat", 0.0),
+        early_payment_discount=result.get("early_payment_discount", 0.0),
         grand_total=result["grand_total"],
         discount_total=result["discount_total"],
         rules_applied=result["rules_applied"],
