@@ -43,7 +43,38 @@ DEFAULT_RULES = [
         "value": 0.14,
         "priority": 2,
     },
-    # ── Freight ──
+    # ── Sea Freight (per CBM — used by landed cost algorithm) ──
+    {
+        "name": "sea_freight_aqaba",
+        "description": "Sea freight rate to Aqaba port (USD per CBM)",
+        "category": PricingRuleCategory.FREIGHT,
+        "rule_type": "fixed",
+        "value": 75.0,
+        "currency": "USD",
+        "conditions": {"port": "aqaba", "unit": "cbm"},
+        "priority": 3,
+    },
+    {
+        "name": "sea_freight_jeddah",
+        "description": "Sea freight rate to Jeddah port (USD per CBM)",
+        "category": PricingRuleCategory.FREIGHT,
+        "rule_type": "fixed",
+        "value": 60.0,
+        "currency": "USD",
+        "conditions": {"port": "jeddah", "unit": "cbm"},
+        "priority": 4,
+    },
+    {
+        "name": "sea_freight_default",
+        "description": "Default sea freight rate (USD per CBM) fallback",
+        "category": PricingRuleCategory.FREIGHT,
+        "rule_type": "fixed",
+        "value": 80.0,
+        "currency": "USD",
+        "conditions": {"unit": "cbm"},
+        "priority": 5,
+    },
+    # ── Legacy Container Freight (kept for backward compatibility) ──
     {
         "name": "freight_aqaba_20ft",
         "description": "Freight cost to Aqaba port (20ft container, USD)",
@@ -52,7 +83,7 @@ DEFAULT_RULES = [
         "value": 1200.0,
         "currency": "USD",
         "conditions": {"port": "aqaba", "container": "20ft"},
-        "priority": 3,
+        "priority": 6,
     },
     {
         "name": "freight_aqaba_40ft",
@@ -62,7 +93,7 @@ DEFAULT_RULES = [
         "value": 2000.0,
         "currency": "USD",
         "conditions": {"port": "aqaba", "container": "40ft"},
-        "priority": 4,
+        "priority": 7,
     },
     {
         "name": "freight_beirut_20ft",
@@ -72,7 +103,7 @@ DEFAULT_RULES = [
         "value": 1000.0,
         "currency": "USD",
         "conditions": {"port": "beirut", "container": "20ft"},
-        "priority": 5,
+        "priority": 8,
     },
     {
         "name": "freight_beirut_40ft",
@@ -82,7 +113,17 @@ DEFAULT_RULES = [
         "value": 1800.0,
         "currency": "USD",
         "conditions": {"port": "beirut", "container": "40ft"},
-        "priority": 6,
+        "priority": 9,
+    },
+    # ── Clearance Fee ──
+    {
+        "name": "clearance_fee",
+        "description": "Flat customs clearance fee (USD, divided across units)",
+        "category": PricingRuleCategory.CUSTOMS,
+        "rule_type": "fixed",
+        "value": 150.0,
+        "currency": "USD",
+        "priority": 10,
     },
     # ── Customs ──
     {
@@ -91,7 +132,7 @@ DEFAULT_RULES = [
         "category": PricingRuleCategory.CUSTOMS,
         "rule_type": "percentage",
         "value": 0.05,
-        "priority": 7,
+        "priority": 11,
     },
     {
         "name": "customs_duty_rate_reduced",
@@ -99,7 +140,7 @@ DEFAULT_RULES = [
         "category": PricingRuleCategory.CUSTOMS,
         "rule_type": "percentage",
         "value": 0.0,
-        "priority": 8,
+        "priority": 12,
     },
     # ── Commission ──
     {
@@ -108,7 +149,7 @@ DEFAULT_RULES = [
         "category": PricingRuleCategory.COMMISSION,
         "rule_type": "percentage",
         "value": 0.03,
-        "priority": 9,
+        "priority": 13,
     },
     {
         "name": "commission_rate_premium",
@@ -116,7 +157,7 @@ DEFAULT_RULES = [
         "category": PricingRuleCategory.COMMISSION,
         "rule_type": "percentage",
         "value": 0.05,
-        "priority": 10,
+        "priority": 14,
     },
     # ── MOQ Discounts ──
     {
@@ -126,7 +167,7 @@ DEFAULT_RULES = [
         "rule_type": "percentage",
         "value": 0.02,
         "conditions": {"min_quantity": 1000},
-        "priority": 11,
+        "priority": 15,
     },
     {
         "name": "moq_discount_5000_plus",
@@ -135,7 +176,7 @@ DEFAULT_RULES = [
         "rule_type": "percentage",
         "value": 0.05,
         "conditions": {"min_quantity": 5000},
-        "priority": 12,
+        "priority": 16,
     },
     {
         "name": "moq_discount_10000_plus",
@@ -144,7 +185,7 @@ DEFAULT_RULES = [
         "rule_type": "percentage",
         "value": 0.08,
         "conditions": {"min_quantity": 10000},
-        "priority": 13,
+        "priority": 17,
     },
     # ── Tax ──
     {
@@ -153,7 +194,7 @@ DEFAULT_RULES = [
         "category": PricingRuleCategory.TAX,
         "rule_type": "percentage",
         "value": 0.16,
-        "priority": 14,
+        "priority": 18,
     },
     # ── Other ──
     {
@@ -162,7 +203,7 @@ DEFAULT_RULES = [
         "category": PricingRuleCategory.OTHER,
         "rule_type": "percentage",
         "value": 0.02,
-        "priority": 15,
+        "priority": 19,
     },
     {
         "name": "target_margin",
@@ -170,7 +211,7 @@ DEFAULT_RULES = [
         "category": PricingRuleCategory.MARGIN,
         "rule_type": "percentage",
         "value": 0.15,
-        "priority": 16,
+        "priority": 20,
     },
 ]
 
