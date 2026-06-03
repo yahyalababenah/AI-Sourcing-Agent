@@ -3,6 +3,7 @@ AI-Sourcing Hub — Authentication Service
 
 Handles:
     - User registration with bcrypt password hashing
+    - Profile creation for clients and suppliers
     - Login with credential verification
     - JWT access + refresh token generation
     - Token refresh
@@ -18,9 +19,10 @@ import bcrypt
 import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.modules.auth.models import User, UserRole
+from app.modules.auth.models import ClientProfile, SupplierProfile, User, UserRole
 from app.modules.auth.schemas import UserCreate
 from app.shared.exceptions import AuthenticationError, ValidationError
 
@@ -64,18 +66,66 @@ def _create_refresh_token(user_id: str) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-async def register_user(db: AsyncSession, user_data: UserCreate) -> User:
-    """Register a new user.
+async def _create_user_profile(db: AsyncSession, user: User, user_data: UserCreate) -> None:
+    """Create the appropriate profile record based on the user's role.
 
     Args:
         db: Database session.
-        user_data: User registration data.
-
-    Returns:
-        Created User instance.
+        user: The newly created User instance.
+        user_data: Registration data containing profile fields.
 
     Raises:
-        ValidationError: If email already exists.
+        ValidationError: If required profile fields are missing for the role.
+    """
+    if user.role == UserRole.CLIENT:
+        if not user_data.company_name:
+            raise ValidationError(
+                message="company_name is required for client registration",
+                details={"field": "company_name"},
+            )
+        profile = ClientProfile(
+            user_id=user.id,
+            company_name=user_data.company_name,
+            preferred_port=user_data.preferred_port,
+            contact_number=user_data.contact_number,
+        )
+        db.add(profile)
+
+    elif user.role == UserRole.AGENT:
+        missing = []
+        if not user_data.factory_name:
+            missing.append("factory_name")
+        if not user_data.location_in_china:
+            missing.append("location_in_china")
+        if missing:
+            raise ValidationError(
+                message=f"Required fields missing for supplier registration: {', '.join(missing)}",
+                details={"missing_fields": missing},
+            )
+        profile = SupplierProfile(
+            user_id=user.id,
+            factory_name=user_data.factory_name,
+            location_in_china=user_data.location_in_china,
+            specialty=user_data.specialty,
+            business_registration_number=user_data.business_registration_number,
+        )
+        db.add(profile)
+
+    # Admin — no profile needed
+
+
+async def register_user(db: AsyncSession, user_data: UserCreate) -> User:
+    """Register a new user with role-specific profile.
+
+    Args:
+        db: Database session.
+        user_data: User registration data including profile fields.
+
+    Returns:
+        Created User instance (with profile relationship loaded).
+
+    Raises:
+        ValidationError: If email already exists or required profile fields missing.
     """
     # Check for existing user
     result = await db.execute(
@@ -87,16 +137,19 @@ async def register_user(db: AsyncSession, user_data: UserCreate) -> User:
             details={"email": user_data.email},
         )
 
-    # Determine role from payload, defaulting to AGENT
-    role_value = UserRole.AGENT
-    if user_data.role:
-        try:
-            role_value = UserRole(user_data.role)
-        except ValueError:
-            raise ValidationError(
-                message=f"Invalid role '{user_data.role}'. Must be one of: {', '.join(r.value for r in UserRole)}",
-                details={"valid_roles": [r.value for r in UserRole]},
-            )
+    # Determine role from payload
+    if not user_data.role:
+        raise ValidationError(
+            message="Role is required. Must be one of: client, agent, admin",
+            details={"valid_roles": [r.value for r in UserRole]},
+        )
+    try:
+        role_value = UserRole(user_data.role)
+    except ValueError:
+        raise ValidationError(
+            message=f"Invalid role '{user_data.role}'. Must be one of: {', '.join(r.value for r in UserRole)}",
+            details={"valid_roles": [r.value for r in UserRole]},
+        )
 
     # Create user
     user = User(
@@ -108,7 +161,21 @@ async def register_user(db: AsyncSession, user_data: UserCreate) -> User:
     )
     db.add(user)
     await db.flush()
-    await db.refresh(user)
+
+    # Create role-specific profile
+    await _create_user_profile(db, user, user_data)
+    await db.flush()
+
+    # Re-fetch with eagerly loaded profiles to avoid lazy-load issues with aiosqlite
+    result = await db.execute(
+        select(User)
+        .options(
+            selectinload(User.client_profile),
+            selectinload(User.supplier_profile),
+        )
+        .where(User.id == user.id)
+    )
+    user = result.scalar_one()
     return user
 
 
