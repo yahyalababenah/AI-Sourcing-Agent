@@ -14,6 +14,7 @@ from typing import Optional
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.modules.intake.models import RFQ, RFQStatus
@@ -122,8 +123,15 @@ async def create_quotation(
         db.add(line_item)
 
     await db.flush()
-    await db.refresh(quotation)
-    return quotation
+
+    # Re-fetch with eager-loaded line_items — refresh() would expire column
+    # attributes and trigger MissingGreenlet during Pydantic serialisation.
+    result = await db.execute(
+        select(Quotation)
+        .options(joinedload(Quotation.line_items))
+        .where(Quotation.id == quotation.id)
+    )
+    return result.unique().scalar_one()
 
 
 async def get_quotation(db: AsyncSession, quotation_id: str) -> Quotation:
@@ -176,7 +184,7 @@ async def list_quotations(
     """
     from app.modules.intake.models import RFQ
 
-    query = select(Quotation)
+    query = select(Quotation).options(joinedload(Quotation.line_items))
 
     if client_id:
         # Client scope: quotations for RFQs where client_id == current user
@@ -194,7 +202,7 @@ async def list_quotations(
 
     query = query.order_by(Quotation.created_at.desc())
     result = await db.execute(query)
-    quotations = list(result.scalars().all())
+    quotations = list(result.unique().scalars().all())
 
     return QuotationListResponse(
         items=[QuotationResponse.model_validate(q) for q in quotations],
@@ -220,7 +228,16 @@ async def update_quotation_status(
     quotation = await get_quotation(db, quotation_id)
     quotation.status = new_status
     await db.flush()
-    await db.refresh(quotation)
+
+    # Re-fetch with eager-loaded line_items; refresh() alone drops the
+    # relationship from the identity map, which would trigger MissingGreenlet
+    # during Pydantic serialisation.
+    result = await db.execute(
+        select(Quotation)
+        .options(joinedload(Quotation.line_items))
+        .where(Quotation.id == quotation.id)
+    )
+    quotation = result.unique().scalar_one()
     return quotation
 
 
