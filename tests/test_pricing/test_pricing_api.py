@@ -396,7 +396,7 @@ async def client(app) -> AsyncClient:
 
 @pytest.fixture
 async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
-    """Register a user and return auth headers."""
+    """Register an agent (supplier) and return auth headers."""
     from app.modules.auth.models import UserRole
 
     register_payload = {
@@ -404,6 +404,8 @@ async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
         "password": "TestPass123!",
         "full_name": "Pricing Test User",
         "role": UserRole.AGENT.value,
+        "factory_name": "Pricing Test Factory",
+        "location_in_china": "Guangzhou, Guangdong",
     }
     resp = await client.post("/api/v1/auth/register", json=register_payload)
     assert resp.status_code == 201
