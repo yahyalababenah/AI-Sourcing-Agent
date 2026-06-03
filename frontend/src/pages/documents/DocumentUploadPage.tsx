@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { documentService } from "@/services/documentService";
 import { intakeService } from "@/services/intakeService";
@@ -11,10 +11,12 @@ export function DocumentUploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: rfqsData } = useQuery({
+  const { data: rfqsData, isLoading: rfqsLoading } = useQuery({
     queryKey: ["rfqs-for-upload"],
     queryFn: () => intakeService.list({ limit: 50 }),
   });
+
+  const rfqs = rfqsData?.items ?? [];
 
   const uploadMutation = useMutation({
     mutationFn: ({ rfqId, file }: { rfqId: string; file: File }) =>
@@ -58,19 +60,40 @@ export function DocumentUploadPage() {
           <label className="mb-1 block text-sm font-medium text-gray-700">
             طلب عرض السعر <span className="text-red-500">*</span>
           </label>
-          <select
-            value={selectedRfqId}
-            onChange={(e) => setSelectedRfqId(e.target.value)}
-            required
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          >
-            <option value="">-- اختر طلب عرض سعر --</option>
-            {rfqsData?.items.map((rfq) => (
-              <option key={rfq.id} value={rfq.id}>
-                {rfq.client_name} — {rfq.client_request_arabic.slice(0, 50)}...
-              </option>
-            ))}
-          </select>
+
+          {rfqsLoading ? (
+            <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-500">
+              جاري تحميل طلبات عرض السعر...
+            </div>
+          ) : rfqs.length === 0 ? (
+            <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-700">
+              <p className="mb-2 font-medium">لا توجد طلبات عرض سعر متاحة</p>
+              <p>
+                يرجى{" "}
+                <Link
+                  to={ROUTES.RFQ.CREATE}
+                  className="font-medium text-amber-800 underline hover:text-amber-900"
+                >
+                  إنشاء طلب عرض سعر جديد
+                </Link>{" "}
+                أولاً ثم العودة لرفع المستندات
+              </p>
+            </div>
+          ) : (
+            <select
+              value={selectedRfqId}
+              onChange={(e) => setSelectedRfqId(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            >
+              <option value="">-- اختر طلب عرض سعر --</option>
+              {rfqs.map((rfq) => (
+                <option key={rfq.id} value={rfq.id}>
+                  {rfq.client_name} — {rfq.client_request_arabic.slice(0, 50)}...
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* File Upload */}

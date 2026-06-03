@@ -6,22 +6,18 @@ import { intakeService } from "@/services/intakeService";
 import type { RFQ } from "@/types/intake";
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  pending: "bg-yellow-100 text-yellow-700",
-  translated: "bg-blue-100 text-blue-700",
+  open: "bg-blue-100 text-blue-700",
+  processing: "bg-yellow-100 text-yellow-700",
   quoted: "bg-green-100 text-green-700",
-  accepted: "bg-emerald-100 text-emerald-700",
-  rejected: "bg-red-100 text-red-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  closed: "bg-gray-100 text-gray-500",
+  cancelled: "bg-red-100 text-red-700",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  pending: "قيد الانتظار",
-  translated: "تمت الترجمة",
+  open: "مفتوح",
+  processing: "قيد المعالجة",
   quoted: "تم التسعير",
-  accepted: "مقبول",
-  rejected: "مرفوض",
+  closed: "مغلق",
   cancelled: "ملغي",
 };
 
@@ -36,7 +32,7 @@ export function RFQListPage() {
     queryFn: () => intakeService.list({ status: statusFilter, page, limit }),
   });
 
-  const totalPages = data ? Math.ceil(data.total / data.limit) : 0;
+  const totalPages = data ? Math.ceil(data.total / data.page_size) : 0;
 
   return (
     <div className="space-y-6">
@@ -57,7 +53,7 @@ export function RFQListPage() {
 
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-2">
-        {["all", "draft", "pending", "translated", "quoted", "accepted", "rejected"].map((s) => (
+        {["all", "open", "processing", "quoted", "closed", "cancelled"].map((s) => (
           <button
             key={s}
             onClick={() => {
