@@ -121,6 +121,7 @@ services:
     command: >
       celery -A app.shared.celery_app beat
       --loglevel=info
+      -s /tmp/celerybeat-schedule
     volumes:
       - .:/app
     environment:

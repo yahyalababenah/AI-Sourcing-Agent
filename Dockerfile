@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     # PostgreSQL client
     libpq-dev \
+    # Health check
+    curl \
     # Build tools
     gcc \
     && rm -rf /var/lib/apt/lists/*
