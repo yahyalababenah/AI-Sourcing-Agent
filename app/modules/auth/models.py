@@ -1,5 +1,5 @@
 """
-AI-Sourcing Hub — User Model
+AI-Sourcing Hub — User & Profile Models
 
 ⚠️ String-based relationships to avoid circular imports with other modules.
 """
@@ -7,7 +7,7 @@ AI-Sourcing Hub — User Model
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -62,5 +62,74 @@ class User(Base):
         "app.modules.documents.models.Document", back_populates="uploaded_by"
     )
 
+    # ---- One-to-one profile relationships ----
+    client_profile = relationship("ClientProfile", back_populates="user", uselist=False)
+    supplier_profile = relationship("SupplierProfile", back_populates="user", uselist=False)
+
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"
+
+
+class ClientProfile(Base):
+    """One-to-one profile for client users (buyers)."""
+
+    __tablename__ = "client_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    company_name = Column(String(255), nullable=False)
+    preferred_port = Column(String(100), nullable=True)
+    contact_number = Column(String(50), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # ---- Relationships ----
+    user = relationship("User", back_populates="client_profile")
+
+    def __repr__(self) -> str:
+        return f"<ClientProfile(id={self.id}, company={self.company_name})>"
+
+
+class SupplierProfile(Base):
+    """One-to-one profile for agent/supplier users (sellers)."""
+
+    __tablename__ = "supplier_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    factory_name = Column(String(255), nullable=False)
+    location_in_china = Column(String(255), nullable=False)
+    specialty = Column(String(255), nullable=True)
+    business_registration_number = Column(String(100), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # ---- Relationships ----
+    user = relationship("User", back_populates="supplier_profile")
+
+    def __repr__(self) -> str:
+        return f"<SupplierProfile(id={self.id}, factory={self.factory_name})>"
