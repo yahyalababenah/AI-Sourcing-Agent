@@ -20,7 +20,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserRole
 from app.modules.output.models import QuotationStatus
 from app.modules.output.schemas import (
     QuotationCreate,
@@ -71,10 +71,24 @@ async def list_quotes(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List quotations with optional filtering by RFQ or status."""
-    agent_id = str(current_user.id) if current_user.role != "admin" else None
+    """List quotations with role-based data isolation scoping.
+
+    - Admin: Sees all quotations.
+    - Agent: Sees quotations they created.
+    - Client: Sees quotations for RFQs they own (via client_id join).
+    """
+    user_id = str(current_user.id)
+    if current_user.role == UserRole.CLIENT:
+        return await list_quotations(
+            db, client_id=user_id, rfq_id=rfq_id, status=status
+        )
+    elif current_user.role == UserRole.AGENT:
+        return await list_quotations(
+            db, agent_id=user_id, rfq_id=rfq_id, status=status
+        )
+    # Admin: full access
     return await list_quotations(
-        db, agent_id=agent_id, rfq_id=rfq_id, status=status
+        db, rfq_id=rfq_id, status=status
     )
 
 
