@@ -2,11 +2,11 @@
 AI-Sourcing Hub — Intake Endpoints
 
 /api/v1/intake/translate    POST   Translate Arabic → Chinese + extract entities
-/api/v1/intake/rfqs         POST   Create a new RFQ
-/api/v1/intake/rfqs         GET    List RFQs (paginated, filterable)
+/api/v1/intake/rfqs         POST   Create a new RFQ (clients, agents, admins)
+/api/v1/intake/rfqs         GET    List RFQs (paginated, filterable, role-scoped)
 /api/v1/intake/rfqs/{id}    GET    Get RFQ details
-/api/v1/intake/rfqs/{id}/status PUT  Update RFQ status
-/api/v1/intake/rfqs/{id}/products POST  Add product to RFQ
+/api/v1/intake/rfqs/{id}/status PUT  Update RFQ status (agent/admin only)
+/api/v1/intake/rfqs/{id}/products POST  Add product to RFQ (agent/admin only)
 /api/v1/intake/rfqs/{id}/products GET   List products in RFQ
 """
 # ═══════════════════════════════════════════════════════════
@@ -59,7 +59,10 @@ async def translate(
     ),
     _current_user: User = Depends(require_agent_or_admin),
 ):
-    """Translate an Arabic client request to Chinese and extract product entities."""
+    """Translate an Arabic client request to Chinese and extract product entities.
+
+    Restricted to agents and admins — clients cannot directly access translation.
+    """
     result = await translate_request(request.raw_text, provider=provider)
     return TranslateResponse(
         request_id=result["request_id"],
@@ -83,9 +86,14 @@ async def create_rfq_endpoint(
     rfq_data: RFQCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: None = Depends(require_agent_or_admin),
 ):
-    """Create a new Request for Quotation."""
+    """Create a new Request for Quotation.
+
+    Accessible by all authenticated users:
+    - Clients: Creates RFQ with their own user ID as the creator.
+    - Agents: Creates RFQ for a client with their agent ID.
+    - Admins: Creates RFQ with their admin ID.
+    """
     rfq = await create_rfq(db, rfq_data, agent_id=str(current_user.id))
     return RFQResponse.model_validate(rfq)
 
@@ -101,12 +109,19 @@ async def list_rfqs_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List RFQs with pagination and optional status filter."""
-    agent_id = str(current_user.id) if current_user.role != "admin" else None
+    """List RFQs with pagination and optional status filter.
+
+    Role-based scoping:
+    - Admin: Sees all RFQs across the system.
+    - Agent: Sees only RFQs assigned to them.
+    - Client: Sees only RFQs they created (their user ID is stored as agent_id).
+    """
+    # Admin sees all; agents and clients see only their own
+    user_id = str(current_user.id) if current_user.role != "admin" else None
     return await list_rfqs(
         db,
         pagination=pagination,
-        agent_id=agent_id,
+        agent_id=user_id,
         status=status,
     )
 
@@ -121,7 +136,10 @@ async def get_rfq_endpoint(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
-    """Get detailed information about a specific RFQ."""
+    """Get detailed information about a specific RFQ.
+
+    Any authenticated user can view RFQ details.
+    """
     rfq = await get_rfq(db, rfq_id)
     return RFQResponse.model_validate(rfq)
 
@@ -137,7 +155,10 @@ async def update_rfq_status_endpoint(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_agent_or_admin),
 ):
-    """Transition an RFQ to a new status (validates state machine)."""
+    """Transition an RFQ to a new status (validates state machine).
+
+    Restricted to agents and admins — clients cannot change RFQ status.
+    """
     rfq = await update_rfq_status(db, rfq_id, new_status)
     return RFQResponse.model_validate(rfq)
 
@@ -159,7 +180,10 @@ async def add_product_endpoint(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_agent_or_admin),
 ):
-    """Add a product line item to an RFQ."""
+    """Add a product line item to an RFQ.
+
+    Restricted to agents and admins — part of the sourcing workflow.
+    """
     product = await add_product(
         db,
         rfq_id=rfq_id,
@@ -186,7 +210,10 @@ async def list_products_endpoint(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
-    """List all products associated with an RFQ."""
+    """List all products associated with an RFQ.
+
+    Any authenticated user can view products in an RFQ.
+    """
     products = await list_products(db, rfq_id)
     return [
         {

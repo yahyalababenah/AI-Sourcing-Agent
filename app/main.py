@@ -39,6 +39,7 @@ from app.shared.storage import ensure_bucket
 from app.modules.auth.router import router as auth_router
 from app.modules.documents.router import router as documents_router
 from app.modules.intake.router import router as intake_router
+from app.modules.monitoring.router import router as monitoring_router
 from app.modules.output.router import router as output_router
 from app.modules.pricing.router import router as pricing_router
 from app.shared.metrics import (
@@ -169,6 +170,11 @@ def create_app() -> FastAPI:
         output_router,
         prefix="/api/v1/quotes",
         tags=["Quotations"],
+    )
+    app.include_router(
+        monitoring_router,
+        prefix="/api/v1/admin",
+        tags=["Admin"],
     )
 
     # ---- Health Check ----
