@@ -13,6 +13,10 @@ dist/
 build/
 *.egg
 
+# Node.js / Frontend (not needed for Python backend)
+frontend/
+node_modules/
+
 # Environment
 .env
 .env.local

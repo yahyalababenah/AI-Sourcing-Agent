@@ -11,7 +11,6 @@ ENV \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    POETRY_VERSION=1.7.0 \
     VIRTUAL_ENV=/opt/venv
 
 # System dependencies for WeasyPrint, PDF processing, and psycopg2
@@ -36,9 +35,16 @@ FROM base AS builder
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY pyproject.toml ./
+# 1. Copy ONLY the requirements file first (leverages Docker layer caching)
+COPY requirements.txt ./
+
+# 2. Install dependencies directly into the virtualenv using cached pip
+#    This layer only rebuilds when requirements.txt changes
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 3. Copy the rest of the application code AFTER dependencies are installed
+#    Code changes do NOT trigger a full pip reinstall
 COPY . .
-RUN pip install --no-cache-dir .
 
 # ---- Stage 3: Production ----
 FROM base AS production
@@ -52,7 +58,7 @@ RUN groupadd -r aisourcing && useradd -r -g aisourcing -d /app -s /bin/false ais
 
 WORKDIR /app
 
-# Copy application code
+# Copy application code with correct ownership
 COPY --chown=aisourcing:aisourcing . .
 
 # Create required directories with proper permissions
