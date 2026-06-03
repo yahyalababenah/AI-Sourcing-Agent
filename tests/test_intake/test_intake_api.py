@@ -52,17 +52,22 @@ async def client(app) -> AsyncClient:
 
 @pytest.fixture
 async def registered_user(client: AsyncClient, db_session: AsyncSession):
-    """Register a test agent user and return credentials."""
+    """Register a test agent user (with profile) and return credentials."""
+    from tests.test_config import TEST_LEGACY_PASSWORD
+
     response = await client.post(
         "/api/v1/auth/register",
         json={
             "email": "intake_agent@test.com",
-            "password": "test_password_123",
+            "password": TEST_LEGACY_PASSWORD,
             "full_name": "Intake Agent",
+            "role": "agent",
+            "factory_name": "Intake Factory",
+            "location_in_china": "Guangzhou, Guangdong",
         },
     )
     assert response.status_code == 201
-    return {"email": "intake_agent@test.com", "password": "test_password_123"}
+    return {"email": "intake_agent@test.com", "password": TEST_LEGACY_PASSWORD}
 
 
 @pytest.fixture
