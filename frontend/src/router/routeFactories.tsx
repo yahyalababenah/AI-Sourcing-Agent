@@ -1,6 +1,7 @@
 import { ROUTES } from "@/constants/routes";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { DashboardRouter } from "@/pages/dashboard/DashboardRouter";
+import { MarketplacePage } from "@/pages/catalog/MarketplacePage";
 import { RFQListPage } from "@/pages/rfq/RFQListPage";
 import { RFQCreatePage } from "@/pages/rfq/RFQCreatePage";
 import { RFQDetailPage } from "@/pages/rfq/RFQDetailPage";
@@ -24,6 +25,16 @@ export const sharedRoutes: RouteObject[] = [
   {
     path: ROUTES.DASHBOARD,
     element: <DashboardRouter />,
+  },
+
+  // ── Global Catalog Marketplace (client & admin) ──
+  {
+    path: ROUTES.CATALOG.MARKETPLACE,
+    element: (
+      <RoleGuard roles={["client", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <MarketplacePage />
+      </RoleGuard>
+    ),
   },
 
   // ── RFQ Management (all roles) ──
