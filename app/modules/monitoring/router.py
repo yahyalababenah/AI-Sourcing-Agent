@@ -155,6 +155,16 @@ async def get_system_stats(
     rules_result = await db.execute(text("SELECT COUNT(*) FROM pricing_rules"))
     total_pricing_rules = rules_result.scalar() or 0
 
+    # Count catalog products (products inside extracted_entities->'products' across all EXTRACTED documents)
+    catalog_result = await db.execute(
+        text(
+            "SELECT COALESCE(SUM(jsonb_array_length(extracted_entities->'products')), 0) "
+            "FROM documents "
+            "WHERE status = 'extracted' AND extracted_entities IS NOT NULL"
+        )
+    )
+    total_catalog_products = catalog_result.scalar() or 0
+
     return {
         "total_users": total_users,
         "users_by_role": users_by_role,
@@ -162,6 +172,7 @@ async def get_system_stats(
         "total_documents": total_documents,
         "total_quotations": total_quotations,
         "total_pricing_rules": total_pricing_rules,
+        "total_catalog_products": total_catalog_products,
     }
 
 
