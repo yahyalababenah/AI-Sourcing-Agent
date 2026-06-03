@@ -26,5 +26,8 @@ export const ROUTES = {
     DETAIL: (id: string) => `/quotes/${id}`,
     PDF: (id: string) => `/quotes/${id}/pdf`,
   },
+  CATALOG: {
+    MARKETPLACE: "/marketplace",
+  },
   SETTINGS: "/settings",
 } as const;
