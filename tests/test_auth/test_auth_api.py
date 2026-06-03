@@ -2,9 +2,9 @@
 AI-Sourcing Hub — Authentication API Tests
 
 Tests all auth endpoints:
-    - POST /api/v1/auth/register
+    - POST /api/v1/auth/register        (with role-specific profiles)
     - POST /api/v1/auth/login
-    - GET  /api/v1/auth/me
+    - GET  /api/v1/auth/me              (includes profile data)
     - POST /api/v1/auth/refresh
     - POST /api/v1/auth/logout
 
@@ -55,21 +55,53 @@ async def client(app) -> AsyncClient:
 
 
 @pytest.fixture
-async def registered_user(client: AsyncClient, db_session: AsyncSession):
-    """Register a test user and return credentials."""
+async def registered_agent(client: AsyncClient, db_session: AsyncSession):
+    """Register a test agent (supplier) and return credentials."""
+    from tests.test_config import TEST_LEGACY_PASSWORD
+
     response = await client.post(
         "/api/v1/auth/register",
         json={
             "email": "agent@test.com",
-            "password": "test_password_123",
+            "password": TEST_LEGACY_PASSWORD,
             "full_name": "Test Agent",
             "phone": "+962791234567",
+            "role": "agent",
+            "factory_name": "Test Factory Ltd",
+            "location_in_china": "Guangzhou, Guangdong",
+            "specialty": "Test Goods",
+            "business_registration_number": "CN-TEST-001",
         },
     )
     assert response.status_code == 201
     return {
         "email": "agent@test.com",
-        "password": "test_password_123",
+        "password": TEST_LEGACY_PASSWORD,
+    }
+
+
+@pytest.fixture
+async def registered_client(client: AsyncClient, db_session: AsyncSession):
+    """Register a test client (buyer) and return credentials."""
+    from tests.test_config import TEST_LEGACY_PASSWORD
+
+    response = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "client@test.com",
+            "password": TEST_LEGACY_PASSWORD,
+            "full_name": "Test Client",
+            "phone": "+962700000000",
+            "role": "client",
+            "company_name": "Test Corp",
+            "preferred_port": "Aqaba",
+            "contact_number": "+962700000000",
+        },
+    )
+    assert response.status_code == 201
+    return {
+        "email": "client@test.com",
+        "password": TEST_LEGACY_PASSWORD,
     }
 
 
@@ -80,14 +112,20 @@ async def registered_user(client: AsyncClient, db_session: AsyncSession):
 class TestRegister:
     """POST /api/v1/auth/register"""
 
-    async def test_register_success(self, client: AsyncClient):
-        """Should create user and return 201 with user profile."""
+    # ── Success Cases ──
+
+    async def test_register_agent_success(self, client: AsyncClient):
+        """Should register an agent (supplier) and create SupplierProfile."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": "newagent@test.com",
                 "password": "securepass123",
                 "full_name": "New Agent",
+                "role": "agent",
+                "factory_name": "Factory One",
+                "location_in_china": "Shenzhen, Guangdong",
+                "specialty": "Electronics",
             },
         )
         assert response.status_code == 201
@@ -99,14 +137,135 @@ class TestRegister:
         assert "id" in data
         assert "password" not in data  # Password should never be returned
 
-    async def test_register_duplicate_email(self, client: AsyncClient, registered_user: dict):
+        # Verify profile is present
+        assert data["profile"] is not None
+        assert data["profile"]["factory_name"] == "Factory One"
+        assert data["profile"]["location_in_china"] == "Shenzhen, Guangdong"
+        assert data["profile"]["specialty"] == "Electronics"
+        assert data["profile"]["business_registration_number"] is None
+
+    async def test_register_client_success(self, client: AsyncClient):
+        """Should register a client (buyer) and create ClientProfile."""
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "newclient@test.com",
+                "password": "securepass123",
+                "full_name": "New Client",
+                "role": "client",
+                "company_name": "Client Corp",
+                "preferred_port": "Aqaba",
+                "contact_number": "+962700000001",
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["email"] == "newclient@test.com"
+        assert data["full_name"] == "New Client"
+        assert data["role"] == "client"
+        assert data["is_active"] is True
+
+        # Verify profile is present
+        assert data["profile"] is not None
+        assert data["profile"]["company_name"] == "Client Corp"
+        assert data["profile"]["preferred_port"] == "Aqaba"
+        assert data["profile"]["contact_number"] == "+962700000001"
+
+    async def test_register_admin_success(self, client: AsyncClient):
+        """Should register an admin (no profile needed)."""
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "admin@test.com",
+                "password": "securepass123",
+                "full_name": "Admin User",
+                "role": "admin",
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["role"] == "admin"
+        assert data["profile"] is None  # Admin has no profile
+
+    # ── Validation Cases ──
+
+    async def test_register_missing_role(self, client: AsyncClient):
+        """Should reject registration without a role."""
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "norole@test.com",
+                "password": "securepass123",
+                "full_name": "No Role",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_register_invalid_role(self, client: AsyncClient):
+        """Should reject registration with an invalid role."""
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "badrole@test.com",
+                "password": "securepass123",
+                "full_name": "Bad Role",
+                "role": "superadmin",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_register_client_missing_company_name(self, client: AsyncClient):
+        """Should reject client registration without company_name."""
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "client_no_company@test.com",
+                "password": "securepass123",
+                "full_name": "No Company",
+                "role": "client",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_register_agent_missing_factory_name(self, client: AsyncClient):
+        """Should reject agent registration without factory_name."""
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "agent_no_factory@test.com",
+                "password": "securepass123",
+                "full_name": "No Factory",
+                "role": "agent",
+                "location_in_china": "Somewhere",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_register_agent_missing_location(self, client: AsyncClient):
+        """Should reject agent registration without location_in_china."""
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "agent_no_loc@test.com",
+                "password": "securepass123",
+                "full_name": "No Location",
+                "role": "agent",
+                "factory_name": "Factory",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_register_duplicate_email(self, client: AsyncClient, registered_agent: dict):
         """Should reject registration with existing email."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
-                "email": registered_user["email"],
+                "email": registered_agent["email"],
                 "password": "anotherpass123",
                 "full_name": "Duplicate Agent",
+                "role": "agent",
+                "factory_name": "Dup Factory",
+                "location_in_china": "Dup Location",
             },
         )
         assert response.status_code == 422
@@ -121,6 +280,9 @@ class TestRegister:
                 "email": "not-an-email",
                 "password": "securepass123",
                 "full_name": "Bad Email",
+                "role": "agent",
+                "factory_name": "Factory",
+                "location_in_china": "Location",
             },
         )
         assert response.status_code == 422
@@ -133,6 +295,9 @@ class TestRegister:
                 "email": "shortpw@test.com",
                 "password": "short",
                 "full_name": "Short Password",
+                "role": "agent",
+                "factory_name": "Factory",
+                "location_in_china": "Location",
             },
         )
         assert response.status_code == 422
@@ -145,13 +310,13 @@ class TestRegister:
 class TestLogin:
     """POST /api/v1/auth/login"""
 
-    async def test_login_success(self, client: AsyncClient, registered_user: dict):
+    async def test_login_success(self, client: AsyncClient, registered_agent: dict):
         """Should authenticate and return JWT token pair."""
         response = await client.post(
             "/api/v1/auth/login",
             json={
-                "email": registered_user["email"],
-                "password": registered_user["password"],
+                "email": registered_agent["email"],
+                "password": registered_agent["password"],
             },
         )
         assert response.status_code == 200
@@ -161,12 +326,12 @@ class TestLogin:
         assert data["token_type"] == "bearer"
         assert data["expires_in"] > 0
 
-    async def test_login_invalid_password(self, client: AsyncClient, registered_user: dict):
+    async def test_login_invalid_password(self, client: AsyncClient, registered_agent: dict):
         """Should return 401 for wrong password."""
         response = await client.post(
             "/api/v1/auth/login",
             json={
-                "email": registered_user["email"],
+                "email": registered_agent["email"],
                 "password": "wrong_password_xyz",
             },
         )
@@ -195,12 +360,12 @@ class TestLogin:
 class TestGetMe:
     """GET /api/v1/auth/me"""
 
-    async def test_get_me_with_valid_token(self, client: AsyncClient, registered_user: dict):
-        """Should return user profile with valid access token."""
+    async def test_get_me_agent_with_profile(self, client: AsyncClient, registered_agent: dict):
+        """Should return agent profile with SupplierProfile data."""
         # Login first
         login_resp = await client.post(
             "/api/v1/auth/login",
-            json=registered_user,
+            json=registered_agent,
         )
         tokens = login_resp.json()
         access_token = tokens["access_token"]
@@ -212,9 +377,38 @@ class TestGetMe:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["email"] == registered_user["email"]
+        assert data["email"] == registered_agent["email"]
         assert data["role"] == "agent"
         assert data["is_active"] is True
+        # Verify profile data
+        assert data["profile"] is not None
+        assert data["profile"]["factory_name"] == "Test Factory Ltd"
+        assert data["profile"]["location_in_china"] == "Guangzhou, Guangdong"
+        assert data["profile"]["specialty"] == "Test Goods"
+        assert data["profile"]["business_registration_number"] == "CN-TEST-001"
+
+    async def test_get_me_client_with_profile(self, client: AsyncClient, registered_client: dict):
+        """Should return client profile with ClientProfile data."""
+        login_resp = await client.post(
+            "/api/v1/auth/login",
+            json=registered_client,
+        )
+        tokens = login_resp.json()
+        access_token = tokens["access_token"]
+
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email"] == registered_client["email"]
+        assert data["role"] == "client"
+        # Verify profile data
+        assert data["profile"] is not None
+        assert data["profile"]["company_name"] == "Test Corp"
+        assert data["profile"]["preferred_port"] == "Aqaba"
+        assert data["profile"]["contact_number"] == "+962700000000"
 
     async def test_get_me_no_token(self, client: AsyncClient):
         """Should return 401 without Authorization header."""
@@ -233,12 +427,12 @@ class TestGetMe:
 class TestRefreshToken:
     """POST /api/v1/auth/refresh"""
 
-    async def test_refresh_success(self, client: AsyncClient, registered_user: dict):
+    async def test_refresh_success(self, client: AsyncClient, registered_agent: dict):
         """Should return new access token with valid refresh token."""
         # Login
         login_resp = await client.post(
             "/api/v1/auth/login",
-            json=registered_user,
+            json=registered_agent,
         )
         tokens = login_resp.json()
         refresh_token = tokens["refresh_token"]
@@ -266,12 +460,12 @@ class TestRefreshToken:
 class TestLogout:
     """POST /api/v1/auth/logout"""
 
-    async def test_logout_success(self, client: AsyncClient, registered_user: dict):
+    async def test_logout_success(self, client: AsyncClient, registered_agent: dict):
         """Should successfully logout and blacklist refresh token."""
         # Login
         login_resp = await client.post(
             "/api/v1/auth/login",
-            json=registered_user,
+            json=registered_agent,
         )
         tokens = login_resp.json()
         access_token = tokens["access_token"]
