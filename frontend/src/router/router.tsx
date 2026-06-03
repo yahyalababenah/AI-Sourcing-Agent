@@ -2,9 +2,10 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ROUTES } from "@/constants/routes";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
-import { DashboardPage } from "@/pages/dashboard/DashboardPage";
+import { DashboardRouter } from "@/pages/dashboard/DashboardRouter";
 import { RFQListPage } from "@/pages/rfq/RFQListPage";
 import { RFQCreatePage } from "@/pages/rfq/RFQCreatePage";
 import { RFQDetailPage } from "@/pages/rfq/RFQDetailPage";
@@ -17,19 +18,24 @@ import { QuotationDetailPage } from "@/pages/quotes/QuotationDetailPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 
 /**
- * Application route definitions using React Router's createBrowserRouter.
+ * Application route definitions — 3-tier RBAC routing.
  *
  * Route hierarchy:
  *   / → redirect to /dashboard
- *   /auth/login, /auth/register → standalone pages (no layout)
- *   ProtectedRoute (checks auth, renders Outlet)
- *     └── AppLayout (sidebar + topbar + Outlet)
- *           ├── /dashboard
- *           ├── /rfq, /rfq/create, /rfq/:id
- *           ├── /documents/upload, /documents/:id
- *           ├── /pricing/rules, /pricing/calculate
- *           ├── /quotes, /quotes/:id
- *           └── /settings
+ *   /auth/login, /auth/register → standalone (no layout)
+ *   ProtectedRoute (checks auth)
+ *     └── AppLayout (role-based sidebar + Topbar + Outlet)
+ *           ├── /dashboard → DashboardRouter (role-based dashboard)
+ *           ├── /rfq        → RFQListPage (agent/admin) | RFQListPage (client, own only)
+ *           ├── /rfq/create → RoleGuard [agent,admin] | RFQCreatePage
+ *           ├── /rfq/:id    → RFQDetailPage
+ *           ├── /documents/upload → RoleGuard [agent,admin] | DocumentUploadPage
+ *           ├── /documents/:id    → RoleGuard [agent,admin] | DocumentDetailPage
+ *           ├── /pricing/rules    → RoleGuard [admin] | PricingRulesPage
+ *           ├── /pricing/calculate → RoleGuard [agent,admin] | PricingCalcPage
+ *           ├── /quotes     → QuotationListPage
+ *           ├── /quotes/:id → QuotationDetailPage
+ *           └── /settings   → SettingsPage
  *   * → redirect to /dashboard
  */
 export const router = createBrowserRouter([
@@ -56,46 +62,67 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
+          // ── Role-based Dashboard ──
           {
             path: ROUTES.DASHBOARD,
-            element: <DashboardPage />,
+            element: <DashboardRouter />,
           },
 
-          // RFQ Management (Phase 2)
+          // ── RFQ Management ──
           {
             path: ROUTES.RFQ.LIST,
             element: <RFQListPage />,
           },
           {
             path: ROUTES.RFQ.CREATE,
-            element: <RFQCreatePage />,
+            element: (
+              <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+                <RFQCreatePage />
+              </RoleGuard>
+            ),
           },
           {
             path: ROUTES.RFQ.DETAIL(":id"),
             element: <RFQDetailPage />,
           },
 
-          // Document Management (Phase 3)
+          // ── Document Management (Agent/Admin only) ──
           {
             path: ROUTES.DOCUMENTS.UPLOAD,
-            element: <DocumentUploadPage />,
+            element: (
+              <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+                <DocumentUploadPage />
+              </RoleGuard>
+            ),
           },
           {
             path: ROUTES.DOCUMENTS.DETAIL(":id"),
-            element: <DocumentDetailPage />,
+            element: (
+              <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+                <DocumentDetailPage />
+              </RoleGuard>
+            ),
           },
 
-          // Pricing (Phase 4)
+          // ── Pricing (Admin only for rules; Agent/Admin for calculate) ──
           {
             path: ROUTES.PRICING.RULES,
-            element: <PricingRulesPage />,
+            element: (
+              <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
+                <PricingRulesPage />
+              </RoleGuard>
+            ),
           },
           {
             path: ROUTES.PRICING.CALCULATE,
-            element: <PricingCalcPage />,
+            element: (
+              <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+                <PricingCalcPage />
+              </RoleGuard>
+            ),
           },
 
-          // Quotations (Phase 5)
+          // ── Quotations ──
           {
             path: ROUTES.QUOTES.LIST,
             element: <QuotationListPage />,
@@ -105,7 +132,7 @@ export const router = createBrowserRouter([
             element: <QuotationDetailPage />,
           },
 
-          // Settings
+          // ── Settings ──
           {
             path: ROUTES.SETTINGS,
             element: <SettingsPage />,

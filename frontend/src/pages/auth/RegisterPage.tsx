@@ -163,7 +163,20 @@ export function RegisterPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 نوع الحساب
               </label>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm transition-colors hover:border-primary-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-50">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="client"
+                    checked={formData.role === "client"}
+                    onChange={(e) =>
+                      handleChange("role", e.target.value as "client" | "agent" | "admin")
+                    }
+                    className="text-primary-600"
+                  />
+                  عميل
+                </label>
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm transition-colors hover:border-primary-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-50">
                   <input
                     type="radio"
@@ -171,7 +184,7 @@ export function RegisterPage() {
                     value="agent"
                     checked={formData.role === "agent"}
                     onChange={(e) =>
-                      handleChange("role", e.target.value as "agent" | "admin")
+                      handleChange("role", e.target.value as "client" | "agent" | "admin")
                     }
                     className="text-primary-600"
                   />
@@ -184,7 +197,7 @@ export function RegisterPage() {
                     value="admin"
                     checked={formData.role === "admin"}
                     onChange={(e) =>
-                      handleChange("role", e.target.value as "agent" | "admin")
+                      handleChange("role", e.target.value as "client" | "agent" | "admin")
                     }
                     className="text-primary-600"
                   />

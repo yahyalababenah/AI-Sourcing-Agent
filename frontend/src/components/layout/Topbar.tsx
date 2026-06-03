@@ -1,4 +1,4 @@
-import { LogOut, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthStore } from "@/stores/authStore";
 import { stringToColor } from "@/lib/utils";
@@ -30,7 +30,11 @@ export function Topbar() {
           <div className="text-sm">
             <p className="font-medium text-gray-900">{user?.full_name}</p>
             <p className="text-xs text-gray-500">
-              {user?.role === "admin" ? "مدير" : "وكيل"}
+              {user?.role === "admin"
+                ? "مدير النظام"
+                : user?.role === "client"
+                ? "عميل"
+                : "وكيل"}
             </p>
           </div>
         </div>

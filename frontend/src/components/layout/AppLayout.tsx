@@ -1,18 +1,31 @@
 import { Outlet } from "react-router-dom";
-import { Sidebar } from "./Sidebar";
+import { useAuthStore } from "@/stores/authStore";
+import { ClientSidebar } from "./ClientSidebar";
+import { AgentSidebar } from "./AgentSidebar";
+import { AdminSidebar } from "./AdminSidebar";
 import { Topbar } from "./Topbar";
 import { Toaster } from "react-hot-toast";
+import type { UserRole } from "@/types/auth";
+
+const sidebarMap: Record<UserRole, React.ComponentType> = {
+  client: ClientSidebar,
+  agent: AgentSidebar,
+  admin: AdminSidebar,
+};
 
 /**
- * Main application layout with sidebar, topbar, and content area.
+ * Main application layout with role-specific sidebar, topbar, and content area.
  * Wraps all authenticated pages.
  */
 export function AppLayout() {
+  const role = useAuthStore((s) => s.role);
+  const SidebarComponent = role ? sidebarMap[role] : AgentSidebar;
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
       <div className="hidden lg:block">
-        <Sidebar />
+        <SidebarComponent />
       </div>
 
       {/* Main content area */}

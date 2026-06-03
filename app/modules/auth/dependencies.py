@@ -139,4 +139,7 @@ def require_role(*roles: UserRole):
 # Convenience aliases
 require_admin = require_role(UserRole.ADMIN)
 require_agent = require_role(UserRole.AGENT)
+require_client = require_role(UserRole.CLIENT)
 require_agent_or_admin = require_role(UserRole.AGENT, UserRole.ADMIN)
+require_client_or_admin = require_role(UserRole.CLIENT, UserRole.ADMIN)
+require_any_role = require_role  # generic: require_any_role(UserRole.ADMIN, UserRole.AGENT, UserRole.CLIENT)

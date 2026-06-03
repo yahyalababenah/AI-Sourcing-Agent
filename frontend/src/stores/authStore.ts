@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { User } from "@/types/auth";
+import type { User, UserRole } from "@/types/auth";
 import { getAccessToken, setAccessToken, setRefreshToken, clearTokens } from "@/lib/auth";
 
 interface AuthState {
@@ -10,7 +10,7 @@ interface AuthState {
   /** Whether the user is authenticated. */
   isAuthenticated: boolean;
   /** The user's role. */
-  role: "agent" | "admin" | null;
+  role: UserRole | null;
 
   /** Set the authenticated user and tokens. */
   setAuth: (user: User, accessToken: string, refreshToken: string) => void;

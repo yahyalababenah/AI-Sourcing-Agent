@@ -3,7 +3,7 @@ export interface UserCreate {
   password: string;
   full_name: string;
   phone?: string;
-  role?: "agent" | "admin";
+  role?: "agent" | "admin" | "client";
 }
 
 export interface UserLogin {
@@ -22,11 +22,13 @@ export interface TokenRefresh {
   refresh_token: string;
 }
 
+export type UserRole = "client" | "agent" | "admin";
+
 export interface User {
   id: string;
   email: string;
   full_name: string;
-  role: "agent" | "admin";
+  role: UserRole;
   phone?: string;
   is_active: boolean;
   created_at: string;
