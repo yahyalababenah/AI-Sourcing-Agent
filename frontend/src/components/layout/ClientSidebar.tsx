@@ -1,14 +1,15 @@
 import { NavLink } from "react-router-dom";
-import { ClipboardList, Package, Settings } from "lucide-react";
+import { ClipboardList, Package, Globe, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 
 /**
- * Client Sidebar — Only shows RFQ creation and their own RFQs list.
+ * Client Sidebar — Shows marketplace, RFQ creation, and RFQ list.
  */
 export function ClientSidebar() {
   const navItems = [
     { to: ROUTES.DASHBOARD, label: "لوحة التحكم", icon: ClipboardList },
+    { to: ROUTES.CATALOG.MARKETPLACE, label: "السوق العالمي", icon: Globe },
     { to: ROUTES.RFQ.CREATE, label: "طلب عرض سعر جديد", icon: Package },
     { to: ROUTES.RFQ.LIST, label: "طلباتي", icon: ClipboardList },
   ];
