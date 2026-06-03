@@ -1,20 +1,23 @@
 """
 AI-Sourcing Hub — Authentication Endpoints
 
-/api/v1/auth/register      POST   Register new user
+/api/v1/auth/register      POST   Register new user (with role-specific profile)
 /api/v1/auth/login         POST   Authenticate, receive JWT pair
 /api/v1/auth/refresh       POST   Refresh access token
-/api/v1/auth/me            GET    Current user profile
+/api/v1/auth/me            GET    Current user profile (includes profile data)
 /api/v1/auth/logout        POST   Invalidate refresh token
 """
 
 from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.modules.auth.dependencies import get_current_user
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserRole
 from app.modules.auth.schemas import (
+    ClientProfileResponse,
+    SupplierProfileResponse,
     TokenRefresh,
     TokenResponse,
     UserCreate,
@@ -34,19 +37,48 @@ from app.shared.redis_client import get_redis_client
 router = APIRouter()
 
 
+def _build_user_response(user: User) -> UserResponse:
+    """Build a UserResponse with the role-specific profile data attached.
+
+    Args:
+        user: User instance (with profile relationship loaded).
+
+    Returns:
+        UserResponse with nested profile dict.
+    """
+    profile = None
+    if user.role == UserRole.CLIENT and user.client_profile:
+        profile = ClientProfileResponse.model_validate(
+            user.client_profile
+        ).model_dump()
+    elif user.role == UserRole.AGENT and user.supplier_profile:
+        profile = SupplierProfileResponse.model_validate(
+            user.supplier_profile
+        ).model_dump()
+
+    user_data = UserResponse.model_validate(user).model_dump()
+    user_data["profile"] = profile
+    return UserResponse(**user_data)
+
+
 @router.post(
     "/register",
     response_model=UserResponse,
     status_code=201,
-    summary="Register new user",
+    summary="Register new user with role-specific profile",
 )
 async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Register a new sourcing agent account."""
+    """Register a new user with a role-specific profile.
+
+    - **client**: Creates a ClientProfile (requires company_name)
+    - **agent**: Creates a SupplierProfile (requires factory_name, location_in_china)
+    - **admin**: No profile required
+    """
     user = await register_user(db, user_data)
-    return UserResponse.model_validate(user)
+    return _build_user_response(user)
 
 
 @router.post(
@@ -81,13 +113,17 @@ async def refresh(
 @router.get(
     "/me",
     response_model=UserResponse,
-    summary="Get current user profile",
+    summary="Get current user profile with profile data",
 )
 async def get_me(
     current_user: User = Depends(get_current_user),
 ):
-    """Return the profile of the currently authenticated user."""
-    return UserResponse.model_validate(current_user)
+    """Return the profile of the currently authenticated user.
+
+    Includes role-specific profile data (ClientProfile or SupplierProfile)
+    in the ``profile`` field.
+    """
+    return _build_user_response(current_user)
 
 
 @router.post(
