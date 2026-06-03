@@ -38,7 +38,7 @@ export interface RFQListResponse {
   items: RFQ[];
   total: number;
   page: number;
-  limit: number;
+  page_size: number;
 }
 
 export interface Product {
