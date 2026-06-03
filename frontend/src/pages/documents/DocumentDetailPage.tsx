@@ -4,6 +4,53 @@ import { ROUTES } from "@/constants/routes";
 import { documentService } from "@/services/documentService";
 import { useState } from "react";
 
+/**
+ * Confirmation dialog component before destructive actions.
+ */
+function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  open: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <p className="mt-2 text-sm text-gray-600">{message}</p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          >
+            {loading ? "جاري الحذف..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_COLORS: Record<string, string> = {
   uploaded: "bg-gray-100 text-gray-700",
   processing: "bg-yellow-100 text-yellow-700",
@@ -23,6 +70,7 @@ export function DocumentDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [processing, setProcessing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["document", id],
@@ -233,13 +281,27 @@ export function DocumentDetailPage() {
       {/* Actions */}
       <div className="flex gap-3">
         <button
-          onClick={() => deleteMutation.mutate()}
+          onClick={() => setShowDeleteConfirm(true)}
           disabled={deleteMutation.isPending}
           className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
         >
           {deleteMutation.isPending ? "جاري الحذف..." : "حذف المستند"}
         </button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="حذف المستند"
+        message={`هل أنت متأكد من حذف المستند "${doc.file_name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmLabel="نعم، احذف المستند"
+        onConfirm={() => {
+          deleteMutation.mutate();
+          setShowDeleteConfirm(false);
+        }}
+        onCancel={() => setShowDeleteConfirm(false)}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }
