@@ -2,9 +2,9 @@
 AI-Sourcing Hub — Intake Endpoints
 
 /api/v1/intake/translate    POST   Translate Arabic → Chinese + extract entities
-/api/v1/intake/rfqs         POST   Create a new RFQ (clients, agents, admins)
-/api/v1/intake/rfqs         GET    List RFQs (paginated, filterable, role-scoped)
-/api/v1/intake/rfqs/{id}    GET    Get RFQ details
+/api/v1/intake/rfqs         POST   Create a new RFQ (role-aware, with client_id)
+/api/v1/intake/rfqs         GET    List RFQs (role-scoped: client/agent/admin)
+/api/v1/intake/rfqs/{id}    GET    Get RFQ details (ownership-enforced 404)
 /api/v1/intake/rfqs/{id}/status PUT  Update RFQ status (agent/admin only)
 /api/v1/intake/rfqs/{id}/products POST  Add product to RFQ (agent/admin only)
 /api/v1/intake/rfqs/{id}/products GET   List products in RFQ
@@ -14,13 +14,14 @@ AI-Sourcing Hub — Intake Endpoints
 # ═══════════════════════════════════════════════════════════
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserRole
 from app.modules.intake.models import RFQStatus
 from app.modules.intake.schemas import (
+    ClientRFQCreate,
     RFQCreate,
     RFQResponse,
     RFQListResponse,
@@ -89,19 +90,35 @@ async def create_rfq_endpoint(
 ):
     """Create a new Request for Quotation.
 
-    Accessible by all authenticated users:
-    - Clients: Creates RFQ with their own user ID as the creator.
-    - Agents: Creates RFQ for a client with their agent ID.
-    - Admins: Creates RFQ with their admin ID.
+    Role-aware ownership:
+    - Clients: Creates RFQ with client_id = current_user.id, agent_id = None.
+    - Agents: Creates RFQ with agent_id = current_user.id, client_id from request.
+    - Admins: Creates RFQ with agent_id = current_user.id.
     """
-    rfq = await create_rfq(db, rfq_data, agent_id=str(current_user.id))
+    if current_user.role == UserRole.CLIENT:
+        # Clients use the restricted schema — strip agent-only fields
+        client_data = ClientRFQCreate(**rfq_data.model_dump())
+        rfq = await create_rfq(
+            db,
+            client_data,
+            agent_id=None,
+            client_id=str(current_user.id),
+        )
+    else:
+        # Agents and admins use the full schema
+        rfq = await create_rfq(
+            db,
+            rfq_data,
+            agent_id=str(current_user.id),
+            client_id=None,
+        )
     return RFQResponse.model_validate(rfq)
 
 
 @router.get(
     "/rfqs",
     response_model=RFQListResponse,
-    summary="List RFQs",
+    summary="List RFQs (role-scoped)",
 )
 async def list_rfqs_endpoint(
     pagination: PaginationParams = Depends(),
@@ -109,19 +126,31 @@ async def list_rfqs_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List RFQs with pagination and optional status filter.
+    """List RFQs with role-based data isolation scoping.
 
-    Role-based scoping:
     - Admin: Sees all RFQs across the system.
-    - Agent: Sees only RFQs assigned to them.
-    - Client: Sees only RFQs they created (their user ID is stored as agent_id).
+    - Agent: Sees assigned RFQs + unassigned open RFQs.
+    - Client: Sees only RFQs they created (client_id == current_user.id).
     """
-    # Admin sees all; agents and clients see only their own
-    user_id = str(current_user.id) if current_user.role != "admin" else None
+    user_id = str(current_user.id)
+    if current_user.role == UserRole.CLIENT:
+        return await list_rfqs(
+            db,
+            pagination=pagination,
+            client_id=user_id,
+            status=status,
+        )
+    elif current_user.role == UserRole.AGENT:
+        return await list_rfqs(
+            db,
+            pagination=pagination,
+            agent_id=user_id,
+            status=status,
+        )
+    # Admin: no filter — full access
     return await list_rfqs(
         db,
         pagination=pagination,
-        agent_id=user_id,
         status=status,
     )
 
@@ -129,18 +158,24 @@ async def list_rfqs_endpoint(
 @router.get(
     "/rfqs/{rfq_id}",
     response_model=RFQResponse,
-    summary="Get RFQ details",
+    summary="Get RFQ details (ownership-enforced)",
 )
 async def get_rfq_endpoint(
     rfq_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get detailed information about a specific RFQ.
 
-    Any authenticated user can view RFQ details.
+    Enforces data isolation: returns 404 if the user does not have
+    access to the requested RFQ (hides existence from unauthorized users).
     """
-    rfq = await get_rfq(db, rfq_id)
+    rfq = await get_rfq(
+        db,
+        rfq_id,
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     return RFQResponse.model_validate(rfq)
 
 
@@ -208,12 +243,19 @@ async def add_product_endpoint(
 async def list_products_endpoint(
     rfq_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """List all products associated with an RFQ.
 
-    Any authenticated user can view products in an RFQ.
+    Enforces data isolation — the RFQ access check is done via get_rfq.
     """
+    # Verify the user has access to the parent RFQ first
+    await get_rfq(
+        db,
+        rfq_id,
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     products = await list_products(db, rfq_id)
     return [
         {

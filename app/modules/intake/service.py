@@ -89,25 +89,28 @@ async def translate_request(
 async def create_rfq(
     db: AsyncSession,
     rfq_data: RFQCreate,
-    agent_id: str,
+    agent_id: Optional[str] = None,
+    client_id: Optional[str] = None,
 ) -> RFQ:
-    """Create a new RFQ.
+    """Create a new RFQ with role-aware ownership assignment.
 
     Args:
         db: Database session.
         rfq_data: RFQ creation data.
-        agent_id: UUID of the creating agent.
+        agent_id: UUID of the creating agent (None if client-created).
+        client_id: UUID of the client (None if agent-created without specific client).
 
     Returns:
         Created RFQ instance.
     """
     rfq = RFQ(
-        agent_id=uuid.UUID(agent_id),
+        agent_id=uuid.UUID(agent_id) if agent_id else None,
+        client_id=uuid.UUID(client_id) if client_id else None,
         client_name=rfq_data.client_name,
         client_phone=rfq_data.client_phone,
         client_request_arabic=rfq_data.client_request_arabic,
-        translated_query_chinese=rfq_data.translated_query_chinese,
-        extracted_entities=rfq_data.extracted_entities,
+        translated_query_chinese=getattr(rfq_data, 'translated_query_chinese', None),
+        extracted_entities=getattr(rfq_data, 'extracted_entities', None),
         destination_port=rfq_data.destination_port,
         target_currency=rfq_data.target_currency,
         status=RFQStatus.OPEN,
@@ -118,18 +121,25 @@ async def create_rfq(
     return rfq
 
 
-async def get_rfq(db: AsyncSession, rfq_id: str) -> RFQ:
-    """Get an RFQ by ID.
+async def get_rfq(
+    db: AsyncSession,
+    rfq_id: str,
+    current_user_id: Optional[str] = None,
+    current_user_role: Optional[str] = None,
+) -> RFQ:
+    """Get an RFQ by ID with optional ownership scope check.
 
     Args:
         db: Database session.
         rfq_id: RFQ UUID string.
+        current_user_id: UUID of the requesting user (for scope check).
+        current_user_role: Role of the requesting user (for scope check).
 
     Returns:
         RFQ instance.
 
     Raises:
-        NotFoundException: If RFQ not found.
+        NotFoundException: If RFQ not found or not accessible by user.
     """
     result = await db.execute(
         select(RFQ).where(RFQ.id == uuid.UUID(rfq_id))
@@ -140,6 +150,25 @@ async def get_rfq(db: AsyncSession, rfq_id: str) -> RFQ:
             resource="RFQ",
             resource_id=rfq_id,
         )
+    # Enforce data isolation for non-admin users
+    if current_user_id and current_user_role != "admin":
+        user_uuid = uuid.UUID(current_user_id)
+        if current_user_role == "client":
+            # Clients can only access RFQs where they are the client
+            if rfq.client_id != user_uuid:
+                raise NotFoundException(
+                    resource="RFQ",
+                    resource_id=rfq_id,
+                )
+        elif current_user_role == "agent":
+            # Agents can access RFQs assigned to them OR unassigned open RFQs
+            if rfq.agent_id != user_uuid and not (
+                rfq.agent_id is None and rfq.status == RFQStatus.OPEN
+            ):
+                raise NotFoundException(
+                    resource="RFQ",
+                    resource_id=rfq_id,
+                )
     return rfq
 
 
@@ -147,14 +176,16 @@ async def list_rfqs(
     db: AsyncSession,
     pagination: PaginationParams,
     agent_id: Optional[str] = None,
+    client_id: Optional[str] = None,
     status: Optional[RFQStatus] = None,
 ) -> RFQListResponse:
-    """List RFQs with optional filtering and pagination.
+    """List RFQs with role-scoped filtering and pagination.
 
     Args:
         db: Database session.
         pagination: Pagination parameters.
-        agent_id: Optional filter by agent.
+        agent_id: Filter by assigned agent (agents see own + unassigned open).
+        client_id: Filter by owning client (clients see only their own).
         status: Optional filter by status.
 
     Returns:
@@ -162,8 +193,18 @@ async def list_rfqs(
     """
     query = select(RFQ)
 
-    if agent_id:
-        query = query.where(RFQ.agent_id == uuid.UUID(agent_id))
+    if client_id:
+        # Client scope: only RFQs owned by this client
+        query = query.where(RFQ.client_id == uuid.UUID(client_id))
+    elif agent_id:
+        # Agent scope: assigned RFQs OR unassigned open RFQs
+        agent_uuid = uuid.UUID(agent_id)
+        query = query.where(
+            (RFQ.agent_id == agent_uuid)
+            | ((RFQ.agent_id.is_(None)) & (RFQ.status == RFQStatus.OPEN))
+        )
+    # Admin: no filter — full table access
+
     if status:
         query = query.where(RFQ.status == status)
 
