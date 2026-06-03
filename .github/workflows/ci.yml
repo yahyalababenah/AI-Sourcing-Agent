@@ -32,9 +32,9 @@ on:
       - develop
 
 env:
-  POSTGRES_DB: test_db
-  POSTGRES_USER: test_user
-  POSTGRES_PASSWORD: test_password
+  POSTGRES_DB: ci_db
+  POSTGRES_USER: ci_user
+  POSTGRES_PASSWORD: secure_ci_db_pass_2026!
   POSTGRES_HOST: localhost
   POSTGRES_PORT: 5432
 
@@ -120,9 +120,9 @@ jobs:
         env:
           # Minimal env vars needed to instantiate Settings()
           DB_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          REDIS_PASSWORD: test_redis_pwd_XYZ
-          JWT_SECRET: test_jwt_key_64_chars_minimum_for_hs256_algorithm_use_this
-          ENVIRONMENT: testing
+          REDIS_PASSWORD: ci_redis_strong_pwd_XYZ
+          JWT_SECRET: hs256_ci_key_64_chars_minimum_for_hs256_algorithm_use_this
+          ENVIRONMENT: development
         run: |
           python -c "
           from app.config import settings;
@@ -139,11 +139,11 @@ jobs:
 
           # Required by app/config.py Settings validation
           DB_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          REDIS_PASSWORD: test_redis_pwd_XYZ
-          JWT_SECRET: test_jwt_key_64_chars_minimum_for_hs256_algorithm_use_this
+          REDIS_PASSWORD: ci_redis_strong_pwd_XYZ
+          JWT_SECRET: hs256_ci_key_64_chars_minimum_for_hs256_algorithm_use_this
 
           # Test environment overrides
-          ENVIRONMENT: testing
+          ENVIRONMENT: development
           ALLOWED_HOSTS: '["*"]'
           CORS_ORIGINS: '["*"]'
           REDIS_URL: "redis://localhost:6379/9"
