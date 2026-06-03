@@ -15,7 +15,7 @@ AI-Sourcing Hub — Document Management Endpoints
 # ═══════════════════════════════════════════════════════════
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
@@ -38,6 +38,7 @@ from app.modules.documents.service import (
     update_document_items,
     upload_document,
 )
+from app.modules.intake.service import get_rfq
 from app.shared.database import get_db
 
 router = APIRouter()
@@ -56,7 +57,18 @@ async def upload(
     current_user: User = Depends(get_current_user),
     _: None = Depends(require_agent_or_admin),
 ):
-    """Upload a document and associate it with an RFQ."""
+    """Upload a document and associate it with an RFQ.
+
+    Restricted to agents and admins — clients cannot upload documents.
+    Verifies the user has access to the target RFQ.
+    """
+    # Verify user has access to this RFQ
+    await get_rfq(
+        db,
+        rfq_id,
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     file_bytes = await file.read()
     doc = await upload_document(
         db,
@@ -77,9 +89,19 @@ async def upload(
 async def list_docs(
     rfq_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    """Get all documents attached to a specific RFQ."""
+    """Get all documents attached to a specific RFQ.
+
+    Enforces data isolation: verifies the user has access to the parent RFQ.
+    """
+    # Verify user has access to this RFQ
+    await get_rfq(
+        db,
+        rfq_id,
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     return await list_documents(db, rfq_id)
 
 
@@ -91,10 +113,21 @@ async def list_docs(
 async def get_doc(
     document_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    """Get detailed information about a document."""
+    """Get detailed information about a document.
+
+    Enforces data isolation: verifies the user has access to the
+    parent RFQ before returning document details.
+    """
     doc = await get_document(db, document_id)
+    # Verify user has access to the parent RFQ
+    await get_rfq(
+        db,
+        str(doc.rfq_id),
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     return DocumentResponse.model_validate(doc)
 
 
@@ -149,9 +182,12 @@ async def process_doc(
 async def get_doc_status(
     document_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get lightweight document status for polling.
+
+    Enforces data isolation: verifies the user has access to the
+    parent RFQ before returning status.
 
     Clients should poll this endpoint every 2-3 seconds after
     triggering ``POST /{id}/process`` to check for completion.
@@ -160,6 +196,14 @@ async def get_doc_status(
         - ``uploaded`` → ``processing`` → ``extracted`` (success)
         - ``uploaded`` → ``processing`` → ``failed`` (error)
     """
+    doc = await get_document(db, document_id)
+    # Verify user has access to the parent RFQ
+    await get_rfq(
+        db,
+        str(doc.rfq_id),
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     return await get_document_status(db, document_id)
 
 
@@ -175,13 +219,24 @@ async def get_doc_status(
 async def get_items(
     document_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get the extracted product items from a processed document.
+
+    Enforces data isolation: verifies the user has access to the
+    parent RFQ before returning items.
 
     Returns an empty list if the document hasn't been processed yet
     or no items were extracted.
     """
+    doc = await get_document(db, document_id)
+    # Verify user has access to the parent RFQ
+    await get_rfq(
+        db,
+        str(doc.rfq_id),
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     items = await get_document_items(db, document_id)
     return {"items": items, "total": len(items)}
 
