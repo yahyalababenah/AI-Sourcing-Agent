@@ -60,3 +60,10 @@ minio_data/
 # Backup
 *.bak
 *.backup
+# Dependency directories
+node_modules/
+frontend/node_modules/
+
+# Local databases
+*.db
+test.db
