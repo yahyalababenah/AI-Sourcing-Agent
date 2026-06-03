@@ -18,11 +18,16 @@ export function useAuth() {
     async (data: UserLogin) => {
       try {
         const tokens = await authService.login(data);
-        // Fetch full user profile after login
-        setAuth(tokens as any, tokens.access_token, tokens.refresh_token);
-        // Set the access token header before fetching user
+        // Step 1: Persist tokens so getMe() can authenticate
+        useAuthStore.getState().setAuth(
+          { id: "", email: "", full_name: "", role: "agent", phone: null, is_active: true, created_at: "" } as any,
+          tokens.access_token,
+          tokens.refresh_token,
+        );
+        // Step 2: Fetch the actual user profile
         const me = await authService.getMe();
-        setUser(me);
+        // Step 3: Overwrite with the real user object
+        useAuthStore.getState().setAuth(me, tokens.access_token, tokens.refresh_token);
         toast.success("تم تسجيل الدخول بنجاح"); // Login successful
         navigate(ROUTES.DASHBOARD);
       } catch (error: any) {
@@ -32,7 +37,7 @@ export function useAuth() {
         throw error;
       }
     },
-    [navigate, setAuth, setUser]
+    [navigate]
   );
 
   const register = useCallback(
