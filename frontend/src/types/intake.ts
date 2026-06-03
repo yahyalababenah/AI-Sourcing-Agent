@@ -44,9 +44,9 @@ export interface RFQListResponse {
 export interface Product {
   id: string;
   rfq_id: string;
-  product_name: string;
+  name: string;
   quantity: number;
-  unit: string;
-  notes?: string;
+  specifications?: string;
+  status: string;
   created_at: string;
 }

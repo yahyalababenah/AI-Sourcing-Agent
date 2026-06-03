@@ -64,11 +64,12 @@ export interface LineItemResult {
 export interface CalculatePriceResponse {
   rfq_id: string;
   target_currency: string;
-  destination_port: string;
-  exchange_rate: number;
+  exchange_rate_used: number;
   line_items: LineItemResult[];
-  total_cny: number;
-  total_converted: number;
+  subtotal_before_vat: number;
+  vat: number;
+  early_payment_discount: number;
   grand_total: number;
-  currency: string;
+  discount_total: number;
+  rules_applied: string[];
 }

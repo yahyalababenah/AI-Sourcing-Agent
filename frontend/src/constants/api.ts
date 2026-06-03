@@ -16,7 +16,7 @@ export const API = {
   },
   DOCUMENTS: {
     UPLOAD: "/documents/upload",
-    LIST: (rfqId: string) => `/documents/list/rfq/${rfqId}`,
+    LIST: (rfqId: string) => `/documents/rfq/${rfqId}`,
     DOCUMENT: (id: string) => `/documents/${id}`,
     PROCESS: (id: string) => `/documents/${id}/process`,
     STATUS: (id: string) => `/documents/${id}/status`,
