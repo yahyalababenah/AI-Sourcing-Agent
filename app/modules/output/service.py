@@ -158,24 +158,35 @@ async def get_quotation(db: AsyncSession, quotation_id: str) -> Quotation:
 async def list_quotations(
     db: AsyncSession,
     agent_id: Optional[str] = None,
+    client_id: Optional[str] = None,
     rfq_id: Optional[str] = None,
     status: Optional[QuotationStatus] = None,
 ) -> QuotationListResponse:
-    """List quotations with optional filtering.
+    """List quotations with optional filtering and role-based scoping.
 
     Args:
         db: Database session.
         agent_id: Optional agent filter.
+        client_id: Optional client filter (scopes to RFQs owned by client).
         rfq_id: Optional RFQ filter.
         status: Optional status filter.
 
     Returns:
         QuotationListResponse.
     """
+    from app.modules.intake.models import RFQ
+
     query = select(Quotation)
 
-    if agent_id:
+    if client_id:
+        # Client scope: quotations for RFQs where client_id == current user
+        query = query.join(RFQ, Quotation.rfq_id == RFQ.id).where(
+            RFQ.client_id == uuid.UUID(client_id)
+        )
+    elif agent_id:
         query = query.where(Quotation.agent_id == uuid.UUID(agent_id))
+    # Admin: no filter — full table access
+
     if rfq_id:
         query = query.where(Quotation.rfq_id == uuid.UUID(rfq_id))
     if status:
