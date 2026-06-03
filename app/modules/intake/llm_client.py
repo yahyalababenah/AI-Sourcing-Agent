@@ -33,8 +33,12 @@ logger = get_logger(__name__)
 # ═══════════════════════════════════════════════════════════
 
 # Default models per provider
+# OpenRouter has a valid API key; Together AI key is test-only
+# Models verified available as of 2026-06:
+#   - meta-llama/llama-3.3-70b-instruct:free  (free, excellent Arabic)
+#   - qwen/qwen3-next-80b-a3b-instruct:free    (free, good alternative)
 TOGETHER_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 
 TOGETHER_BASE_URL = "https://api.together.xyz/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"

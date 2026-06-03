@@ -33,7 +33,10 @@ class RFQ(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     agent_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
+    client_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
     client_name = Column(String(255), nullable=True)
     client_phone = Column(String(50), nullable=True)
@@ -58,7 +61,16 @@ class RFQ(Base):
     )
 
     # ---- Relationships ----
-    agent = relationship("app.modules.auth.models.User", back_populates="rfqs")
+    agent = relationship(
+        "app.modules.auth.models.User",
+        foreign_keys=[agent_id],
+        back_populates="rfqs",
+    )
+    client = relationship(
+        "app.modules.auth.models.User",
+        foreign_keys=[client_id],
+        back_populates="client_rfqs",
+    )
     products = relationship("Product", back_populates="rfq", cascade="all, delete-orphan")
     documents = relationship(
         "app.modules.documents.models.Document", back_populates="rfq"

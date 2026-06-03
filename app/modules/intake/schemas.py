@@ -28,7 +28,7 @@ class TranslateResponse(BaseModel):
 
 
 class RFQCreate(BaseModel):
-    """RFQ creation request (after translation)."""
+    """RFQ creation request (after translation) — used by agents and admins."""
 
     client_name: Optional[str] = Field(None, max_length=255)
     client_phone: Optional[str] = Field(None, max_length=50)
@@ -39,11 +39,22 @@ class RFQCreate(BaseModel):
     target_currency: Optional[str] = Field(default="JOD", max_length=10)
 
 
+class ClientRFQCreate(BaseModel):
+    """Restricted RFQ creation schema for clients — no agent/translation fields."""
+
+    client_name: Optional[str] = Field(None, max_length=255)
+    client_phone: Optional[str] = Field(None, max_length=50)
+    client_request_arabic: Optional[str] = None
+    destination_port: Optional[str] = Field(None, max_length=100)
+    target_currency: Optional[str] = Field(default="JOD", max_length=10)
+
+
 class RFQResponse(BaseModel):
     """RFQ detail response."""
 
     id: UUID
-    agent_id: UUID
+    agent_id: Optional[UUID] = None
+    client_id: Optional[UUID] = None
     client_name: Optional[str] = None
     client_phone: Optional[str] = None
     client_request_arabic: Optional[str] = None
