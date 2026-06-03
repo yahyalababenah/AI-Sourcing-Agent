@@ -34,7 +34,13 @@ logger = get_logger(__name__)
 # Constants
 # ═══════════════════════════════════════════════════════════
 
-OPENROUTER_VL_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free"
+# OpenRouter models: check https://openrouter.ai/models for current availability
+# OpenRouter has a valid API key; Together AI key is test-only
+# Models verified available as of 2026-06:
+#   - qwen/qwen2.5-vl-72b-instruct  ($0.00000025/tok — excellent table extraction)
+#   - qwen/qwen3-vl-32b-instruct     ($0.000000104/tok — cheaper, good quality)
+#   - nvidia/nemotron-nano-12b-v2-vl:free  (free)
+OPENROUTER_VL_MODEL = "qwen/qwen2.5-vl-72b-instruct"
 TOGETHER_VL_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct-Turbo"
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
