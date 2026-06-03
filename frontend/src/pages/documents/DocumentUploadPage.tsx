@@ -89,7 +89,7 @@ export function DocumentUploadPage() {
               <option value="">-- اختر طلب عرض سعر --</option>
               {rfqs.map((rfq) => (
                 <option key={rfq.id} value={rfq.id}>
-                  {rfq.client_name} — {rfq.client_request_arabic.slice(0, 50)}...
+                  {rfq.client_name} — {(rfq.client_request_arabic || "").slice(0, 50)}...
                 </option>
               ))}
             </select>
