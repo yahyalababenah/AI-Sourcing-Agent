@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { pricingService } from "@/services/pricingService";
+import { monitoringService } from "@/services/monitoringService";
 import { ROUTES } from "@/constants/routes";
 import {
   DollarSign,
@@ -13,6 +14,7 @@ import {
   FileText,
   ClipboardList,
   Package,
+  Store,
 } from "lucide-react";
 
 /**
@@ -33,20 +35,23 @@ export function AdminDashboard() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: async () => {
-      // We aggregate from existing APIs since there's no dedicated admin stats endpoint yet
-      const [rfqsRes, quotesRes, rulesRes] = await Promise.allSettled([
-        fetch("/api/v1/intake/rfqs?limit=1").then((r) => r.json()),
-        fetch("/api/v1/quotes?limit=1").then((r) => r.json()),
+      // Use the dedicated admin stats endpoint that returns all counts in one call
+      const [adminStats, rulesRes] = await Promise.allSettled([
+        monitoringService.getStats(),
         pricingService.listRules({}),
       ]);
 
       const totalRfqs =
-        rfqsRes.status === "fulfilled" ? rfqsRes.value?.total ?? 0 : 0;
+        adminStats.status === "fulfilled" ? adminStats.value?.total_rfqs ?? 0 : 0;
       const totalQuotes =
-        quotesRes.status === "fulfilled" ? quotesRes.value?.total ?? 0 : 0;
+        adminStats.status === "fulfilled" ? adminStats.value?.total_quotations ?? 0 : 0;
+      const totalUsers =
+        adminStats.status === "fulfilled" ? adminStats.value?.total_users ?? 0 : 0;
       const totalRules = rulesRes.status === "fulfilled" ? rulesRes.value?.total ?? 0 : 0;
+      const totalCatalogProducts =
+        adminStats.status === "fulfilled" ? adminStats.value?.total_catalog_products ?? 0 : 0;
 
-      return { totalRfqs, totalQuotes, totalRules };
+      return { totalRfqs, totalQuotes, totalUsers, totalRules, totalCatalogProducts };
     },
     staleTime: 30_000,
   });
@@ -56,9 +61,7 @@ export function AdminDashboard() {
     queryKey: ["admin", "ai-costs"],
     queryFn: async () => {
       try {
-        const res = await fetch("/api/v1/admin/ai-costs");
-        if (!res.ok) throw new Error("Not available");
-        return await res.json();
+        return await monitoringService.getAiCosts();
       } catch {
         return null;
       }
@@ -135,20 +138,22 @@ export function AdminDashboard() {
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">المستخدمين</p>
-              <p className="text-2xl font-bold text-gray-900">—</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {statsLoading ? "..." : (stats?.totalUsers ?? "—")}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="card p-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-              <Package className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
+              <Store className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500">قواعد التسعير</p>
+              <p className="text-xs font-medium text-gray-500">منتجات الكتالوج</p>
               <p className="text-2xl font-bold text-gray-900">
-                {rulesLoading ? "..." : activeRules.length}
+                {statsLoading ? "..." : (stats?.totalCatalogProducts ?? 0)}
               </p>
             </div>
           </div>
