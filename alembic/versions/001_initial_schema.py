@@ -35,7 +35,7 @@ def upgrade() -> None:
     # ── Enums ──
     # PostgreSQL enums are created implicitly by SQLAlchemy's Enum type
     # when used with create_all. For Alembic, we define them explicitly
-    # to ensure proper ordering and avoid dependency issues.
+    # with create_type=False on column definitions to avoid duplicate creation.
 
     # UserRole enum
     sa.Enum("admin", "agent", "client", name="userrole").create(op.get_bind(), checkfirst=True)
@@ -85,7 +85,7 @@ def upgrade() -> None:
         sa.Column("email", sa.String(255), unique=True, nullable=False, index=True),
         sa.Column("password_hash", sa.String(255), nullable=False),
         sa.Column("full_name", sa.String(255), nullable=False),
-        sa.Column("role", sa.Enum("admin", "agent", "client", name="userrole"), nullable=False, server_default="agent"),
+        sa.Column("role", postgresql.ENUM("admin", "agent", "client", name="userrole", create_type=False), nullable=False, server_default="agent"),
         sa.Column("phone", sa.String(50), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("preferences", postgresql.JSONB(), nullable=True, server_default=sa.text("'{}'::jsonb")),
@@ -102,7 +102,7 @@ def upgrade() -> None:
         sa.Column("client_phone", sa.String(50), nullable=True),
         sa.Column("client_request_arabic", sa.Text(), nullable=True),
         sa.Column("translated_query_chinese", sa.Text(), nullable=True),
-        sa.Column("status", sa.Enum("open", "processing", "quoted", "closed", "cancelled", name="rfqstatus"), nullable=False, server_default="open", index=True),
+        sa.Column("status", postgresql.ENUM("open", "processing", "quoted", "closed", "cancelled", name="rfqstatus", create_type=False), nullable=False, server_default="open", index=True),
         sa.Column("extracted_entities", postgresql.JSONB(), nullable=True),
         sa.Column("destination_port", sa.String(100), nullable=True),
         sa.Column("target_currency", sa.String(10), nullable=True, server_default="JOD"),
@@ -119,7 +119,7 @@ def upgrade() -> None:
         sa.Column("specifications", sa.Text(), nullable=True),
         sa.Column("quantity", sa.Integer(), nullable=False),
         sa.Column("target_price", sa.Float(precision=10), nullable=True),
-        sa.Column("status", sa.Enum("pending", "quoted", name="productstatus"), nullable=False, server_default="pending"),
+        sa.Column("status", postgresql.ENUM("pending", "quoted", name="productstatus", create_type=False), nullable=False, server_default="pending"),
         sa.Column("extracted_metadata", postgresql.JSONB(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
     )
@@ -134,8 +134,8 @@ def upgrade() -> None:
         sa.Column("file_path", sa.String(1000), nullable=False),
         sa.Column("file_size_bytes", sa.Integer(), nullable=True),
         sa.Column("content_type", sa.String(100), nullable=True),
-        sa.Column("doc_type", sa.Enum("pdf", "image", "excel", "other", name="documenttype"), nullable=False, server_default="pdf"),
-        sa.Column("status", sa.Enum("uploaded", "processing", "extracted", "failed", name="documentstatus"), nullable=False, server_default="uploaded", index=True),
+        sa.Column("doc_type", postgresql.ENUM("pdf", "image", "excel", "other", name="documenttype", create_type=False), nullable=False, server_default="pdf"),
+        sa.Column("status", postgresql.ENUM("uploaded", "processing", "extracted", "failed", name="documentstatus", create_type=False), nullable=False, server_default="uploaded", index=True),
         sa.Column("extracted_text", sa.Text(), nullable=True),
         sa.Column("extracted_entities", postgresql.JSONB(), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
@@ -149,14 +149,14 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("name", sa.String(255), nullable=False, index=True),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("category", sa.Enum("exchange_rate", "freight", "customs", "commission", "moq_discount", "tax", "margin", "other", name="pricingrulecategory"), nullable=False, index=True),
+        sa.Column("category", postgresql.ENUM("exchange_rate", "freight", "customs", "commission", "moq_discount", "tax", "margin", "other", name="pricingrulecategory", create_type=False), nullable=False, index=True),
         sa.Column("rule_type", sa.String(50), nullable=False),
         sa.Column("value", sa.Float(), nullable=False),
         sa.Column("currency", sa.String(10), nullable=True),
         sa.Column("conditions", postgresql.JSONB(), nullable=True),
         sa.Column("priority", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("status", sa.Enum("active", "inactive", name="pricingrulestatus"), nullable=False, server_default="active"),
+        sa.Column("status", postgresql.ENUM("active", "inactive", name="pricingrulestatus", create_type=False), nullable=False, server_default="active"),
         sa.Column("version", sa.Integer(), nullable=False, server_default=sa.text("1")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
@@ -169,7 +169,7 @@ def upgrade() -> None:
         sa.Column("rfq_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("rfqs.id", ondelete="CASCADE"), nullable=False, index=True),
         sa.Column("agent_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
         sa.Column("quotation_number", sa.String(50), unique=True, nullable=False, index=True),
-        sa.Column("status", sa.Enum("draft", "finalized", "sent", "accepted", "rejected", "expired", name="quotationstatus"), nullable=False, server_default="draft", index=True),
+        sa.Column("status", postgresql.ENUM("draft", "finalized", "sent", "accepted", "rejected", "expired", name="quotationstatus", create_type=False), nullable=False, server_default="draft", index=True),
         sa.Column("target_currency", sa.String(10), nullable=False, server_default="JOD"),
         sa.Column("exchange_rate_used", sa.Float(), nullable=False),
         sa.Column("subtotal", sa.Float(), nullable=False),
