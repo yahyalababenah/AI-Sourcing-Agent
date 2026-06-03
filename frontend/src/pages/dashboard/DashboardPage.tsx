@@ -1,7 +1,36 @@
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { intakeService } from "@/services/intakeService";
+import { quotationService } from "@/services/quotationService";
+import { ROUTES } from "@/constants/routes";
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  // ── Dashboard stats ──────────────────────────────────────
+  const { data: rfqsData } = useQuery({
+    queryKey: ["rfqs", "all", 1, 1],
+    queryFn: () => intakeService.list({ limit: 1 }),
+    staleTime: 30_000,
+  });
+
+  const { data: pendingRfqs } = useQuery({
+    queryKey: ["rfqs", "pending", 1, 1],
+    queryFn: () => intakeService.list({ status: "open", limit: 1 }),
+    staleTime: 30_000,
+  });
+
+  const { data: quotesData } = useQuery({
+    queryKey: ["quotations", "all"],
+    queryFn: () => quotationService.list(),
+    staleTime: 30_000,
+  });
+
+  const rfqCount = rfqsData?.total ?? 0;
+  const pendingCount = pendingRfqs?.total ?? 0;
+  const quoteCount = quotesData?.total ?? 0;
 
   return (
     <div className="space-y-6">
@@ -20,25 +49,25 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <div className="card p-5">
           <h3 className="text-sm font-medium text-gray-500">طلبات العروض</h3>
-          <p className="mt-2 text-3xl font-bold text-primary-700">0</p>
+          <p className="mt-2 text-3xl font-bold text-primary-700">{rfqCount}</p>
           <p className="mt-1 text-xs text-gray-400">إجمالي طلبات العروض</p>
         </div>
 
         <div className="card p-5">
           <h3 className="text-sm font-medium text-gray-500">المستندات</h3>
-          <p className="mt-2 text-3xl font-bold text-primary-700">0</p>
+          <p className="mt-2 text-3xl font-bold text-primary-700">—</p>
           <p className="mt-1 text-xs text-gray-400">المستندات المرفوعة</p>
         </div>
 
         <div className="card p-5">
           <h3 className="text-sm font-medium text-gray-500">عروض الأسعار</h3>
-          <p className="mt-2 text-3xl font-bold text-primary-700">0</p>
+          <p className="mt-2 text-3xl font-bold text-primary-700">{quoteCount}</p>
           <p className="mt-1 text-xs text-gray-400">عروض الأسعار المنشأة</p>
         </div>
 
         <div className="card p-5">
           <h3 className="text-sm font-medium text-gray-500">قيد المعالجة</h3>
-          <p className="mt-2 text-3xl font-bold text-yellow-600">0</p>
+          <p className="mt-2 text-3xl font-bold text-yellow-600">{pendingCount}</p>
           <p className="mt-1 text-xs text-gray-400">طلبات قيد المعالجة</p>
         </div>
       </div>
@@ -49,9 +78,9 @@ export function DashboardPage() {
           إجراءات سريعة
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <a
-            href="/rfq/create"
-            className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary-300 hover:bg-primary-50"
+          <button
+            onClick={() => navigate(ROUTES.RFQ.CREATE)}
+            className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 text-right transition-colors hover:border-primary-300 hover:bg-primary-50"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-700">
               <svg
@@ -71,11 +100,11 @@ export function DashboardPage() {
                 إنشاء طلب عرض سعر جديد
               </p>
             </div>
-          </a>
+          </button>
 
-          <a
-            href="/documents/upload"
-            className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary-300 hover:bg-primary-50"
+          <button
+            onClick={() => navigate(ROUTES.DOCUMENTS.UPLOAD)}
+            className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 text-right transition-colors hover:border-primary-300 hover:bg-primary-50"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-700">
               <svg
@@ -95,11 +124,11 @@ export function DashboardPage() {
                 رفع فاتورة أو كتالوج للتحليل
               </p>
             </div>
-          </a>
+          </button>
 
-          <a
-            href="/pricing/calculate"
-            className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary-300 hover:bg-primary-50"
+          <button
+            onClick={() => navigate(ROUTES.PRICING.CALCULATE)}
+            className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 text-right transition-colors hover:border-primary-300 hover:bg-primary-50"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-700">
               <svg
@@ -119,7 +148,7 @@ export function DashboardPage() {
                 حساب التكلفة النهائية للاستيراد
               </p>
             </div>
-          </a>
+          </button>
         </div>
       </div>
     </div>
