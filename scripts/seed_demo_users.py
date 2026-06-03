@@ -3,7 +3,8 @@
 AI-Sourcing Hub — Seed Demo Users
 
 Creates 3 demo accounts — one for each role: admin, agent, client.
-All use the same password for convenience.
+Also creates corresponding profiles (ClientProfile / SupplierProfile)
+for client and agent users respectively.
 
 Usage:
     python -m scripts.seed_demo_users
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Load all models FIRST so SQLAlchemy can resolve relationships
 from app.main import create_app
-from app.modules.auth.models import User, UserRole
+from app.modules.auth.models import ClientProfile, SupplierProfile, User, UserRole
 from app.shared.database import async_session_factory
 
 DEMO_USERS = [
@@ -45,9 +46,24 @@ DEMO_USERS = [
     },
 ]
 
+# Profile data for agent and client users
+DEMO_PROFILES = {
+    "agent@example.com": {
+        "factory_name": "Future Factory Ltd",
+        "location_in_china": "Guangzhou, Guangdong",
+        "specialty": "Electronics & Home Appliances",
+        "business_registration_number": "CN-GZ-2024-8842",
+    },
+    "client@example.com": {
+        "company_name": "شركة المستقبل للتجارة",
+        "preferred_port": "Aqaba",
+        "contact_number": "+962793333333",
+    },
+}
+
 
 async def seed():
-    """Insert demo users into the database."""
+    """Insert demo users and their profiles into the database."""
     # Initialize app to load all models
     app = create_app()
 
@@ -81,6 +97,33 @@ async def seed():
                 is_active=True,
             )
             session.add(user)
+            await session.flush()  # Get user.id
+
+            # Create profile for agent/client users
+            profile_data = DEMO_PROFILES.get(user_data["email"])
+            if user_data["role"] == UserRole.CLIENT and profile_data:
+                profile = ClientProfile(
+                    id=uuid.uuid4(),
+                    user_id=user.id,
+                    company_name=profile_data["company_name"],
+                    preferred_port=profile_data.get("preferred_port"),
+                    contact_number=profile_data.get("contact_number"),
+                )
+                session.add(profile)
+                print(f"   └─ Created ClientProfile: {profile_data['company_name']}")
+
+            elif user_data["role"] == UserRole.AGENT and profile_data:
+                profile = SupplierProfile(
+                    id=uuid.uuid4(),
+                    user_id=user.id,
+                    factory_name=profile_data["factory_name"],
+                    location_in_china=profile_data["location_in_china"],
+                    specialty=profile_data.get("specialty"),
+                    business_registration_number=profile_data.get("business_registration_number"),
+                )
+                session.add(profile)
+                print(f"   └─ Created SupplierProfile: {profile_data['factory_name']}")
+
             created += 1
             print(f"✅ Created: {user_data['email']} ({user_data['role'].value})")
 
