@@ -272,12 +272,14 @@ async def client(app) -> AsyncClient:
 
 @pytest.fixture
 async def auth_headers(client: AsyncClient, db_session) -> dict:
-    """Register a user and return auth headers."""
+    """Register an agent (supplier) and return auth headers."""
     register_payload = {
         "email": f"doc-test-{uuid.uuid4().hex[:8]}@example.com",
         "password": "ValidPass123!",
         "full_name": "Doc Tester",
         "role": "agent",
+        "factory_name": "Doc Test Factory",
+        "location_in_china": "Guangzhou, Guangdong",
     }
     resp = await client.post("/api/v1/auth/register", json=register_payload)
     assert resp.status_code == 201
@@ -392,12 +394,13 @@ class TestUploadDocument:
         db_session,
     ):
         """Upload as regular user (viewer role) → 403."""
-        # Register a viewer user
+        # Register a viewer user (client role)
         register_payload = {
             "email": f"viewer-{uuid.uuid4().hex[:8]}@example.com",
             "password": "ViewerPass123!",
             "full_name": "Viewer User",
             "role": "client",
+            "company_name": "Viewer Corp",
         }
         resp = await client.post("/api/v1/auth/register", json=register_payload)
         assert resp.status_code == 201
@@ -604,12 +607,13 @@ class TestDocumentItems:
         )
         doc_id = upload_resp.json()["id"]
 
-        # Register viewer user
+        # Register viewer user (client role)
         viewer_payload = {
             "email": f"viewer2-{uuid.uuid4().hex[:8]}@example.com",
             "password": "ViewerPass123!",
             "full_name": "Viewer",
             "role": "client",
+            "company_name": "Viewer Corp 2",
         }
         resp = await client.post("/api/v1/auth/register", json=viewer_payload)
         assert resp.status_code == 201
@@ -779,12 +783,13 @@ class TestDeleteDocument:
         )
         doc_id = upload_resp.json()["id"]
 
-        # Register viewer
+        # Register viewer (client role)
         viewer_payload = {
             "email": f"viewer3-{uuid.uuid4().hex[:8]}@example.com",
             "password": "ViewerPass123!",
             "full_name": "Viewer",
             "role": "client",
+            "company_name": "Viewer Corp 3",
         }
         resp = await client.post("/api/v1/auth/register", json=viewer_payload)
         assert resp.status_code == 201
