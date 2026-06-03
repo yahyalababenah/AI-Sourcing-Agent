@@ -1,53 +1,31 @@
-import { Outlet } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
-import { ClientSidebar } from "./ClientSidebar";
-import { AgentSidebar } from "./AgentSidebar";
-import { AdminSidebar } from "./AdminSidebar";
-import { Topbar } from "./Topbar";
-import { Toaster } from "react-hot-toast";
+import { ClientLayout } from "./ClientLayout";
+import { AgentLayout } from "./AgentLayout";
+import { AdminLayout } from "./AdminLayout";
 import type { UserRole } from "@/types/auth";
 
-const sidebarMap: Record<UserRole, React.ComponentType> = {
-  client: ClientSidebar,
-  agent: AgentSidebar,
-  admin: AdminSidebar,
+/**
+ * Layout dispatch map — selects the correct isolated layout based on role.
+ */
+const layoutMap: Record<UserRole, React.ComponentType> = {
+  client: ClientLayout,
+  agent: AgentLayout,
+  admin: AdminLayout,
 };
 
 /**
- * Main application layout with role-specific sidebar, topbar, and content area.
- * Wraps all authenticated pages.
+ * Role-based application layout dispatcher.
+ *
+ * Delegates to the appropriate isolated layout (ClientLayout, AgentLayout,
+ * or AdminLayout) based on the authenticated user's role. Each layout
+ * is fully self-contained with its own sidebar, topbar, and toast system.
+ *
+ * This allows the router to maintain a single route tree while each role
+ * experiences a completely different navigation UI.
  */
 export function AppLayout() {
   const role = useAuthStore((s) => s.role);
-  const SidebarComponent = role ? sidebarMap[role] : AgentSidebar;
+  const LayoutComponent = role ? layoutMap[role] : AgentLayout;
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Sidebar */}
-      <div className="hidden lg:block">
-        <SidebarComponent />
-      </div>
-
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-
-        <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
-        </main>
-      </div>
-
-      {/* Global toast notifications */}
-      <Toaster
-        position="top-left"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            fontFamily: "Cairo, system-ui, sans-serif",
-            direction: "rtl",
-          },
-        }}
-      />
-    </div>
-  );
+  return <LayoutComponent />;
 }
