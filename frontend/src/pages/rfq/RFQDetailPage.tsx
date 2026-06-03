@@ -199,7 +199,7 @@ export function RFQDetailPage() {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-bold text-primary-700">
-                    {q.grand_total.toLocaleString()} {q.currency}
+                    {q.grand_total.toLocaleString()} {q.target_currency}
                   </p>
                   <span className="text-xs text-gray-500">{q.status}</span>
                 </div>
