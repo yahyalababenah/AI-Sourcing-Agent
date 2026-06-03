@@ -49,10 +49,15 @@ class Document(Base):
     )
     content_type = Column(String(100), nullable=True)
     doc_type = Column(
-        Enum(DocumentType), default=DocumentType.PDF, nullable=False
+        Enum(DocumentType, values_callable=lambda obj: [e.value for e in obj]),
+        default=DocumentType.PDF,
+        nullable=False,
     )
     status = Column(
-        Enum(DocumentStatus), default=DocumentStatus.UPLOADED, nullable=False, index=True
+        Enum(DocumentStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=DocumentStatus.UPLOADED,
+        nullable=False,
+        index=True,
     )
     extracted_text = Column(Text, nullable=True)
     extracted_entities = Column(JSONB, nullable=True)

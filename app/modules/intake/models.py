@@ -40,7 +40,10 @@ class RFQ(Base):
     client_request_arabic = Column(Text, nullable=True)
     translated_query_chinese = Column(Text, nullable=True)
     status = Column(
-        Enum(RFQStatus), default=RFQStatus.OPEN, nullable=False, index=True
+        Enum(RFQStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=RFQStatus.OPEN,
+        nullable=False,
+        index=True,
     )
     extracted_entities = Column(JSONB, nullable=True)
     destination_port = Column(String(100), nullable=True)
@@ -83,7 +86,9 @@ class Product(Base):
         nullable=True,
     )
     status = Column(
-        Enum(ProductStatus), default=ProductStatus.PENDING, nullable=False
+        Enum(ProductStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=ProductStatus.PENDING,
+        nullable=False,
     )
     extracted_metadata = Column(JSONB, nullable=True)  # From PDF parsing
 

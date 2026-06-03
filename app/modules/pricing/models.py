@@ -53,7 +53,9 @@ class PricingRule(Base):
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
     category = Column(
-        Enum(PricingRuleCategory), nullable=False, index=True
+        Enum(PricingRuleCategory, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+        index=True,
     )
     rule_type = Column(String(50), nullable=False)  # percentage | fixed | formula
     value = Column(Float, nullable=False)  # The numeric value / rate
@@ -62,7 +64,9 @@ class PricingRule(Base):
     priority = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     status = Column(
-        Enum(PricingRuleStatus), default=PricingRuleStatus.ACTIVE, nullable=False
+        Enum(PricingRuleStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=PricingRuleStatus.ACTIVE,
+        nullable=False,
     )
     version = Column(Integer, default=1, nullable=False)
 

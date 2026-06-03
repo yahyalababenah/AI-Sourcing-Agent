@@ -28,7 +28,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), default=UserRole.AGENT, nullable=False)
+    role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]), default=UserRole.AGENT, nullable=False)
     phone = Column(String(50), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     preferences = Column(JSONB, nullable=True, default=dict)

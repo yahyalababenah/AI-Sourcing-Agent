@@ -42,7 +42,10 @@ class Quotation(Base):
         String(50), unique=True, nullable=False, index=True
     )
     status = Column(
-        Enum(QuotationStatus), default=QuotationStatus.DRAFT, nullable=False, index=True
+        Enum(QuotationStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=QuotationStatus.DRAFT,
+        nullable=False,
+        index=True,
     )
 
     # Pricing summary (denormalized from line items)
