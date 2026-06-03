@@ -3,6 +3,7 @@ AI-Sourcing Hub — Authentication Dependencies
 
 Provides:
     - get_current_user: Extracts and validates JWT from Authorization header
+      (eagerly loads profile relationships to avoid N+1 queries)
     - RoleChecker: Factory for role-based access control
 
 Usage:
@@ -21,6 +22,7 @@ import jwt
 from fastapi import Depends, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.modules.auth.models import User, UserRole
@@ -90,8 +92,16 @@ async def get_current_user(
             message="Invalid user ID in token",
         )
 
-    # Fetch user from DB
-    result = await db.execute(select(User).where(User.id == user_id))
+    # Fetch user from DB (eagerly load profile relationships)
+    stmt = (
+        select(User)
+        .options(
+            selectinload(User.client_profile),
+            selectinload(User.supplier_profile),
+        )
+        .where(User.id == user_id)
+    )
+    result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
     if not user:
