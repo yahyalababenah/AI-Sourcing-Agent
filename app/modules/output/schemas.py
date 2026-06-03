@@ -24,6 +24,27 @@ class QuotationLineItemSchema(BaseModel):
     total: float
 
 
+class QuotationLineItemResponse(BaseModel):
+    """Quotation line item response."""
+
+    id: UUID
+    quotation_id: UUID
+    product_id: UUID
+    product_name: str
+    quantity: int
+    unit_price_cny: float
+    unit_price_converted: float
+    exchange_rate_used: float
+    freight_cost: float
+    customs_duty: float
+    commission: float
+    subtotal: float
+    discount: float
+    total: float
+
+    model_config = {"from_attributes": True}
+
+
 class QuotationCreate(BaseModel):
     """Create a quotation from calculated prices."""
 
@@ -67,6 +88,8 @@ class QuotationResponse(BaseModel):
     notes: Optional[str] = None
     pdf_path: Optional[str] = None
     pdf_generated_at: Optional[datetime] = None
+    line_items: list[QuotationLineItemResponse] = []
+    client_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

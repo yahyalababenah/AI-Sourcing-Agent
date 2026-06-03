@@ -139,10 +139,14 @@ async def get_quotation(db: AsyncSession, quotation_id: str) -> Quotation:
     Raises:
         NotFoundException: If not found.
     """
+    from sqlalchemy.orm import joinedload
+
     result = await db.execute(
-        select(Quotation).where(Quotation.id == uuid.UUID(quotation_id))
+        select(Quotation)
+        .options(joinedload(Quotation.line_items), joinedload(Quotation.rfq))
+        .where(Quotation.id == uuid.UUID(quotation_id))
     )
-    quotation = result.scalar_one_or_none()
+    quotation = result.unique().scalar_one_or_none()
     if not quotation:
         raise NotFoundException(
             resource="Quotation",
