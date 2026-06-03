@@ -38,4 +38,7 @@ export const API = {
     PDF: (id: string) => `/quotes/${id}/pdf`,
     FINALIZE: (id: string) => `/quotes/${id}/finalize`,
   },
+  CATALOG: {
+    PRODUCTS: "/catalog/products",
+  },
 } as const;
