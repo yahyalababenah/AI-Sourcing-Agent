@@ -28,18 +28,15 @@ from app.shared.redis_client import get_redis_client
 # Settings Override for Tests
 # ═══════════════════════════════════════════════════════════
 
-# Force test settings before importing app modules
+# Force test settings before importing app modules.
+# Values come from the centralized test configuration so they can be
+# overridden at CI-time via TEST_* environment variables.
 import os
 
-os.environ["ENVIRONMENT"] = "testing"
-os.environ["DB_PASSWORD"] = "test_password_123"
-os.environ["REDIS_PASSWORD"] = "test_redis_123"
-os.environ["JWT_SECRET"] = "test_jwt_secret_key_32_chars_long!!"
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test.db"
-os.environ["REDIS_URL"] = "redis://localhost:6379/9"
-os.environ["MINIO_ENDPOINT"] = "localhost:9000"
-os.environ["ALLOWED_HOSTS"] = '["*"]'
-os.environ["CORS_ORIGINS"] = '["*"]'
+from tests.test_config import TEST_ENV_OVERRIDES
+
+for key, val in TEST_ENV_OVERRIDES.items():
+    os.environ[key] = val
 
 # ═══════════════════════════════════════════════════════════
 # SQLite Compiler Workaround for JSONB Columns
@@ -53,7 +50,7 @@ os.environ["CORS_ORIGINS"] = '["*"]'
 #
 # IMPORTANT: This does NOT alter any model definitions — production
 # deployments using real PostgreSQL will continue to use JSONB natively.
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.ext.compiler import compiles
 
 
@@ -61,6 +58,24 @@ from sqlalchemy.ext.compiler import compiles
 def _compile_jsonb_as_json(element, compiler, **kw):
     """Render JSONB columns as JSON (TEXT) when using SQLite."""
     return compiler.visit_JSON(element, **kw)
+
+
+@compiles(PG_UUID, "sqlite")
+def _compile_uuid_as_varchar(element, compiler, **kw):
+    """Render PostgreSQL UUID columns as VARCHAR(36) when using SQLite.
+
+    Without this, SQLite does not know how to store UUID columns — the
+    PostgreSQL UUID type compiles to the literal string "UUID", which SQLite
+    treats as an unknown type affinity, causing integer coercion and raising
+    ``AttributeError: 'int' object has no attribute 'replace'`` when the
+    type's result processor tries to build a ``uuid.UUID`` object from the
+    returned value.
+
+    By compiling to VARCHAR(36) (the standard 36-char hex UUID string), the
+    built-in ``uuid.UUID()`` constructor receives a proper string and the
+    conversion succeeds.
+    """
+    return compiler.visit_VARCHAR(element, **kw)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -143,9 +158,10 @@ async def client(app) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture
 async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
-    """Register a user and return auth headers."""
+    """Register an agent (supplier) and return auth headers."""
     from app.modules.auth.service import register_user
     from app.modules.auth.schemas import UserCreate
+    from tests.test_config import TEST_PASSWORD
     import uuid
 
     unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
@@ -153,15 +169,52 @@ async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
         db_session,
         UserCreate(
             email=unique_email,
-            password="testpass123",
+            password=TEST_PASSWORD,
             full_name="Test Agent",
+            role="agent",
+            factory_name="Test Factory",
+            location_in_china="Guangzhou, Guangdong",
+            specialty="Test Goods",
+            business_registration_number="CN-TEST-001",
         ),
     )
 
     # Login to get tokens
     response = await client.post(
         "/api/v1/auth/login",
-        json={"email": unique_email, "password": "testpass123"},
+        json={"email": unique_email, "password": TEST_PASSWORD},
+    )
+    tokens = response.json()
+    return {"Authorization": f"Bearer {tokens['access_token']}"}
+
+
+@pytest_asyncio.fixture
+async def client_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
+    """Register a client (buyer) and return auth headers."""
+    from app.modules.auth.service import register_user
+    from app.modules.auth.schemas import UserCreate
+    import uuid
+
+    from tests.test_config import TEST_PASSWORD
+
+    unique_email = f"client_{uuid.uuid4().hex[:8]}@example.com"
+    user = await register_user(
+        db_session,
+        UserCreate(
+            email=unique_email,
+            password=TEST_PASSWORD,
+            full_name="Test Client",
+            role="client",
+            company_name="Test Corp",
+            preferred_port="Aqaba",
+            contact_number="+962700000000",
+        ),
+    )
+
+    # Login to get tokens
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": unique_email, "password": TEST_PASSWORD},
     )
     tokens = response.json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
@@ -172,12 +225,13 @@ async def admin_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
     """Create an admin user and return auth headers."""
     from app.modules.auth.models import User, UserRole
     from app.modules.auth.service import _hash_password
+    from tests.test_config import TEST_ADMIN_EMAIL, TEST_ADMIN_PASSWORD
     import uuid
 
     admin = User(
         id=uuid.uuid4(),
-        email="admin@example.com",
-        password_hash=_hash_password("adminpass123"),
+        email=TEST_ADMIN_EMAIL,
+        password_hash=_hash_password(TEST_ADMIN_PASSWORD),
         full_name="Admin User",
         role=UserRole.ADMIN,
         is_active=True,
@@ -187,7 +241,7 @@ async def admin_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
 
     response = await client.post(
         "/api/v1/auth/login",
-        json={"email": "admin@example.com", "password": "adminpass123"},
+        json={"email": TEST_ADMIN_EMAIL, "password": TEST_ADMIN_PASSWORD},
     )
     tokens = response.json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
