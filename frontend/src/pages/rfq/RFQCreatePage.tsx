@@ -1,45 +1,177 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import { ROUTES } from "@/constants/routes";
+import { intakeService } from "@/services/intakeService";
+import type { RFQCreate } from "@/types/intake";
 
 export function RFQCreatePage() {
   const navigate = useNavigate();
+  const [formData, setFormData] = useState<RFQCreate>({
+    client_name: "",
+    client_phone: "",
+    client_request_arabic: "",
+    destination_port: "",
+    target_currency: "USD",
+  });
+
+  const [error, setError] = useState<string | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: (data: RFQCreate) => intakeService.create(data),
+    onSuccess: (rfq) => {
+      navigate(ROUTES.RFQ.DETAIL(rfq.id));
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  const handleChange = (field: keyof RFQCreate, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!formData.client_name.trim()) {
+      setError("يرجى إدخال اسم العميل");
+      return;
+    }
+    if (!formData.client_request_arabic.trim()) {
+      setError("يرجى إدخال طلب العميل");
+      return;
+    }
+
+    createMutation.mutate(formData);
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          طلب عرض سعر جديد
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          أدخل بيانات المنتج المطلوب للحصول على عرض سعر
-        </p>
-      </div>
-
-      {/* Placeholder: RFQ create form will be implemented in Phase 2 */}
-      <div className="card p-12 text-center">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="mx-auto h-12 w-12 text-gray-300"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path d="M12 4v16m8-8H4" />
-        </svg>
-        <h3 className="mt-4 text-lg font-medium text-gray-600">
-          نموذج إنشاء طلب عرض سعر
-        </h3>
-        <p className="mt-2 text-sm text-gray-400">
-          سيتم تنفيذ النموذج في المرحلة الثانية
-        </p>
+      <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(ROUTES.RFQ.LIST)}
-          className="mt-4 text-sm text-primary-600 hover:text-primary-700"
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
         >
-          العودة إلى القائمة
+          → العودة
         </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            طلب عرض سعر جديد
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            أدخل بيانات المنتج المطلوب للحصول على عرض سعر
+          </p>
+        </div>
       </div>
+
+      <form onSubmit={handleSubmit} className="card space-y-5 p-6">
+        {/* Client Name */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            اسم العميل <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={formData.client_name}
+            onChange={(e) => handleChange("client_name", e.target.value)}
+            required
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="أحمد محمد"
+          />
+        </div>
+
+        {/* Client Phone */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            هاتف العميل
+          </label>
+          <input
+            type="text"
+            value={formData.client_phone || ""}
+            onChange={(e) => handleChange("client_phone", e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="+962791234567"
+            dir="ltr"
+          />
+        </div>
+
+        {/* Client Request */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            طلب العميل <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={formData.client_request_arabic}
+            onChange={(e) => handleChange("client_request_arabic", e.target.value)}
+            required
+            rows={4}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="اكتب وصف المنتجات المطلوبة بالتفصيل..."
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            سيتم ترجمة الطلب إلى اللغة الصينية تلقائياً واستخراج المنتجات
+          </p>
+        </div>
+
+        {/* Destination Port */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            ميناء الوصول
+          </label>
+          <input
+            type="text"
+            value={formData.destination_port || ""}
+            onChange={(e) => handleChange("destination_port", e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="ميناء العقبة، الأردن"
+          />
+        </div>
+
+        {/* Target Currency */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            العملة المستهدفة
+          </label>
+          <select
+            value={formData.target_currency || "USD"}
+            onChange={(e) => handleChange("target_currency", e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            <option value="USD">دولار أمريكي (USD)</option>
+            <option value="JOD">دينار أردني (JOD)</option>
+            <option value="EGP">جنيه مصري (EGP)</option>
+            <option value="SAR">ريال سعودي (SAR)</option>
+            <option value="AED">درهم إماراتي (AED)</option>
+          </select>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {/* Submit */}
+        <div className="flex gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
+            className="flex-1 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+          >
+            {createMutation.isPending ? "جاري الإنشاء..." : "إنشاء طلب عرض السعر"}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.RFQ.LIST)}
+            className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            إلغاء
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
