@@ -37,6 +37,7 @@ from app.shared.storage import ensure_bucket
 
 # ---- Module Routers (imported here to avoid circular imports) ----
 from app.modules.auth.router import router as auth_router
+from app.modules.catalog.router import router as catalog_router
 from app.modules.documents.router import router as documents_router
 from app.modules.intake.router import router as intake_router
 from app.modules.monitoring.router import router as monitoring_router
@@ -170,6 +171,11 @@ def create_app() -> FastAPI:
         output_router,
         prefix="/api/v1/quotes",
         tags=["Quotations"],
+    )
+    app.include_router(
+        catalog_router,
+        prefix="/api/v1/catalog",
+        tags=["Catalog"],
     )
     app.include_router(
         monitoring_router,
