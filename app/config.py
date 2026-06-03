@@ -103,7 +103,7 @@ class Settings(BaseSettings):
         default=["localhost", "127.0.0.1", "api", "*.aisourcing.example.com"]
     )
     CORS_ORIGINS: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"]
+        default=["http://localhost:3000", "http://localhost:8000", "http://localhost:5173"]
     )
 
     @computed_field
