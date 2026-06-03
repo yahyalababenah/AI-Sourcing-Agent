@@ -43,7 +43,18 @@ class User(Base):
 
     # ---- String-based relationships (cross-module) ----
     # ⚠️ Never import models from other modules at the top level
-    rfqs = relationship("app.modules.intake.models.RFQ", back_populates="agent")
+    # RFQs where this user is the assigned agent (via agent_id FK)
+    rfqs = relationship(
+        "app.modules.intake.models.RFQ",
+        foreign_keys="[RFQ.agent_id]",
+        back_populates="agent",
+    )
+    # RFQs where this user is the owning client (via client_id FK)
+    client_rfqs = relationship(
+        "app.modules.intake.models.RFQ",
+        foreign_keys="[RFQ.client_id]",
+        back_populates="client",
+    )
     quotations = relationship(
         "app.modules.output.models.Quotation", back_populates="agent"
     )
