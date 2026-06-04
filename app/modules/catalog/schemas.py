@@ -21,6 +21,10 @@ class CatalogProductResponse(BaseModel):
     weight_kg: Optional[float] = None
     dimensions: Optional[str] = None
     material: Optional[str] = None
+    category: Optional[str] = Field(
+        None,
+        description="Product category derived from AI extraction or material field",
+    )
 
     # Supplier info
     supplier_id: UUID
