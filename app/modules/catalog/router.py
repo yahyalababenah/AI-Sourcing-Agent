@@ -4,6 +4,8 @@ AI-Sourcing Hub — Global Catalog Endpoints
 /api/v1/catalog/products    GET    Browse the global B2B marketplace catalog
 """
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +26,7 @@ router = APIRouter()
     description=(
         "Returns a paginated, searchable list of all AI-extracted products "
         "from uploaded supplier documents. Clients can search by product "
-        "name or model number."
+        "name or model number, and filter by category, price range, or supplier."
     ),
 )
 async def list_catalog_products(
@@ -34,6 +36,26 @@ async def list_catalog_products(
         max_length=200,
         description="Full-text search term — matched against product name and model number",
     ),
+    category: str = Query(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Filter by product category (also matches against material field)",
+    ),
+    min_price: float = Query(
+        None,
+        ge=0,
+        description="Minimum unit price in RMB (inclusive)",
+    ),
+    max_price: float = Query(
+        None,
+        ge=0,
+        description="Maximum unit price in RMB (inclusive)",
+    ),
+    supplier_id: UUID = Query(
+        None,
+        description="Filter by supplier (agent) UUID",
+    ),
     pagination: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_client_or_admin),
@@ -42,6 +64,10 @@ async def list_catalog_products(
     return await search_catalog(
         db,
         q=q,
+        category=category,
+        min_price=min_price,
+        max_price=max_price,
+        supplier_id=supplier_id,
         page=pagination.page,
         page_size=pagination.page_size,
     )
