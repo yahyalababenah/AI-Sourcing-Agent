@@ -16,13 +16,12 @@ from sqlalchemy.orm import selectinload
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User, UserRole
 from app.modules.auth.schemas import (
-    ClientProfileResponse,
-    SupplierProfileResponse,
     TokenRefresh,
     TokenResponse,
     UserCreate,
     UserLogin,
     UserResponse,
+    build_user_response,
 )
 from app.modules.auth.service import (
     authenticate_user,
@@ -35,30 +34,6 @@ from app.shared.database import get_db
 from app.shared.redis_client import get_redis_client
 
 router = APIRouter()
-
-
-def _build_user_response(user: User) -> UserResponse:
-    """Build a UserResponse with the role-specific profile data attached.
-
-    Args:
-        user: User instance (with profile relationship loaded).
-
-    Returns:
-        UserResponse with nested profile dict.
-    """
-    profile = None
-    if user.role == UserRole.CLIENT and user.client_profile:
-        profile = ClientProfileResponse.model_validate(
-            user.client_profile
-        ).model_dump()
-    elif user.role == UserRole.AGENT and user.supplier_profile:
-        profile = SupplierProfileResponse.model_validate(
-            user.supplier_profile
-        ).model_dump()
-
-    user_data = UserResponse.model_validate(user).model_dump()
-    user_data["profile"] = profile
-    return UserResponse(**user_data)
 
 
 @router.post(
@@ -78,7 +53,7 @@ async def register(
     - **admin**: No profile required
     """
     user = await register_user(db, user_data)
-    return _build_user_response(user)
+    return build_user_response(user)
 
 
 @router.post(
@@ -123,7 +98,7 @@ async def get_me(
     Includes role-specific profile data (ClientProfile or SupplierProfile)
     in the ``profile`` field.
     """
-    return _build_user_response(current_user)
+    return build_user_response(current_user)
 
 
 @router.post(
