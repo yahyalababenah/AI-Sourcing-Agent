@@ -14,6 +14,7 @@ import { QuotationListPage } from "@/pages/quotes/QuotationListPage";
 import { QuotationDetailPage } from "@/pages/quotes/QuotationDetailPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { OrderTrackingPage } from "@/pages/orders/OrderTrackingPage";
+import { AdminVerificationPage } from "@/pages/admin/AdminVerificationPage";
 import type { RouteObject } from "react-router-dom";
 
 /**
@@ -123,5 +124,15 @@ export const sharedRoutes: RouteObject[] = [
   {
     path: ROUTES.SETTINGS,
     element: <SettingsPage />,
+  },
+
+  // ── Admin: Supplier Verification (admin only) ──
+  {
+    path: ROUTES.ADMIN.VERIFICATION,
+    element: (
+      <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <AdminVerificationPage />
+      </RoleGuard>
+    ),
   },
 ];
