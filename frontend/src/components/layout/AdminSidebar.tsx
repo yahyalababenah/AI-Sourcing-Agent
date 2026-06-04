@@ -11,6 +11,7 @@ import {
   DollarSign,
   Store,
   Truck,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -30,6 +31,7 @@ export function AdminSidebar() {
   ];
 
   const adminItems = [
+    { to: ROUTES.ADMIN.VERIFICATION, label: "توثيق الموردين", icon: ShieldCheck },
     { to: ROUTES.PRICING.RULES, label: "قواعد التسعير", icon: DollarSign },
     { to: ROUTES.CATALOG.MARKETPLACE, label: "الكتالوج العالمي", icon: Store },
     { to: ROUTES.SETTINGS, label: "إدارة المستخدمين", icon: Users },
