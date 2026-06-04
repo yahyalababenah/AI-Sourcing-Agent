@@ -6,6 +6,7 @@ export const ROUTES = {
   },
   ADMIN: {
     LOGIN: "/admin/login",
+    VERIFICATION: "/admin/verification",
   },
   DASHBOARD: "/dashboard",
   RFQ: {
