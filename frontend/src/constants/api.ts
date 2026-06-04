@@ -7,6 +7,11 @@ export const API = {
     ME: "/auth/me",
     LOGOUT: "/auth/logout",
   },
+  ADMIN: {
+    USERS: "/admin/users",
+    USER_STATUS: (id: string) => `/admin/users/${id}/status`,
+    USER_VERIFICATION: (id: string) => `/admin/users/${id}/verification`,
+  },
   INTAKE: {
     TRANSLATE: "/intake/translate",
     RFQS: "/intake/rfqs",
