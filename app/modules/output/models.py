@@ -1,7 +1,8 @@
 """
-AI-Sourcing Hub — Quotation Model
+AI-Sourcing Hub — Quotation & Order Tracking Models
 
-Stores finalized quotations with calculated pricing, Jinja2/WeasyPrint PDF output.
+Stores finalized quotations with calculated pricing, Jinja2/WeasyPrint PDF output,
+and order tracking status for shipments.
 """
 # ═══════════════════════════════════════════════════════════
 # Imports
@@ -26,6 +27,23 @@ class QuotationStatus(str, enum.Enum):
     EXPIRED = "expired"
 
 
+class TrackingStatus(str, enum.Enum):
+    """Six-stage order tracking pipeline.
+
+    When a quotation is ACCEPTED, it becomes an "order" and progresses
+    through these stages:
+        AWAITING_PAYMENT → PRODUCTION → INLAND_FREIGHT
+        → SEA_FREIGHT → CUSTOMS → DELIVERED
+    """
+
+    AWAITING_PAYMENT = "awaiting_payment"
+    PRODUCTION = "production"
+    INLAND_FREIGHT = "inland_freight"
+    SEA_FREIGHT = "sea_freight"
+    CUSTOMS = "customs"
+    DELIVERED = "delivered"
+
+
 class Quotation(Base):
     """A finalized quotation generated from an RFQ with calculated pricing."""
 
@@ -45,6 +63,13 @@ class Quotation(Base):
         Enum(QuotationStatus, values_callable=lambda obj: [e.value for e in obj]),
         default=QuotationStatus.DRAFT,
         nullable=False,
+        index=True,
+    )
+
+    # Order tracking (only meaningful when status == ACCEPTED)
+    tracking_status = Column(
+        Enum(TrackingStatus, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=True,
         index=True,
     )
 
@@ -87,6 +112,59 @@ class Quotation(Base):
         back_populates="quotation",
         cascade="all, delete-orphan",
     )
+    tracking_events = relationship(
+        "TrackingEvent",
+        back_populates="quotation",
+        cascade="all, delete-orphan",
+        order_by="TrackingEvent.created_at.desc()",
+    )
 
     def __repr__(self) -> str:
         return f"<Quotation(id={self.id}, number={self.quotation_number}, status={self.status})>"
+
+
+class TrackingEvent(Base):
+    """Audit log of tracking status changes for an order (accepted quotation).
+
+    Each time ``tracking_status`` changes on a Quotation, a new TrackingEvent
+    is recorded to create a full history timeline.
+    """
+
+    __tablename__ = "tracking_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    quotation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("quotations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    from_status = Column(
+        Enum(TrackingStatus, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=True,
+    )
+    to_status = Column(
+        Enum(TrackingStatus, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+    )
+    notes = Column(Text, nullable=True)  # Optional note from agent
+    changed_by_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # ---- Relationships ----
+    quotation = relationship("Quotation", back_populates="tracking_events")
+    changed_by = relationship("app.modules.auth.models.User")
+
+    def __repr__(self) -> str:
+        return (
+            f"<TrackingEvent(id={self.id}, "
+            f"{self.from_status} → {self.to_status})>"
+        )
