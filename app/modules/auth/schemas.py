@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
+from app.modules.auth.models import User, UserRole
 
 
 # ═══════════════════════════════════════════════════════════
@@ -124,6 +125,22 @@ class TokenRefresh(BaseModel):
     refresh_token: str
 
 
+class UpdateVerificationRequest(BaseModel):
+    """Admin request to update a supplier's verification status."""
+
+    verification_status: str = Field(
+        ...,
+        description="New verification status: pending | verified | rejected",
+        examples=["verified"],
+    )
+    rejection_reason: Optional[str] = Field(
+        None,
+        max_length=1000,
+        examples=["Business license is expired or unclear"],
+    )
+    """Reason for rejection (required if status is 'rejected')."""
+
+
 class UserResponse(BaseModel):
     """Public user profile response with optional nested profile data."""
 
@@ -137,3 +154,37 @@ class UserResponse(BaseModel):
     profile: Optional[dict] = None  # Role-specific profile data (client or supplier)
 
     model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════
+# Helpers
+# ═══════════════════════════════════════════════════════════
+
+
+def build_user_response(user: User) -> UserResponse:
+    """Build a UserResponse with the role-specific profile data attached.
+
+    This function must be used instead of ``UserResponse.model_validate(user)``
+    when the caller needs the nested ``profile`` dict populated.  Pydantic's
+    ``model_validate`` does **not** automatically map ORM relationships (e.g.
+    ``user.supplier_profile``) to a ``dict`` field like ``profile``.
+
+    Args:
+        user: User instance (with profile relationship loaded).
+
+    Returns:
+        UserResponse with nested profile dict.
+    """
+    profile = None
+    if user.role == UserRole.CLIENT and user.client_profile:
+        profile = ClientProfileResponse.model_validate(
+            user.client_profile
+        ).model_dump()
+    elif user.role == UserRole.AGENT and user.supplier_profile:
+        profile = SupplierProfileResponse.model_validate(
+            user.supplier_profile
+        ).model_dump()
+
+    user_data = UserResponse.model_validate(user).model_dump()
+    user_data["profile"] = profile
+    return UserResponse(**user_data)
