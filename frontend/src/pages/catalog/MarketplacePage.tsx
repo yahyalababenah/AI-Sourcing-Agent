@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, ShoppingCart, X, Package, Factory, MapPin, AlertCircle, CheckCircle } from "lucide-react";
+import { Search, ShoppingCart, X, Package, Factory, MapPin, AlertCircle, CheckCircle, SlidersHorizontal } from "lucide-react";
 import { catalogService } from "@/services/catalogService";
 import { intakeService } from "@/services/intakeService";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 import type { CatalogProduct, CatalogListResponse } from "@/types/catalog";
 import type { RFQCreate } from "@/types/intake";
+import { CatalogFilters, type FilterState } from "./CatalogFilters";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -286,6 +287,13 @@ export function MarketplacePage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    category: "",
+    minPrice: "",
+    maxPrice: "",
+    supplierId: "",
+  });
   const pageSize = 12;
 
   // Debounce search input (300ms)
@@ -297,6 +305,11 @@ export function MarketplacePage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
   // Fetch catalog products
   const {
     data,
@@ -304,14 +317,41 @@ export function MarketplacePage() {
     isError,
     error,
   } = useQuery<CatalogListResponse>({
-    queryKey: ["catalog", "products", debouncedQuery, page, pageSize],
+    queryKey: [
+      "catalog", "products",
+      debouncedQuery,
+      filters.category, filters.minPrice, filters.maxPrice, filters.supplierId,
+      page, pageSize,
+    ],
     queryFn: () =>
       catalogService.search({
         q: debouncedQuery || undefined,
+        category: filters.category || undefined,
+        min_price: filters.minPrice ? Number(filters.minPrice) : undefined,
+        max_price: filters.maxPrice ? Number(filters.maxPrice) : undefined,
+        supplier_id: filters.supplierId || undefined,
         page,
         page_size: pageSize,
       }),
   });
+
+  // Derive unique suppliers and categories from current data
+  const uniqueSuppliers = useMemo(() => {
+    if (!data?.items) return [];
+    const map = new Map<string, string>();
+    data.items.forEach((p) => map.set(p.supplier_id, p.supplier_name));
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [data]);
+
+  const uniqueCategories = useMemo(() => {
+    if (!data?.items) return [];
+    const cats = new Set<string>();
+    data.items.forEach((p) => {
+      if (p.category) cats.add(p.category);
+      if (p.material) cats.add(p.material);
+    });
+    return Array.from(cats).sort();
+  }, [data]);
 
   const handleRequestQuote = useCallback((product: CatalogProduct) => {
     setSelectedProduct(product);
@@ -321,18 +361,33 @@ export function MarketplacePage() {
     setSelectedProduct(null);
   }, []);
 
+  const handleResetFilters = useCallback(() => {
+    setFilters({ category: "", minPrice: "", maxPrice: "", supplierId: "" });
+  }, []);
+
   const totalPages = data?.total_pages ?? 1;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          السوق العالمي
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          تصفح المنتجات المتاحة من جميع الموردين واحصل على عروض أسعار فورية
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            السوق العالمي
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            تصفح المنتجات المتاحة من جميع الموردين واحصل على عروض أسعار فورية
+          </p>
+        </div>
+
+        {/* Mobile filter toggle */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 lg:hidden"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          فلاتر
+        </button>
       </div>
 
       {/* Search Bar */}
@@ -347,132 +402,148 @@ export function MarketplacePage() {
         />
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="animate-pulse rounded-xl border border-gray-200 bg-white p-5"
-            >
-              <div className="mb-3 h-12 w-12 rounded-lg bg-gray-100" />
-              <div className="mb-2 h-5 w-3/4 rounded bg-gray-100" />
-              <div className="mb-3 h-4 w-1/2 rounded bg-gray-100" />
-              <div className="mb-3 h-6 w-1/3 rounded bg-gray-100" />
-              <div className="mb-4 space-y-1">
-                <div className="h-3 w-full rounded bg-gray-100" />
-                <div className="h-3 w-2/3 rounded bg-gray-100" />
-              </div>
-              <div className="h-10 w-full rounded-lg bg-gray-100" />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Main Content: Sidebar + Product Grid */}
+      <div className="flex gap-6">
+        {/* Filters Sidebar */}
+        <CatalogFilters
+          suppliers={uniqueSuppliers}
+          categories={uniqueCategories}
+          filters={filters}
+          onChange={setFilters}
+          onReset={handleResetFilters}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((prev) => !prev)}
+        />
 
-      {/* Error State */}
-      {isError && (
-        <div className="card flex flex-col items-center gap-3 p-12 text-center">
-          <AlertCircle className="h-10 w-10 text-red-400" />
-          <p className="text-sm text-red-600">
-            {(error as Error)?.message ?? "فشل تحميل المنتجات. يرجى المحاولة لاحقاً."}
-          </p>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && !isError && data && data.items.length === 0 && (
-        <div className="card flex flex-col items-center gap-3 p-12 text-center">
-          <Package className="h-12 w-12 text-gray-300" />
-          <p className="text-base font-medium text-gray-500">
-            {debouncedQuery
-              ? "لا توجد منتجات تطابق بحثك"
-              : "لا توجد منتجات متاحة حالياً"}
-          </p>
-          <p className="text-sm text-gray-400">
-            {debouncedQuery
-              ? "حاول استخدام كلمات بحث مختلفة"
-              : "سيتم إضافة المنتجات عند توفرها من الموردين"}
-          </p>
-        </div>
-      )}
-
-      {/* Product Grid */}
-      {!isLoading && !isError && data && data.items.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {data.items.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onRequestQuote={handleRequestQuote}
-              />
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
-              >
-                السابق
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => {
-                  // Show first, last, current, and neighbors
-                  return (
-                    p === 1 ||
-                    p === totalPages ||
-                    Math.abs(p - page) <= 1
-                  );
-                })
-                .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
-                    acc.push("ellipsis");
-                  }
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, idx) =>
-                  p === "ellipsis" ? (
-                    <span key={`e-${idx}`} className="px-1 text-gray-400">
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={cn(
-                        "min-w-[2rem] rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                        p === page
-                          ? "bg-primary-600 text-white"
-                          : "text-gray-600 hover:bg-gray-50"
-                      )}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
-
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
-              >
-                التالي
-              </button>
+        {/* Product Area */}
+        <div className="min-w-0 flex-1 space-y-6">
+          {/* Loading State */}
+          {isLoading && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="animate-pulse rounded-xl border border-gray-200 bg-white p-5"
+                >
+                  <div className="mb-3 h-12 w-12 rounded-lg bg-gray-100" />
+                  <div className="mb-2 h-5 w-3/4 rounded bg-gray-100" />
+                  <div className="mb-3 h-4 w-1/2 rounded bg-gray-100" />
+                  <div className="mb-3 h-6 w-1/3 rounded bg-gray-100" />
+                  <div className="mb-4 space-y-1">
+                    <div className="h-3 w-full rounded bg-gray-100" />
+                    <div className="h-3 w-2/3 rounded bg-gray-100" />
+                  </div>
+                  <div className="h-10 w-full rounded-lg bg-gray-100" />
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Results Count */}
-          <p className="text-center text-xs text-gray-400">
-            إجمالي {data.total} منتج — الصفحة {page} من {totalPages}
-          </p>
-        </>
-      )}
+          {/* Error State */}
+          {isError && (
+            <div className="card flex flex-col items-center gap-3 p-12 text-center">
+              <AlertCircle className="h-10 w-10 text-red-400" />
+              <p className="text-sm text-red-600">
+                {(error as Error)?.message ?? "فشل تحميل المنتجات. يرجى المحاولة لاحقاً."}
+              </p>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && !isError && data && data.items.length === 0 && (
+            <div className="card flex flex-col items-center gap-3 p-12 text-center">
+              <Package className="h-12 w-12 text-gray-300" />
+              <p className="text-base font-medium text-gray-500">
+                {debouncedQuery || filters.category || filters.supplierId
+                  ? "لا توجد منتجات تطابق بحثك"
+                  : "لا توجد منتجات متاحة حالياً"}
+              </p>
+              <p className="text-sm text-gray-400">
+                {debouncedQuery || filters.category || filters.supplierId
+                  ? "حاول استخدام كلمات بحث مختلفة أو إعادة تعيين الفلاتر"
+                  : "سيتم إضافة المنتجات عند توفرها من الموردين"}
+              </p>
+            </div>
+          )}
+
+          {/* Product Grid */}
+          {!isLoading && !isError && data && data.items.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {data.items.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onRequestQuote={handleRequestQuote}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    السابق
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => {
+                      return (
+                        p === 1 ||
+                        p === totalPages ||
+                        Math.abs(p - page) <= 1
+                      );
+                    })
+                    .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+                      if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                        acc.push("ellipsis");
+                      }
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, idx) =>
+                      p === "ellipsis" ? (
+                        <span key={`e-${idx}`} className="px-1 text-gray-400">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setPage(p)}
+                          className={cn(
+                            "min-w-[2rem] rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                            p === page
+                              ? "bg-primary-600 text-white"
+                              : "text-gray-600 hover:bg-gray-50"
+                          )}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    التالي
+                  </button>
+                </div>
+              )}
+
+              {/* Results Count */}
+              <p className="text-center text-xs text-gray-400">
+                إجمالي {data.total} منتج — الصفحة {page} من {totalPages}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* RFQ Modal */}
       {selectedProduct && (
