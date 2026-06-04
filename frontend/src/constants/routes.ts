@@ -12,6 +12,7 @@ export const ROUTES = {
     LIST: "/rfq",
     CREATE: "/rfq/create",
     DETAIL: (id: string) => `/rfq/${id}`,
+    SUPPLIER_INBOX: "/rfq/supplier-inbox",
   },
   DOCUMENTS: {
     UPLOAD: "/documents/upload",
@@ -28,6 +29,10 @@ export const ROUTES = {
   },
   CATALOG: {
     MARKETPLACE: "/marketplace",
+  },
+  ORDERS: {
+    LIST: "/orders",
+    TRACKING: (id: string) => `/orders/${id}/tracking`,
   },
   SETTINGS: "/settings",
 } as const;
