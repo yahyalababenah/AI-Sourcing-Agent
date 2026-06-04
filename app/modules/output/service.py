@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 AI-Sourcing Hub — Quotation Service Layer
 
@@ -439,3 +441,202 @@ async def finalize_quotation(
         await db.flush()
 
     return quotation
+
+
+# ═══════════════════════════════════════════════════════════
+# Order Tracking
+# ═══════════════════════════════════════════════════════════
+
+TRACKING_PIPELINE: list[str] = [
+    "awaiting_payment",
+    "production",
+    "inland_freight",
+    "sea_freight",
+    "customs",
+    "delivered",
+]
+
+
+def _validate_tracking_transition(
+    current: Optional[str], next_status: str
+) -> None:
+    """Validate that ``next_status`` follows the pipeline order.
+
+    Args:
+        current: Current tracking status (None if not yet set).
+        next_status: Desired new status.
+
+    Raises:
+        ValueError: If the transition is invalid.
+    """
+    if current is None:
+        # First status must be awaiting_payment
+        if next_status != TRACKING_PIPELINE[0]:
+            raise ValueError(
+                f"First tracking status must be '{TRACKING_PIPELINE[0]}', "
+                f"got '{next_status}'"
+            )
+        return
+
+    if current not in TRACKING_PIPELINE:
+        raise ValueError(f"Unknown current tracking status '{current}'")
+    if next_status not in TRACKING_PIPELINE:
+        raise ValueError(f"Unknown next tracking status '{next_status}'")
+
+    current_idx = TRACKING_PIPELINE.index(current)
+    next_idx = TRACKING_PIPELINE.index(next_status)
+
+    # Allow forward movement only (or same status — idempotent)
+    if next_idx < current_idx:
+        raise ValueError(
+            f"Cannot move backward in tracking pipeline: "
+            f"'{current}' → '{next_status}'"
+        )
+
+
+async def get_tracking(
+    db: AsyncSession, quotation_id: str
+) -> TrackingStatusResponse:
+    """Get the current tracking status and full event history for an order.
+
+    Args:
+        db: Database session.
+        quotation_id: Quotation UUID string.
+
+    Returns:
+        TrackingStatusResponse with current status and event timeline.
+
+    Raises:
+        NotFoundException: If quotation not found.
+    """
+    from app.modules.output.models import TrackingEvent
+
+    result = await db.execute(
+        select(Quotation)
+        .options(
+            joinedload(Quotation.tracking_events).joinedload(
+                TrackingEvent.changed_by
+            ),
+        )
+        .where(Quotation.id == uuid.UUID(quotation_id))
+    )
+    quotation = result.unique().scalar_one_or_none()
+    if not quotation:
+        raise NotFoundException(
+            resource="Quotation",
+            resource_id=quotation_id,
+        )
+
+    events = [
+        TrackingEventResponse(
+            id=ev.id,
+            quotation_id=ev.quotation_id,
+            from_status=ev.from_status.value if ev.from_status else None,
+            to_status=ev.to_status.value,
+            notes=ev.notes,
+            changed_by_id=ev.changed_by_id,
+            created_at=ev.created_at,
+        )
+        for ev in (quotation.tracking_events or [])
+    ]
+
+    return TrackingStatusResponse(
+        quotation_id=quotation.id,
+        quotation_number=quotation.quotation_number,
+        current_status=quotation.tracking_status.value
+        if quotation.tracking_status
+        else None,
+        events=events,
+    )
+
+
+async def update_tracking(
+    db: AsyncSession,
+    quotation_id: str,
+    new_status: str,
+    notes: Optional[str] = None,
+    changed_by_id: Optional[str] = None,
+) -> TrackingStatusResponse:
+    """Update the tracking status for an order (accepted quotation).
+
+    Validates the pipeline transition, updates the Quotation's
+    ``tracking_status``, and creates a ``TrackingEvent`` audit log entry.
+
+    Args:
+        db: Database session.
+        quotation_id: Quotation UUID string.
+        new_status: Target tracking status string.
+        notes: Optional note from the agent.
+        changed_by_id: Optional user UUID who made the change.
+
+    Returns:
+        Updated TrackingStatusResponse.
+
+    Raises:
+        NotFoundException: If quotation not found.
+        ValueError: If the transition is invalid.
+    """
+    from app.modules.output.models import TrackingEvent, TrackingStatus
+
+    result = await db.execute(
+        select(Quotation)
+        .options(joinedload(Quotation.tracking_events))
+        .where(Quotation.id == uuid.UUID(quotation_id))
+    )
+    quotation = result.unique().scalar_one_or_none()
+    if not quotation:
+        raise NotFoundException(
+            resource="Quotation",
+            resource_id=quotation_id,
+        )
+
+    # Parse new status
+    try:
+        target_enum = TrackingStatus(new_status)
+    except ValueError:
+        raise ValueError(
+            f"Invalid tracking status '{new_status}'. "
+            f"Must be one of: {', '.join(TRACKING_PIPELINE)}"
+        )
+
+    current = quotation.tracking_status
+
+    # Validate transition
+    _validate_tracking_transition(
+        current.value if current else None,
+        target_enum.value,
+    )
+
+    from_status_value = current.value if current else None
+
+    # Update quotation
+    quotation.tracking_status = target_enum
+
+    # Create event log
+    event = TrackingEvent(
+        quotation_id=quotation.id,
+        from_status=current,
+        to_status=target_enum,
+        notes=notes,
+        changed_by_id=uuid.UUID(changed_by_id) if changed_by_id else None,
+    )
+    db.add(event)
+    await db.flush()
+
+    logger.info(
+        "Tracking updated for quotation %s: %s → %s",
+        quotation_id,
+        from_status_value,
+        target_enum.value,
+    )
+
+    # Re-fetch with events
+    await db.refresh(quotation)
+    return await get_tracking(db, quotation_id)
+
+
+# Required for type annotations used in this module
+from app.modules.output.schemas import (  # noqa: E402
+    TrackingEventResponse,
+    TrackingStatusResponse,
+)
