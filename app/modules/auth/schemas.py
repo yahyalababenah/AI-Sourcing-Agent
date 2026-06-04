@@ -27,6 +27,18 @@ class SupplierProfileCreate(BaseModel):
     specialty: Optional[str] = Field(None, max_length=255, examples=["Electronics & Home Appliances"])
     business_registration_number: Optional[str] = Field(None, max_length=100, examples=["CN-GZ-2024-8842"])
 
+    # ── New fields for Leaf 2 (Supplier Profile Expansion) ──
+    business_license_url: Optional[str] = Field(
+        None, max_length=500,
+        examples=["https://storage.example.com/licenses/acme-license.pdf"],
+    )
+    """MinIO URL of the uploaded business license document."""
+    factory_address: Optional[str] = Field(
+        None, max_length=500,
+        examples=["No. 188, Jinshan Road, Baiyun District, Guangzhou"],
+    )
+    """Detailed factory street address."""
+
 
 class ClientProfileResponse(BaseModel):
     """Client profile data returned in API responses."""
@@ -45,6 +57,12 @@ class SupplierProfileResponse(BaseModel):
     location_in_china: str
     specialty: Optional[str] = None
     business_registration_number: Optional[str] = None
+
+    # ── New fields for Leaf 2 (Supplier Profile Expansion) ──
+    business_license_url: Optional[str] = None
+    factory_address: Optional[str] = None
+    verification_status: str = "pending"
+    """Verification status: pending / verified / rejected."""
 
     model_config = {"from_attributes": True}
 
@@ -72,6 +90,16 @@ class UserCreate(BaseModel):
     location_in_china: Optional[str] = Field(None, max_length=255, examples=["Guangzhou, Guangdong"])
     specialty: Optional[str] = Field(None, max_length=255, examples=["Electronics & Home Appliances"])
     business_registration_number: Optional[str] = Field(None, max_length=100, examples=["CN-GZ-2024-8842"])
+
+    # ── New fields for Leaf 2 (Supplier Profile Expansion) ──
+    business_license_url: Optional[str] = Field(
+        None, max_length=500,
+        examples=["https://storage.example.com/licenses/acme-license.pdf"],
+    )
+    factory_address: Optional[str] = Field(
+        None, max_length=500,
+        examples=["No. 188, Jinshan Road, Baiyun District, Guangzhou"],
+    )
 
 
 class UserLogin(BaseModel):
