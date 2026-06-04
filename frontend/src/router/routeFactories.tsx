@@ -2,6 +2,8 @@ import { ROUTES } from "@/constants/routes";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { DashboardRouter } from "@/pages/dashboard/DashboardRouter";
 import { MarketplacePage } from "@/pages/catalog/MarketplacePage";
+import { SupplierShowroomPage } from "@/pages/catalog/SupplierShowroomPage";
+import { SupplierProductsPage } from "@/pages/catalog/SupplierProductsPage";
 import { RFQListPage } from "@/pages/rfq/RFQListPage";
 import { RFQCreatePage } from "@/pages/rfq/RFQCreatePage";
 import { RFQDetailPage } from "@/pages/rfq/RFQDetailPage";
@@ -30,12 +32,32 @@ export const sharedRoutes: RouteObject[] = [
     element: <DashboardRouter />,
   },
 
-  // ── Global Catalog Marketplace (client & admin) ──
+  // ── Global Catalog Marketplace (client, agent & admin) ──
   {
     path: ROUTES.CATALOG.MARKETPLACE,
     element: (
-      <RoleGuard roles={["client", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+      <RoleGuard roles={["client", "agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
         <MarketplacePage />
+      </RoleGuard>
+    ),
+  },
+
+  // ── Supplier Showroom (client, agent & admin) ──
+  {
+    path: ROUTES.CATALOG.SUPPLIER_SHOWROOM(":supplierId"),
+    element: (
+      <RoleGuard roles={["client", "agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <SupplierShowroomPage />
+      </RoleGuard>
+    ),
+  },
+
+  // ── Supplier: My Products (agent & admin) ──
+  {
+    path: ROUTES.SUPPLIER.MY_PRODUCTS,
+    element: (
+      <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <SupplierProductsPage />
       </RoleGuard>
     ),
   },
