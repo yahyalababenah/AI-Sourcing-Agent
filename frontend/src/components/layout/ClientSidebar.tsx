@@ -1,10 +1,10 @@
 import { NavLink } from "react-router-dom";
-import { ClipboardList, Package, Globe, Settings } from "lucide-react";
+import { ClipboardList, Package, Globe, Settings, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 
 /**
- * Client Sidebar — Shows marketplace, RFQ creation, and RFQ list.
+ * Client Sidebar — Shows marketplace, RFQ creation, RFQ list, and tracking.
  */
 export function ClientSidebar() {
   const navItems = [
@@ -12,6 +12,7 @@ export function ClientSidebar() {
     { to: ROUTES.CATALOG.MARKETPLACE, label: "السوق العالمي", icon: Globe },
     { to: ROUTES.RFQ.CREATE, label: "طلب عرض سعر جديد", icon: Package },
     { to: ROUTES.RFQ.LIST, label: "طلباتي", icon: ClipboardList },
+    { to: ROUTES.QUOTES.LIST, label: "تتبع الشحنات", icon: Truck },
   ];
 
   return (
@@ -25,7 +26,7 @@ export function ClientSidebar() {
       <nav className="flex-1 space-y-1 p-4">
         {navItems.map((item) => (
           <NavLink
-            key={item.to}
+            key={item.to + item.label}
             to={item.to}
             className={({ isActive }) =>
               cn(
