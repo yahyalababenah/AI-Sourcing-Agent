@@ -108,6 +108,9 @@ async def _create_user_profile(db: AsyncSession, user: User, user_data: UserCrea
             location_in_china=user_data.location_in_china,
             specialty=user_data.specialty,
             business_registration_number=user_data.business_registration_number,
+            # New Leaf 2 fields
+            business_license_url=user_data.business_license_url,
+            factory_address=user_data.factory_address,
         )
         db.add(profile)
 
