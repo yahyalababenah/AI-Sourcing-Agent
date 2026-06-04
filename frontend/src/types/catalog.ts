@@ -8,6 +8,7 @@ export interface CatalogProduct {
   weight_kg: number | null;
   dimensions: string | null;
   material: string | null;
+  category: string | null;
 
   /** Supplier (agent) who owns this product. */
   supplier_id: string;
