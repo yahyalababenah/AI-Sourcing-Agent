@@ -23,6 +23,15 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "مرفوض",
 };
 
+const TRACKING_LABELS: Record<string, string> = {
+  awaiting_payment: "بانتظار الدفع",
+  production: "قيد التصنيع",
+  inland_freight: "الشحن الداخلي",
+  sea_freight: "الشحن البحري",
+  customs: "التخليص الجمركي",
+  delivered: "تم التسليم",
+};
+
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -43,6 +52,7 @@ export function QuotationDetailPage() {
   const clientName = quote?.client_name || rfq?.client_name || "—";
   const currency = quote?.target_currency || "JOD";
   const lineItems: QuotationLineItem[] = (quote?.line_items as QuotationLineItem[]) || [];
+  const trackingStatus = (quote as any)?.tracking_status as string | undefined;
 
   if (isLoading) {
     return (
@@ -93,13 +103,20 @@ export function QuotationDetailPage() {
             </p>
           </div>
         </div>
-        <span
-          className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
-            STATUS_COLORS[quote.status] || "bg-gray-100 text-gray-700"
-          }`}
-        >
-          {STATUS_LABELS[quote.status] || quote.status}
-        </span>
+        <div className="flex items-center gap-2">
+          {trackingStatus && (
+            <span className="inline-block rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+              🚚 {TRACKING_LABELS[trackingStatus] || trackingStatus}
+            </span>
+          )}
+          <span
+            className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
+              STATUS_COLORS[quote.status] || "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {STATUS_LABELS[quote.status] || quote.status}
+          </span>
+        </div>
       </div>
 
       {/* Summary Card */}
@@ -213,6 +230,14 @@ export function QuotationDetailPage() {
         >
           عرض طلب عرض السعر
         </button>
+        {quote.status === "accepted" && (
+          <button
+            onClick={() => navigate(ROUTES.ORDERS.TRACKING(quote.id))}
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+          >
+            🚚 تتبع الشحنة
+          </button>
+        )}
       </div>
     </div>
   );
