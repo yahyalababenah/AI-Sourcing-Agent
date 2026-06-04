@@ -7,9 +7,13 @@ export const intakeService = {
   create: (data: RFQCreate) =>
     api.post<RFQ>(API.INTAKE.RFQS, data).then((r) => r.data),
 
-  /** List RFQs with optional status filter. */
-  list: (params?: { status?: string; page?: number; limit?: number }) =>
-    api.get<RFQListResponse>(API.INTAKE.RFQS, { params }).then((r) => r.data),
+  /** List RFQs with optional status/supplier filters. */
+  list: (params?: {
+    status?: string;
+    supplier_id?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get<RFQListResponse>(API.INTAKE.RFQS, { params }).then((r) => r.data),
 
   /** Get a single RFQ by ID. */
   get: (id: string) =>
