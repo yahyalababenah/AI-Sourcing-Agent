@@ -158,7 +158,7 @@ def _validate_result(result: Any) -> Optional[list[dict]]:
                 item["weight_kg"] = None
         validated.append(item)
 
-    return validated if validated else None
+    return validated if validated is not None else None
 
 
 # ═══════════════════════════════════════════════════════════
@@ -216,6 +216,6 @@ def repair_json(raw: str) -> Optional[dict[str, Any]]:
         Parsed dict, or None if all strategies fail.
     """
     result = repair_vision_json(raw)
-    if result:
+    if result is not None:
         return {"products": result, "confidence": 0.8}
     return None
