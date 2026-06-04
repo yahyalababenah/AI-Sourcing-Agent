@@ -10,6 +10,7 @@ import {
   Users,
   DollarSign,
   Store,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -25,6 +26,7 @@ export function AdminSidebar() {
     { to: ROUTES.DOCUMENTS.UPLOAD, label: "رفع مستند", icon: Upload },
     { to: ROUTES.PRICING.CALCULATE, label: "حساب الأسعار", icon: Calculator },
     { to: ROUTES.QUOTES.LIST, label: "عروض الأسعار", icon: FileText },
+    { to: ROUTES.QUOTES.LIST, label: "تتبع الشحنات", icon: Truck },
   ];
 
   const adminItems = [
@@ -45,7 +47,7 @@ export function AdminSidebar() {
       <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {mainItems.map((item) => (
           <NavLink
-            key={item.to}
+            key={item.to + item.label}
             to={item.to}
             className={({ isActive }) =>
               cn(
