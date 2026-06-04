@@ -21,6 +21,13 @@ class UserRole(str, enum.Enum):
     CLIENT = "client"
 
 
+class VerificationStatus(str, enum.Enum):
+    """Verification status for supplier profiles."""
+    PENDING = "pending"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -120,6 +127,19 @@ class SupplierProfile(Base):
     specialty = Column(String(255), nullable=True)
     business_registration_number = Column(String(100), nullable=True)
 
+    # ── New columns for Leaf 2 (Supplier Profile Expansion) ──
+    business_license_url = Column(String(500), nullable=True)
+    """MinIO URL pointing to the uploaded business license document."""
+    factory_address = Column(Text, nullable=True)
+    """Detailed factory street address (may differ from general location_in_china)."""
+    verification_status = Column(
+        Enum(VerificationStatus, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=VerificationStatus.PENDING,
+        server_default=VerificationStatus.PENDING.value,
+    )
+    """Verification status: pending → verified → rejected."""
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -132,4 +152,4 @@ class SupplierProfile(Base):
     user = relationship("User", back_populates="supplier_profile")
 
     def __repr__(self) -> str:
-        return f"<SupplierProfile(id={self.id}, factory={self.factory_name})>"
+        return f"<SupplierProfile(id={self.id}, factory={self.factory_name}, status={self.verification_status})>"
