@@ -37,6 +37,7 @@ export const API = {
     GENERATE: "/quotes/generate",
     PDF: (id: string) => `/quotes/${id}/pdf`,
     FINALIZE: (id: string) => `/quotes/${id}/finalize`,
+    TRACKING: (id: string) => `/quotes/${id}/tracking`,
   },
   CATALOG: {
     PRODUCTS: "/catalog/products",
