@@ -29,14 +29,18 @@ from app.modules.output.schemas import (
     QuotationGenerateRequest,
     QuotationListResponse,
     QuotationResponse,
+    TrackingStatusResponse,
+    UpdateTrackingRequest,
 )
 from app.modules.output.service import (
     create_quotation,
     finalize_quotation,
     generate_quotation_pdf,
     get_quotation,
+    get_tracking,
     list_quotations,
     update_quotation_status,
+    update_tracking,
 )
 from app.shared.database import get_db
 
@@ -242,3 +246,57 @@ async def finalize(
     """
     quotation = await finalize_quotation(db, quotation_id)
     return QuotationResponse.model_validate(quotation)
+
+
+# ═══════════════════════════════════════════════════════════
+# Order Tracking Endpoints
+# ═══════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/{quotation_id}/tracking",
+    response_model=TrackingStatusResponse,
+    summary="Get order tracking status and history",
+)
+async def get_tracking_endpoint(
+    quotation_id: str,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Get the current tracking status and full event history for an order.
+
+    Accessible by all authenticated users who have access to the quotation.
+    """
+    return await get_tracking(db, quotation_id)
+
+
+@router.put(
+    "/{quotation_id}/tracking",
+    response_model=TrackingStatusResponse,
+    summary="Update order tracking status",
+)
+async def update_tracking_endpoint(
+    quotation_id: str,
+    body: UpdateTrackingRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
+):
+    """Update the tracking status for an order.
+
+    Validates pipeline order and creates an audit log entry.
+    Only agents and admins can update tracking status.
+    """
+    try:
+        return await update_tracking(
+            db,
+            quotation_id,
+            new_status=body.status,
+            notes=body.notes,
+            changed_by_id=str(current_user.id),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=fastapi_status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
