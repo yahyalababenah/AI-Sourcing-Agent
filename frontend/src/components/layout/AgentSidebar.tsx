@@ -9,12 +9,13 @@ import {
   Package,
   Inbox,
   Truck,
+  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 
 /**
- * Agent Sidebar — Full workflow: RFQs, Documents, Pricing, Quotations, Tracking.
+ * Agent Sidebar — Full workflow: RFQs, Documents, Pricing, Quotations, Tracking, Catalog.
  */
 export function AgentSidebar() {
   const navItems = [
@@ -23,9 +24,10 @@ export function AgentSidebar() {
     { to: ROUTES.RFQ.LIST, label: "طلبات الشراء", icon: ClipboardList },
     { to: ROUTES.RFQ.CREATE, label: "طلب شراء جديد", icon: Package },
     { to: ROUTES.DOCUMENTS.UPLOAD, label: "رفع مستند", icon: Upload },
+    { to: ROUTES.SUPPLIER.MY_PRODUCTS, label: "منتجاتي", icon: Store },
     { to: ROUTES.PRICING.CALCULATE, label: "حساب الأسعار", icon: Calculator },
     { to: ROUTES.QUOTES.LIST, label: "عروض الأسعار", icon: FileText },
-    { to: ROUTES.QUOTES.LIST, label: "تتبع الشحنات", icon: Truck },
+    { to: ROUTES.ORDERS.LIST, label: "تتبع الشحنات", icon: Truck },
   ];
 
   return (

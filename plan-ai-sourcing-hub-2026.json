@@ -1,7 +1,7 @@
 {
-  "id": "ai-sourcing-hub-2026",
-  "name": "AI-Sourcing Hub",
-  "updatedAt": "2026-06-04T09:14:39.000Z",
+  "id": "c47bf7cf-a6e1-4736-8759-2472c09d74cd",
+  "name": "Data Analytics Transformation Impacted Groups",
+  "updatedAt": "2026-06-04T14:01:09.998Z",
   "tree": {
     "id": "ai-root",
     "name": "AI-Sourcing Hub",
@@ -551,7 +551,7 @@
             "name": "التسعير الجمركي — Customs Pricing Engine",
             "description": "حساب التكلفة الجمركية والتقديرية للبضائع بناءً على التصنيف الجمركي.",
             "metadata": {
-              "icon": "dollar",
+              "icon": "checkmark",
               "role": "Feature"
             },
             "color": "#4ade80",

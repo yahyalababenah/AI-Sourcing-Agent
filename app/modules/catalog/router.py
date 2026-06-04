@@ -9,8 +9,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.dependencies import get_current_user, require_client_or_admin
-from app.modules.auth.models import User
+from app.modules.auth.dependencies import get_current_user, require_any_role
+from app.modules.auth.models import User, UserRole
 from app.modules.catalog.schemas import CatalogListResponse
 from app.modules.catalog.service import search_catalog
 from app.shared.database import get_db
@@ -58,7 +58,7 @@ async def list_catalog_products(
     ),
     pagination: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_client_or_admin),
+    _: User = Depends(require_any_role(UserRole.CLIENT, UserRole.AGENT, UserRole.ADMIN)),
 ):
     """Browse all globally available products from suppliers."""
     return await search_catalog(

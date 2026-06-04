@@ -30,6 +30,10 @@ export const ROUTES = {
   },
   CATALOG: {
     MARKETPLACE: "/marketplace",
+    SUPPLIER_SHOWROOM: (id: string) => `/marketplace/supplier/${id}`,
+  },
+  SUPPLIER: {
+    MY_PRODUCTS: "/supplier/products",
   },
   ORDERS: {
     LIST: "/orders",

@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, ShoppingCart, X, Package, Factory, MapPin, AlertCircle, CheckCircle, SlidersHorizontal } from "lucide-react";
+import { Search, ShoppingCart, X, Package, Factory, MapPin, AlertCircle, CheckCircle, SlidersHorizontal, ExternalLink } from "lucide-react";
 import { catalogService } from "@/services/catalogService";
 import { intakeService } from "@/services/intakeService";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import type { CatalogProduct, CatalogListResponse } from "@/types/catalog";
 import type { RFQCreate } from "@/types/intake";
 import { CatalogFilters, type FilterState } from "./CatalogFilters";
@@ -220,6 +222,7 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, onRequestQuote }: ProductCardProps) {
+  const showroomPath = ROUTES.CATALOG.SUPPLIER_SHOWROOM(product.supplier_id);
   return (
     <div className="card group flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-primary-200 hover:shadow-md">
       {/* Product Icon / Image placeholder */}
@@ -253,10 +256,17 @@ function ProductCard({ product, onRequestQuote }: ProductCardProps) {
 
       {/* Supplier Info */}
       <div className="mb-4 space-y-1 text-xs text-gray-500">
-        <div className="flex items-center gap-1.5">
+        <Link
+          to={showroomPath}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1.5 text-gray-500 transition-colors hover:text-primary-600"
+        >
           <Factory className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{product.factory_name ?? product.supplier_name}</span>
-        </div>
+          <span className="truncate underline decoration-dotted underline-offset-2">
+            {product.factory_name ?? product.supplier_name}
+          </span>
+          <ExternalLink className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/link:opacity-100" />
+        </Link>
         {product.location_in_china && (
           <div className="flex items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
