@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { ClipboardList, Package, Globe, Settings, Truck } from "lucide-react";
+import { ClipboardList, Package, Globe, Settings, Truck, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 
@@ -12,6 +12,7 @@ export function ClientSidebar() {
     { to: ROUTES.CATALOG.MARKETPLACE, label: "السوق العالمي", icon: Globe },
     { to: ROUTES.RFQ.CREATE, label: "طلب عرض سعر جديد", icon: Package },
     { to: ROUTES.RFQ.LIST, label: "طلباتي", icon: ClipboardList },
+    { to: ROUTES.CHAT.LIST, label: "المحادثات", icon: MessageCircle },
     { to: ROUTES.QUOTES.LIST, label: "تتبع الشحنات", icon: Truck },
   ];
 

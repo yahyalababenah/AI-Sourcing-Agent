@@ -352,11 +352,11 @@
                 "name": "🍃 الورقة 4: لوحة تحكم الآدمن للموافقة والتحقق (Admin: Supplier Verification Dashboard)",
                 "description": "إنشاء AdminVerificationPage.tsx، GET /api/v1/admin/users?role=supplier&status=pending لعرض المصانع المنتظرة، عرض السجل التجاري، زر \"تفعيل وتوثيق\" (PUT /api/v1/admin/users/{id}/status) وزر \"رفض\" مع كتابة السبب.",
                 "metadata": {
-                  "icon": "role",
+                  "icon": "check",
                   "role": "Task",
-                  "status": "pending"
+                  "status": "completed"
                 },
-                "color": "#EFB09F",
+                "color": "#4ade80",
                 "children": []
               }
             ]
@@ -378,11 +378,11 @@
                 "name": "🍃 الورقة 1: ربط الاستعلام بالمعرّف الفريد للمورد (Backend: Filter Products by Supplier UUID)",
                 "description": "تهيئة Endpoint الكتالوج لاستقبال supplier_id كمعامل اختياري وتعديل استعلام SQLAlchemy لتصفية المنتجات التابعة للمورد مع Pagination.",
                 "metadata": {
-                  "icon": "role",
+                  "icon": "check",
                   "role": "Task",
-                  "status": "pending"
+                  "status": "completed"
                 },
-                "color": "#EFB09F",
+                "color": "#4ade80",
                 "children": []
               },
               {
@@ -390,11 +390,11 @@
                 "name": "🍃 الورقة 2: شاشة \"معرض المورد\" للعملاء (Frontend - Client View: Supplier Showroom)",
                 "description": "بناء صفحة عامة للعميل تعرض بيانات المصنع وشارة التوثيق بالأعلى، وشبكة Grid منسقة بالعربية لمنتجات المورد مع زر \"طلب تسعير كمية\".",
                 "metadata": {
-                  "icon": "role",
+                  "icon": "check",
                   "role": "Task",
-                  "status": "pending"
+                  "status": "completed"
                 },
-                "color": "#EFB09F",
+                "color": "#4ade80",
                 "children": []
               },
               {
@@ -402,11 +402,11 @@
                 "name": "🍃 الورقة 3: لوحة إدارة المنتجات للمورد (Frontend - Supplier View: My Products Panel)",
                 "description": "بناء شاشة داخل لوحة تحكم المورد تعرض جدولاً منظماً بجميع منتجاته (50+) المستخرجة من توكن الدخول، مع إمكانية متابعة وإدارة البضائع.",
                 "metadata": {
-                  "icon": "role",
+                  "icon": "check",
                   "role": "Task",
-                  "status": "pending"
+                  "status": "completed"
                 },
-                "color": "#EFB09F",
+                "color": "#4ade80",
                 "children": []
               }
             ]

@@ -10,6 +10,7 @@ import {
   Inbox,
   Truck,
   Store,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -27,6 +28,7 @@ export function AgentSidebar() {
     { to: ROUTES.SUPPLIER.MY_PRODUCTS, label: "منتجاتي", icon: Store },
     { to: ROUTES.PRICING.CALCULATE, label: "حساب الأسعار", icon: Calculator },
     { to: ROUTES.QUOTES.LIST, label: "عروض الأسعار", icon: FileText },
+    { to: ROUTES.CHAT.LIST, label: "المحادثات", icon: MessageCircle },
     { to: ROUTES.ORDERS.LIST, label: "تتبع الشحنات", icon: Truck },
   ];
 

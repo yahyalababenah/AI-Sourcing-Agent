@@ -39,5 +39,9 @@ export const ROUTES = {
     LIST: "/orders",
     TRACKING: (id: string) => `/orders/${id}/tracking`,
   },
+  CHAT: {
+    LIST: "/chat",
+    ROOM: (id: string) => `/chat/${id}`,
+  },
   SETTINGS: "/settings",
 } as const;

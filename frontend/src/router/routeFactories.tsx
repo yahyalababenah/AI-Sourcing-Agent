@@ -17,6 +17,8 @@ import { QuotationDetailPage } from "@/pages/quotes/QuotationDetailPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { OrderTrackingPage } from "@/pages/orders/OrderTrackingPage";
 import { AdminVerificationPage } from "@/pages/admin/AdminVerificationPage";
+import { ChatRoomListPage } from "@/pages/chat/ChatRoomListPage";
+import { ChatRoomDetailPage } from "@/pages/chat/ChatRoomDetailPage";
 import type { RouteObject } from "react-router-dom";
 
 /**
@@ -140,6 +142,16 @@ export const sharedRoutes: RouteObject[] = [
   {
     path: ROUTES.ORDERS.TRACKING(":id"),
     element: <OrderTrackingPage />,
+  },
+
+  // ── Chat / Negotiation Rooms (all authenticated roles) ──
+  {
+    path: ROUTES.CHAT.LIST,
+    element: <ChatRoomListPage />,
+  },
+  {
+    path: ROUTES.CHAT.ROOM(":roomId"),
+    element: <ChatRoomDetailPage />,
   },
 
   // ── Settings (all roles) ──

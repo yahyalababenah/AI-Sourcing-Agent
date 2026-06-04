@@ -1,6 +1,8 @@
 # Project Status — AI-Sourcing Hub
 
-## ✅ Completed: Client Experience Epic
+## ✅ Completed Epics
+
+### Client Experience Epic
 All 4 features fully implemented and tested:
 
 | Feature | Leaves | Status |
@@ -10,44 +12,37 @@ All 4 features fully implemented and tested:
 | Order Tracking (timeline, status updates, auto-refresh) | 4/4 | ✅ |
 | Customs & Landed Cost Engine (rules, calc, admin UI, breakdown) | 4/4 | ✅ |
 
-## Next Up: Supplier Experience Epic
-The next logical epic to tackle. Three features with varying progress:
+### Supplier Experience Epic
+All features completed:
 
-### Feature A: Supplier Onboarding & Verification (`ai-supplier-auth`)
+| Feature | Leaves | Status |
+|---------|--------|--------|
+| Supplier Onboarding & Verification | 4/4 | ✅ |
+| Supplier Digital Catalog | 3/3 | ✅ |
+| Chat / Negotiation Rooms | — | 🔵 Not started |
+
+### AI Core Epic
+| Feature | Leaves | Status |
+|---------|--------|--------|
+| Catalog OCR & Parsing (upload, vision, repair, sync) | 4/4 | ✅ |
+| Customs Pricing Engine | — | ✅ |
+| Auto Translation | — | 🔵 Not started |
+
+## 🔵 Currently Active: Chat / Negotiation Rooms (`ai-supplier-chat`)
+
+Building real-time chat rooms between clients and suppliers with auto-translation (Arabic ↔ Chinese).
+
+### Leaf Plan:
 | Leaf | Status | Description |
 |------|--------|-------------|
-| leaf1 | ✅ completed | Registration form (RegisterPage.tsx) |
-| **leaf2** | **🔶 active** | **Supplier Profile Schema Expansion** — Add `business_license_url`, `verification_status`, `factory_address` + migration |
-| leaf3 | ✅ completed | Document Upload to MinIO |
-| leaf4 | ⏳ pending | Admin Verification Dashboard (approve/reject) |
+| leaf1 | 🔶 active | Backend: Chat room + message models, WebSocket support, REST API |
+| leaf2 | ⏳ pending | Frontend: Chat room list page (client & supplier views) |
+| leaf3 | ⏳ pending | Frontend: Chat room detail page with messaging UI |
+| leaf4 | ⏳ pending | Auto-translation integration (Arabic ↔ Chinese via LLM) |
 
-### Feature B: Supplier Digital Catalog (`ai-supplier-catalog`)
-| Leaf | Status | Description |
-|------|--------|-------------|
-| leaf1 | ⏳ pending | Backend: filter catalog by supplier UUID |
-| leaf2 | ⏳ pending | Frontend: supplier showroom for clients |
-| leaf3 | ⏳ pending | Frontend: "My Products" management panel |
-
-### Feature C: Chat / Negotiation Rooms
-- Placeholder — no leaves defined yet.
-
-## Proposed Next Task: Supplier Profile Schema Expansion
-
-**What needs to change:**
-
-**1. Model** [`app/modules/auth/models.py`](app/modules/auth/models.py:105) — `SupplierProfile`:
-   - Add `business_license_url` (String, nullable) — MinIO URL
-   - Add `verification_status` (Enum: `PENDING` / `VERIFIED` / `REJECTED`, default `PENDING`)
-   - Add `factory_address` (Text, nullable) — detailed factory address
-
-**2. Schemas** [`app/modules/auth/schemas.py`](app/modules/auth/schemas.py:22):
-   - Add `business_license_url` and `factory_address` to `SupplierProfileCreate`
-   - Add all new fields to `SupplierProfileResponse`
-
-**3. Migration** — New Alembic revision `008`
-   - `ALTER TABLE supplier_profiles ADD COLUMN business_license_url VARCHAR`
-   - `ALTER TABLE supplier_profiles ADD COLUMN verification_status VARCHAR NOT NULL DEFAULT 'PENDING'`
-   - `ALTER TABLE supplier_profiles ADD COLUMN factory_address TEXT`
-
-**4. Service** [`app/modules/auth/service.py`](app/modules/auth/service.py:94) — `_create_user_profile`:
-   - Pass new fields when creating `SupplierProfile`
+### Operations Epic
+| Feature | Leaves | Status |
+|---------|--------|--------|
+| Escrow Payment System | — | 🔵 Not started |
+| System Monitoring | — | 🔵 Partially implemented |
+| User Management | — | 🔵 Partially implemented |

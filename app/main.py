@@ -42,6 +42,7 @@ from app.modules.documents.router import router as documents_router
 from app.modules.intake.router import router as intake_router
 from app.modules.monitoring.router import router as monitoring_router
 from app.modules.output.router import router as output_router
+from app.modules.chat.router import router as chat_router
 from app.modules.pricing.router import router as pricing_router
 from app.shared.metrics import (
     PrometheusMiddleware,
@@ -181,6 +182,11 @@ def create_app() -> FastAPI:
         monitoring_router,
         prefix="/api/v1/admin",
         tags=["Admin"],
+    )
+    app.include_router(
+        chat_router,
+        prefix="/api/v1/chat",
+        tags=["Chat"],
     )
 
     # ---- Health Check ----
