@@ -28,6 +28,7 @@ from app.modules.documents.schemas import (
     ItemsUpdateResponse,
 )
 from app.modules.documents.vision_client import extract_from_image
+from app.modules.catalog.service import sync_document_products
 from app.shared.exceptions import NotFoundException, DocumentProcessingError
 from app.shared.logging import get_logger
 from app.shared.storage import storage_client
@@ -257,6 +258,9 @@ async def process_document_vision(
         doc.status = DocumentStatus.EXTRACTED
         await db.flush()
         await db.refresh(doc)
+
+        # Sync extracted products into catalog_products table (B-Tree + GIN indexed)
+        await sync_document_products(db, doc)
 
         return result
 
