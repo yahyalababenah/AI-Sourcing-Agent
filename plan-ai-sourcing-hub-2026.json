@@ -1,0 +1,622 @@
+{
+  "id": "ai-sourcing-hub-2026",
+  "name": "AI-Sourcing Hub",
+  "updatedAt": "2026-06-04T09:14:39.000Z",
+  "tree": {
+    "id": "ai-root",
+    "name": "AI-Sourcing Hub",
+    "description": "أتمتة ورقمنة دورة الاستيراد بالكامل بين المورد الصيني والتاجر العربي، وتخطي حواجز اللغة، والتسعير، والثقة.",
+    "metadata": {
+      "icon": "none"
+    },
+    "color": "#ffffff",
+    "fontSize": 14,
+    "fontWeight": "bold",
+    "children": [
+      {
+        "id": "ai-client",
+        "name": "تجربة العميل — Client Experience",
+        "description": "كيف يجد العميل البضاعة ويطلب تسعيرها ويتابع الطلب.",
+        "metadata": {
+          "icon": "person",
+          "role": "Epic",
+          "status": "active"
+        },
+        "color": "#5B6ABF",
+        "fontWeight": "bold",
+        "children": [
+          {
+            "id": "ai-client-search",
+            "name": "البحث عن المنتجات — Product Discovery",
+            "description": "نظام بحث متقدم عن المنتجات الصينية مع فلترة حسب الفئة والسعر والمورد.",
+            "metadata": {
+              "icon": "custom",
+              "role": "Feature",
+              "status": "active"
+            },
+            "color": "#7C89D5",
+            "fontWeight": "bold",
+            "children": [
+              {
+                "id": "ai-client-search-leaf1",
+                "name": "🍃 الورقة 1: هندسة قاعدة البيانات وفهارس البحث",
+                "description": "إنشاء B-Tree Indexes على price/category_id و GIN Index على title/description لدعم Full-Text Search في PostgreSQL. تحديث موديل CatalogProduct في SQLAlchemy وتوليد ملف هجرة Alembic.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-search-leaf2",
+                "name": "🍃 الورقة 2: بناء واجهة الاستعلام المتقدمة (FastAPI)",
+                "description": "بناء Endpoint GET /api/v1/catalog/products مع Query Parameters اختيارية: q, category, min_price, max_price, supplier_id. بناء Dynamic Query باستخدام SQLAlchemy مع Pagination (20 منتج/طلب).",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-search-leaf3",
+                "name": "🍃 الورقة 3: شريط البحث المتطور (React Search & Debounce)",
+                "description": "بناء شريط البحث في MarketplacePage.tsx مع Debounce 300ms باستخدام use-debounce. ربط القيمة المصفاة مع React Query لإعادة جلب المنتجات تلقائياً.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-search-leaf4",
+                "name": "🍃 الورقة 4: لوحة الفلاتر الجانبية (React Filters Sidebar UI)",
+                "description": "تصميم Sidebar مع: Dropdown للفئات (Categories)، Dual-Range Slider للسعر، Select Box للموردين. تجميع قيم الفلاتر وتمريرها للـ API عبر Axios.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "ai-client-rfq",
+            "name": "دورة حياة طلب التسعير وعرض السعر — RFQ & Quote Lifecycle",
+            "description": "نظام متكامل لإنشاء طلب تسعير (RFQ)، استلامه من المورد، تقديم عرض سعر فوري، وقبول/رفض العميل.",
+            "metadata": {
+              "icon": "custom",
+              "role": "Feature",
+              "status": "completed"
+            },
+            "color": "#7C89D5",
+            "fontWeight": "bold",
+            "children": [
+              {
+                "id": "ai-client-rfq-leaf1",
+                "name": "🍃 الورقة 1: واجهة إنشاء طلب التسعير (Send RFQ Modal)",
+                "description": "بناء SendRfqModal.tsx يستقبل بيانات المنتج تلقائياً، حقول الكمية وميناء الاستلام، ربط POST /api/v1/intake/rfqs مع React Query.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-rfq-leaf2",
+                "name": "🍃 الورقة 2: استقبال الطلب وعزله في الباك إند (Scope & Create RFQ)",
+                "description": "Route POST /api/v1/intake/rfqs محمي بـ require_role([\"client\"])، استخراج client_id من JWT، حفظ RFQ بحالة \"open\".",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-rfq-leaf3",
+                "name": "🍃 الورقة 3: لوحة تحكم المورد واستعراض الطلبات (Supplier RFQ Inbox UI)",
+                "description": "صفحة SupplierRfqInbox.tsx، GET /api/v1/intake/rfqs?supplier_id=me، بطاقات عرض المنتج والكمية والميناء مع زر \"تقديم عرض سعر فوري\".",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-rfq-leaf4",
+                "name": "🍃 الورقة 4: محرك حساب وتسليم عرض السعر الفوري (Submit Instant Quote)",
+                "description": "Route POST /api/v1/quotes/ محمي بـ require_role([\"supplier\"])، استدعاء pricing_engine لدمج الجمارك والشحن، إنشاء Quotation بحالة \"sent\".",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-rfq-leaf5",
+                "name": "🍃 الورقة 5: شاشة استلام وإقرار السعر للعميل (Client View & Accept Quote UI)",
+                "description": "RFQDetailPage.tsx يعرض landed cost مع التفصيل، زر \"قبول والانتقال للدفع\" (POST /v1/quotes/{id}/accept) وزر \"رفض/تفاوض\".",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "ai-client-tracking",
+            "name": "لوحة تتبع الشحنات والطلبات — Order Tracking Pipeline",
+            "description": "نظام متكامل لتتبع حالة الشحنة خطوة بخطوة من التصنيع حتى الاستلام، مع إشعارات فورية.",
+            "metadata": {
+              "icon": "custom",
+              "role": "Feature",
+              "status": "completed"
+            },
+            "color": "#7C89D5",
+            "fontWeight": "bold",
+            "children": [
+              {
+                "id": "ai-client-tracking-leaf1",
+                "name": "🍃 الورقة 1: تصميم قاعدة بيانات حالات الطلب (Backend: Order Status Schema)",
+                "description": "إضافة حقل tracking_status من نوع Enum: AWAITING_PAYMENT, PRODUCTION, INLAND_FREIGHT, SEA_FREIGHT, CUSTOMS, DELIVERED. تحديث موديل SQLAlchemy وتوليد ملف هجرة Alembic.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-tracking-leaf2",
+                "name": "🍃 الورقة 2: واجهة المتابعة البصرية للعميل (Frontend: Client Order Tracking Timeline)",
+                "description": "بناء OrderTimeline.tsx يعرض خط زمني بصري بالعربية، ألوان Tailwind (أخضر للمكتمل/رمادي للقادم)، جلب الحالة من GET /api/v1/orders/{id}/tracking.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-tracking-leaf3",
+                "name": "🍃 الورقة 3: بوابة تحديث الحالات للمورد والوكيل (Agent/Supplier: Status Update API & UI)",
+                "description": "بناء PUT /api/v1/admin/orders/{id}/tracking محمي، قائمة منسدلة بالحالات الستة + زر \"تحديث الحالة\" يسجل updated_at.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-tracking-leaf4",
+                "name": "🍃 الورقة 4: نظام الإشعارات اللحظية للتغييرات (Backend: Status Change Notifications)",
+                "description": "ربط دالة تحديث الحالة بنظام إشعارات (بريد إلكتروني عبر Celery أو نظام Badge أحمر في الفرونت إند).",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "ai-client-customs",
+            "name": "محرك الحساب والتقدير الجمركي — Customs & Landed Cost Engine",
+            "description": "نظام متكامل لحساب التكلفة الواصلة (Landed Cost) مع تعرفة جمركية ديناميكية، تحويل عملات، وعرض شفاف للعميل.",
+            "metadata": {
+              "icon": "custom",
+              "role": "Feature",
+              "status": "active"
+            },
+            "color": "#7C89D5",
+            "fontWeight": "bold",
+            "children": [
+              {
+                "id": "ai-client-customs-leaf1",
+                "name": "🍃 الورقة 1: بناء جدول القواعد والتعرفة الجمركية (Backend: Customs Rules Schema)",
+                "description": "إنشاء جدول pricing_rules/customs_tariffs: category_id, hs_code, customs_duty_rate, tax_rate, handling_fees. ربط الفئات بالتعرفة الجمركية العالمية.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-customs-leaf2",
+                "name": "🍃 الورقة 2: تطوير كود المحرك الحسابي التقديري (Backend: Landed Cost Core Logic)",
+                "description": "كتابة calculate_landed_cost(): تحويل العملة حياً، حساب الشحن التقديري (وزن/حجم)، الجمارك = (بضاعة+شحن) * duty_rate، الضريبة = (بضاعة+شحن+جمارك) * tax_rate، جمع الكل مع رسوم التخليص وميناء العقبة.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-customs-leaf3",
+                "name": "🍃 الورقة 3: واجهة إدخال وإدارة التعرفة للآدمن (Admin: Manage Customs Rules UI)",
+                "description": "بناء Admin UI بجدول عربي للفئات مع زر \"تعديل\" لكل فئة يفتح Modal لتحديث customs_duty_rate, tax_rate, handling_fees دون تعديل الكود.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              },
+              {
+                "id": "ai-client-customs-leaf4",
+                "name": "🍃 الورقة 4: عرض تفصيل التكلفة الشفافة للعميل (Client: Transparent Pricing Breakdown UI)",
+                "description": "بناء Card عربية تعرض: سعر البضاعة من المصنع - تكلفة الشحن الدولي - الرسوم الجمركية المتوقعة - الضرائب والرسوم المحلية - التكلفة الإجمالية الواصلة للميناء.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#9DA9E3",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ai-supplier",
+        "name": "تجربة المورد — Supplier Experience",
+        "description": "كيف يعرض المورد بضائعه ويتواصل دون لغة مشتركة.",
+        "metadata": {
+          "icon": "team",
+          "role": "Epic",
+          "status": "active"
+        },
+        "color": "#D9735A",
+        "fontWeight": "bold",
+        "children": [
+          {
+            "id": "ai-supplier-auth",
+            "name": "تسجيل الموردين والتحقق الذكي — Supplier Onboarding & Verification",
+            "description": "نظام تسجيل للموردين الصينيين مع رفع وثائق التحقق ولوحة تحكم آدمن للموافقة والتفعيل.",
+            "metadata": {
+              "icon": "custom",
+              "role": "Feature",
+              "status": "active"
+            },
+            "color": "#E48F7A",
+            "fontWeight": "bold",
+            "children": [
+              {
+                "id": "ai-supplier-auth-leaf1",
+                "name": "🍃 الورقة 1: تطوير واجهة تسجيل الموردين (Frontend: Supplier Registration Form)",
+                "description": "إنشاء SupplierRegisterPage.tsx، حقول: اسم الشركة، التخصص، رقم الهاتف الدولي، المدينة الصينية. ربط بـ react-hook-form + zod للتحقق وإرسال POST /api/v1/auth/register مع دور agent/supplier.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#EFB09F",
+                "children": []
+              },
+              {
+                "id": "ai-supplier-auth-leaf2",
+                "name": "🍃 الورقة 2: توسيع قاعدة البيانات لملف المصنع (Backend: Supplier Profile Schema Expansion)",
+                "description": "تعديل app/modules/auth/models.py: إضافة business_license_url (MinIO), verification_status (PENDING/VERIFIED/REJECTED), factory_address. توليد ملف هجرة Alembic.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#4ade80",
+                "children": []
+              },
+              {
+                "id": "ai-supplier-auth-leaf3",
+                "name": "🍃 الورقة 3: رفع وثائق التحقق إلى التخزين السحابي (Frontend & Backend: Document Upload to MinIO)",
+                "description": "إضافة File Uploader في الفرونت إند يرسل multipart/form-data. استقبال الملف في موديل documents ورفعه إلى MinIO عبر app/shared/storage.py، ثم تحديث الحالة إلى PENDING.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#EFB09F",
+                "children": []
+              },
+              {
+                "id": "ai-supplier-auth-leaf4",
+                "name": "🍃 الورقة 4: لوحة تحكم الآدمن للموافقة والتحقق (Admin: Supplier Verification Dashboard)",
+                "description": "إنشاء AdminVerificationPage.tsx، GET /api/v1/admin/users?role=supplier&status=pending لعرض المصانع المنتظرة، عرض السجل التجاري، زر \"تفعيل وتوثيق\" (PUT /api/v1/admin/users/{id}/status) وزر \"رفض\" مع كتابة السبب.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "pending"
+                },
+                "color": "#EFB09F",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "ai-supplier-catalog",
+            "name": "الكتالوج الرقمي والمظهر الخاص بالمورد — Supplier Digital Catalog",
+            "description": "صفحة عرض عامة لمنتجات المورد مع لوحة إدارة خاصة به وتصفية حسب المعرّف الفريد.",
+            "metadata": {
+              "icon": "custom",
+              "role": "Feature",
+              "status": "active"
+            },
+            "color": "#E48F7A",
+            "fontWeight": "bold",
+            "children": [
+              {
+                "id": "ai-supplier-catalog-leaf1",
+                "name": "🍃 الورقة 1: ربط الاستعلام بالمعرّف الفريد للمورد (Backend: Filter Products by Supplier UUID)",
+                "description": "تهيئة Endpoint الكتالوج لاستقبال supplier_id كمعامل اختياري وتعديل استعلام SQLAlchemy لتصفية المنتجات التابعة للمورد مع Pagination.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "pending"
+                },
+                "color": "#EFB09F",
+                "children": []
+              },
+              {
+                "id": "ai-supplier-catalog-leaf2",
+                "name": "🍃 الورقة 2: شاشة \"معرض المورد\" للعملاء (Frontend - Client View: Supplier Showroom)",
+                "description": "بناء صفحة عامة للعميل تعرض بيانات المصنع وشارة التوثيق بالأعلى، وشبكة Grid منسقة بالعربية لمنتجات المورد مع زر \"طلب تسعير كمية\".",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "pending"
+                },
+                "color": "#EFB09F",
+                "children": []
+              },
+              {
+                "id": "ai-supplier-catalog-leaf3",
+                "name": "🍃 الورقة 3: لوحة إدارة المنتجات للمورد (Frontend - Supplier View: My Products Panel)",
+                "description": "بناء شاشة داخل لوحة تحكم المورد تعرض جدولاً منظماً بجميع منتجاته (50+) المستخرجة من توكن الدخول، مع إمكانية متابعة وإدارة البضائع.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "pending"
+                },
+                "color": "#EFB09F",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "ai-supplier-chat",
+            "name": "غرف التفاوض (الدردشة) المترجمة فورياً",
+            "description": "غرف محادثة فورية مع ترجمة آلية بين العربية والصينية.",
+            "metadata": {
+              "icon": "circle",
+              "role": "Feature"
+            },
+            "color": "#E48F7A",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "ai-core",
+        "name": "محرك الذكاء الاصطناعي — AI Core",
+        "description": "كيف نقرأ الكتالوجات ونسعر البضائع جمركياً ونترجم المحتوى.",
+        "metadata": {
+          "icon": "role",
+          "role": "Epic",
+          "status": "active"
+        },
+        "color": "#22c55e",
+        "fontWeight": "bold",
+        "children": [
+          {
+            "id": "ai-core-ocr",
+            "name": "قراءة الكتالوجات — Catalog OCR & Parsing",
+            "description": "محرك OCR ذكي لاستخراج بيانات المنتجات من الكتالوجات والصور.",
+            "metadata": {
+              "icon": "role",
+              "role": "Feature"
+            },
+            "color": "#4ade80",
+            "children": [
+              {
+                "id": "ai-supplier-pdf-leaf1",
+                "name": "🍃 الورقة 1: واجهة رفع الملفات والصور للمورد (Frontend: Catalog Upload Zone)",
+                "description": "بناء مكون UI عربي بسحب وإفلات (Drag & Drop) لملفات PDF والصور داخل لوحة تحكم المورد، مع Progress Bar/Loading Skeleton يوضح أن AI يقرأ الملف.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#4ade80",
+                "children": []
+              },
+              {
+                "id": "ai-supplier-pdf-leaf2",
+                "name": "🍃 الورقة 2: نقطة استقبال الملفات وحفظها المؤقت (Backend: File Upload Endpoint)",
+                "description": "إنشاء Endpoint يستقبل الملف، يتحقق من النوع (PDF/PNG/JPEG)، ويحفظه مؤقتاً أو يرفعه إلى MinIO لتجهيزه للمعالجة.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#4ade80",
+                "children": []
+              },
+              {
+                "id": "ai-supplier-pdf-leaf3",
+                "name": "🍃 الورقة 3: دمج محرك الرؤية والاستخراج الذكي (Backend: AI Vision & Prompt Engineering)",
+                "description": "بناء دالة تأخذ PDF/صور وترسلها إلى Vision LLM (مثل OpenRouter) مع برومبت هندسي صارم لاستخراج (الاسم، الموديل، السعر، الوصف) وإعادتها بصيغة JSON مطابقة لـ CatalogProduct Schema.",
+                "metadata": {
+                  "icon": "role",
+                  "role": "Task",
+                  "status": "completed"
+                },
+                "color": "#4ade80",
+                "children": []
+              },
+              {
+                "id": "ai-core-ocr-repair",
+                "name": "الغصن الفرعي: معالجة وحقن البيانات المستخرجة (JSON Repair & Database Seeding)",
+                "description": "استقبال JSON الخام من AI، تنظيفه، إصلاح أخطاء البنية، التحقق من المخطط، ثم حقن المنتجات في قاعدة البيانات.",
+                "metadata": {
+                  "icon": "custom",
+                  "role": "Feature",
+                  "status": "active"
+                },
+                "color": "#4ade80",
+                "fontWeight": "bold",
+                "children": [
+                  {
+                    "id": "ai-core-ocr-repair-leaf1",
+                    "name": "🍃 الورقة 4.1: فلترة وتنظيف النصوص الأولية (Raw Text Extraction & Cleaning)",
+                    "description": "كتابة دالة تعتمد على التعبيرات النمطية (Regex) للبحث عن كتل الكود المبتدئة بـ ```json والمغلقة بـ ```. استخراج النص الواقع بين هذه العلامات فقط، والتخلص من أي جمل ترحيبية أو تفسيرية يكتبها النموذج (مثل: \"Here is your JSON data:\").",
+                    "metadata": {
+                      "icon": "role",
+                      "role": "Task",
+                      "status": "completed"
+                    },
+                    "color": "#4ade80",
+                    "children": []
+                  },
+                  {
+                    "id": "ai-core-ocr-repair-leaf2",
+                    "name": "🍃 الورقة 4.2: محرك الإصلاح التلقائي لبنية الـ JSON (JSON Repair Engine)",
+                    "description": "دمج مكتبة متخصصة في إصلاح الـ JSON محلياً (مثل مكتبة json-repair في بيئة بايثون). تمرير النص المنظف عبر الدالة repair_json() التي تقوم بإعادة بناء الأقواس والفاصلات المفقودة تلقائياً وإرجاع نص JSON صالح تماماً للقراءة والاستخدام.",
+                    "metadata": {
+                      "icon": "role",
+                      "role": "Task",
+                      "status": "completed"
+                    },
+                    "color": "#4ade80",
+                    "children": []
+                  },
+                  {
+                    "id": "ai-core-ocr-repair-leaf3",
+                    "name": "🍃 الورقة 4.3: التحقق من مطابقة البيانات للمخطط الهندي (Pydantic Schema Validation)",
+                    "description": "تمرير كود الـ JSON المصلح إلى مخطط Pydantic مخصص (CatalogProductCreateSchema). ضبط قيم افتراضية للحقول المفقودة (مثال: إذا لم يجد الذكاء الاصطناعي وصفاً للمنتج، يتم وضع نص افتراضي أو تركه فارغاً بدلاً من رفض المنتج بالكامل).",
+                    "metadata": {
+                      "icon": "role",
+                      "role": "Task",
+                      "status": "completed"
+                    },
+                    "color": "#4ade80",
+                    "children": []
+                  },
+                  {
+                    "id": "ai-core-ocr-repair-leaf4",
+                    "name": "🍃 الورقة 4.4: الحقن الآمن في قاعدة البيانات (Bulk Database Seeding)",
+                    "description": "استقبال معرّف المورد (supplier_id) من الجلسة الحالية التي رفعت الملف. حلقة تكرارية (Loop) لتحويل مصفوفة المنتجات المستخرجة إلى كائنات من موديل SQLAlchemy (CatalogProduct) مع حشو الـ supplier_id داخل كل سجل. استخدام db.bulk_save_objects() لحفظ جميع المنتجات في طلب قاعدة بيانات واحد، ثم db.commit() وإرجاع رسالة نجاح باللغة العربية واضحة للمورد.",
+                    "metadata": {
+                      "icon": "role",
+                      "role": "Task",
+                      "status": "completed"
+                    },
+                    "color": "#4ade80",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ai-core-pricing",
+            "name": "التسعير الجمركي — Customs Pricing Engine",
+            "description": "حساب التكلفة الجمركية والتقديرية للبضائع بناءً على التصنيف الجمركي.",
+            "metadata": {
+              "icon": "dollar",
+              "role": "Feature"
+            },
+            "color": "#4ade80",
+            "children": []
+          },
+          {
+            "id": "ai-core-translate",
+            "name": "الترجمة التلقائية — Auto Translation",
+            "description": "ترجمة فورية بين الصينية والعربية والإنجليزية للمحتوى والمحادثات.",
+            "metadata": {
+              "icon": "circle",
+              "role": "Feature"
+            },
+            "color": "#4ade80",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "ai-ops",
+        "name": "العمليات والأمان — Ops & Escrow",
+        "description": "كيف ندير الأموال ونراقب النظام ونضمن أمان المعاملات.",
+        "metadata": {
+          "icon": "team",
+          "role": "Epic",
+          "status": "active"
+        },
+        "color": "#a855f7",
+        "fontWeight": "bold",
+        "children": [
+          {
+            "id": "ai-ops-escrow",
+            "name": "إدارة الأموال — Escrow Payment System",
+            "description": "نظام دفع ضماني يحمي حقوق التاجر والمورد لحين استلام البضاعة.",
+            "metadata": {
+              "icon": "dollar",
+              "role": "Feature"
+            },
+            "color": "#c084fc",
+            "children": []
+          },
+          {
+            "id": "ai-ops-monitoring",
+            "name": "مراقبة النظام — System Monitoring",
+            "description": "مراقبة أداء النظام، تسجيل الأخطاء، وتنبيهات في الوقت الفعلي.",
+            "metadata": {
+              "icon": "circle",
+              "role": "Feature"
+            },
+            "color": "#c084fc",
+            "children": []
+          },
+          {
+            "id": "ai-ops-users",
+            "name": "إدارة المستخدمين — User Management",
+            "description": "إدارة الأدوار والصلاحيات للتجار والموردين والمشرفين.",
+            "metadata": {
+              "icon": "role",
+              "role": "Feature"
+            },
+            "color": "#c084fc",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}
