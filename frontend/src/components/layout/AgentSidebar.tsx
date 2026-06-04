@@ -7,21 +7,25 @@ import {
   FileText,
   Settings,
   Package,
+  Inbox,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 
 /**
- * Agent Sidebar — Full workflow: RFQs, Documents, Pricing, Quotations.
+ * Agent Sidebar — Full workflow: RFQs, Documents, Pricing, Quotations, Tracking.
  */
 export function AgentSidebar() {
   const navItems = [
     { to: ROUTES.DASHBOARD, label: "لوحة التحكم", icon: LayoutDashboard },
+    { to: ROUTES.RFQ.SUPPLIER_INBOX, label: "صندوق المورد", icon: Inbox },
     { to: ROUTES.RFQ.LIST, label: "طلبات الشراء", icon: ClipboardList },
     { to: ROUTES.RFQ.CREATE, label: "طلب شراء جديد", icon: Package },
     { to: ROUTES.DOCUMENTS.UPLOAD, label: "رفع مستند", icon: Upload },
     { to: ROUTES.PRICING.CALCULATE, label: "حساب الأسعار", icon: Calculator },
     { to: ROUTES.QUOTES.LIST, label: "عروض الأسعار", icon: FileText },
+    { to: ROUTES.QUOTES.LIST, label: "تتبع الشحنات", icon: Truck },
   ];
 
   return (
@@ -35,7 +39,7 @@ export function AgentSidebar() {
       <nav className="flex-1 space-y-1 p-4">
         {navItems.map((item) => (
           <NavLink
-            key={item.to}
+            key={item.to + item.label}
             to={item.to}
             className={({ isActive }) =>
               cn(
