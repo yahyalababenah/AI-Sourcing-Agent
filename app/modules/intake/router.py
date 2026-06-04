@@ -123,6 +123,10 @@ async def create_rfq_endpoint(
 async def list_rfqs_endpoint(
     pagination: PaginationParams = Depends(),
     status: Optional[RFQStatus] = Query(None, description="Filter by status"),
+    supplier_id: Optional[str] = Query(
+        None,
+        description="Filter by supplier agent (use 'me' for current user)",
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -131,8 +135,22 @@ async def list_rfqs_endpoint(
     - Admin: Sees all RFQs across the system.
     - Agent: Sees assigned RFQs + unassigned open RFQs.
     - Client: Sees only RFQs they created (client_id == current_user.id).
+
+    The `supplier_id` query param provides an alias for agent-scoped filtering,
+    primarily used by the Supplier RFQ Inbox frontend. Use `supplier_id=me`
+    to scope to the current authenticated user as the supplier/agent.
     """
     user_id = str(current_user.id)
+
+    # supplier_id=me is an alias for agent-scoped listing
+    if supplier_id == "me":
+        return await list_rfqs(
+            db,
+            pagination=pagination,
+            agent_id=user_id,
+            status=status,
+        )
+
     if current_user.role == UserRole.CLIENT:
         return await list_rfqs(
             db,
