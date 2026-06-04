@@ -5,6 +5,7 @@ import { MarketplacePage } from "@/pages/catalog/MarketplacePage";
 import { RFQListPage } from "@/pages/rfq/RFQListPage";
 import { RFQCreatePage } from "@/pages/rfq/RFQCreatePage";
 import { RFQDetailPage } from "@/pages/rfq/RFQDetailPage";
+import { SupplierRfqInbox } from "@/pages/rfq/SupplierRfqInbox";
 import { DocumentUploadPage } from "@/pages/documents/DocumentUploadPage";
 import { DocumentDetailPage } from "@/pages/documents/DocumentDetailPage";
 import { PricingRulesPage } from "@/pages/pricing/PricingRulesPage";
@@ -12,6 +13,7 @@ import { PricingCalcPage } from "@/pages/pricing/PricingCalcPage";
 import { QuotationListPage } from "@/pages/quotes/QuotationListPage";
 import { QuotationDetailPage } from "@/pages/quotes/QuotationDetailPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { OrderTrackingPage } from "@/pages/orders/OrderTrackingPage";
 import type { RouteObject } from "react-router-dom";
 
 /**
@@ -53,6 +55,16 @@ export const sharedRoutes: RouteObject[] = [
   {
     path: ROUTES.RFQ.DETAIL(":id"),
     element: <RFQDetailPage />,
+  },
+
+  // ── Supplier RFQ Inbox (Agent/Admin only) ──
+  {
+    path: ROUTES.RFQ.SUPPLIER_INBOX,
+    element: (
+      <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <SupplierRfqInbox />
+      </RoleGuard>
+    ),
   },
 
   // ── Document Management (Agent/Admin only) ──
@@ -99,6 +111,12 @@ export const sharedRoutes: RouteObject[] = [
   {
     path: ROUTES.QUOTES.DETAIL(":id"),
     element: <QuotationDetailPage />,
+  },
+
+  // ── Order Tracking (all roles — tracking page is role-aware) ──
+  {
+    path: ROUTES.ORDERS.TRACKING(":id"),
+    element: <OrderTrackingPage />,
   },
 
   // ── Settings (all roles) ──
