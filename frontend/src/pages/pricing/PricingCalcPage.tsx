@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { intakeService } from "@/services/intakeService";
 import { pricingService } from "@/services/pricingService";
 import { quotationService } from "@/services/quotationService";
@@ -21,9 +21,12 @@ const CURRENCIES = [
 
 export function PricingCalcPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // ── Step state ──────────────────────────────────────────
-  const [selectedRfqId, setSelectedRfqId] = useState("");
+  const [selectedRfqId, setSelectedRfqId] = useState(
+    searchParams.get("rfq_id") ?? ""
+  );
   const [targetCurrency, setTargetCurrency] = useState("JOD");
   const [destinationPort, setDestinationPort] = useState("");
   const [productInputs, setProductInputs] = useState<
@@ -37,6 +40,19 @@ export function PricingCalcPage() {
     queryKey: ["rfqs", "all", 1],
     queryFn: () => intakeService.list({ limit: 100 }),
   });
+
+  // Auto-select RFQ from URL param when data loads
+  const rfqFromUrl = searchParams.get("rfq_id");
+  useEffect(() => {
+    if (
+      rfqFromUrl &&
+      rfqsData?.items &&
+      !selectedRfqId &&
+      rfqsData.items.some((r) => r.id === rfqFromUrl)
+    ) {
+      setSelectedRfqId(rfqFromUrl);
+    }
+  }, [rfqFromUrl, rfqsData, selectedRfqId]);
 
   // ── Fetch products when RFQ selected ────────────────────
   const { data: products, isLoading: productsLoading } = useQuery({
