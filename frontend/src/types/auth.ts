@@ -24,6 +24,22 @@ export interface TokenRefresh {
 
 export type UserRole = "client" | "agent" | "admin";
 
+export interface SupplierProfile {
+  factory_name: string;
+  location_in_china: string;
+  specialty?: string | null;
+  business_registration_number?: string | null;
+  business_license_url?: string | null;
+  factory_address?: string | null;
+  verification_status: string;
+}
+
+export interface ClientProfile {
+  company_name: string;
+  preferred_port?: string | null;
+  contact_number?: string | null;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -32,4 +48,5 @@ export interface User {
   phone?: string;
   is_active: boolean;
   created_at: string;
+  profile?: SupplierProfile | ClientProfile | null;
 }
