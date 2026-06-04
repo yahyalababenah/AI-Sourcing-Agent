@@ -73,6 +73,7 @@ class QuotationResponse(BaseModel):
     agent_id: UUID
     quotation_number: str
     status: str
+    tracking_status: Optional[str] = None
     target_currency: str
     exchange_rate_used: float
     subtotal: float
@@ -101,6 +102,48 @@ class QuotationListResponse(BaseModel):
 
     items: list[QuotationResponse]
     total: int
+
+
+# ═══════════════════════════════════════════════════════════
+# Tracking Schemas
+# ═══════════════════════════════════════════════════════════
+
+
+class TrackingEventResponse(BaseModel):
+    """A single tracking status change event."""
+
+    id: UUID
+    quotation_id: UUID
+    from_status: Optional[str] = None
+    to_status: str
+    notes: Optional[str] = None
+    changed_by_id: Optional[UUID] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TrackingStatusResponse(BaseModel):
+    """Current tracking status plus full event history."""
+
+    quotation_id: UUID
+    quotation_number: str
+    current_status: Optional[str] = None
+    events: list[TrackingEventResponse] = []
+
+
+class UpdateTrackingRequest(BaseModel):
+    """Request body for updating tracking status."""
+
+    status: str = Field(
+        ...,
+        description="New tracking status. Must follow the pipeline order.",
+    )
+    notes: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Optional note explaining the status change.",
+    )
 
 
 class QuotationGeneratePdfResponse(BaseModel):
