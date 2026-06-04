@@ -22,6 +22,15 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "مرفوض",
 };
 
+const TRACKING_LABELS: Record<string, string> = {
+  awaiting_payment: "بانتظار الدفع",
+  production: "قيد التصنيع",
+  inland_freight: "الشحن الداخلي",
+  sea_freight: "الشحن البحري",
+  customs: "التخليص الجمركي",
+  delivered: "تم التسليم",
+};
+
 export function QuotationListPage() {
   const navigate = useNavigate();
 
@@ -105,6 +114,7 @@ export function QuotationListPage() {
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">العميل</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">المبلغ</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">الحالة</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">تتبع الشحنة</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">التاريخ</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">الإجراءات</th>
                 </tr>
@@ -134,19 +144,41 @@ export function QuotationListPage() {
                         {STATUS_LABELS[q.status] || q.status}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      {(q as any).tracking_status ? (
+                        <span className="inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                          {(TRACKING_LABELS as any)[(q as any).tracking_status] || (q as any).tracking_status}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {new Date(q.created_at).toLocaleDateString("ar-SA")}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(ROUTES.QUOTES.DETAIL(q.id));
-                        }}
-                        className="rounded-md bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-100"
-                      >
-                        عرض
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(ROUTES.QUOTES.DETAIL(q.id));
+                          }}
+                          className="rounded-md bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-100"
+                        >
+                          عرض
+                        </button>
+                        {q.status === "accepted" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(ROUTES.ORDERS.TRACKING(q.id));
+                            }}
+                            className="rounded-md bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                          >
+                            🚚 تتبع
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
