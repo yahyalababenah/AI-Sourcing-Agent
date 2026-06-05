@@ -1,20 +1,37 @@
 """
 AI-Sourcing Hub — Intake Service Layer
 
-Business logic for RFQ intake, translation, and entity extraction.
+Business logic for RFQ intake, translation, entity extraction,
+and Targeted RFQ Matching.
 """
 # ═══════════════════════════════════════════════════════════
 # Imports
 # ═══════════════════════════════════════════════════════════
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.modules.intake.llm_client import extract_entities, translate_and_extract
-from app.modules.intake.models import RFQ, Product, RFQStatus, ProductStatus
-from app.modules.intake.schemas import RFQCreate, RFQResponse, RFQListResponse
+from app.modules.intake.matcher import match_rfq_to_suppliers
+from app.modules.intake.models import (
+    MatchStatus,
+    Product,
+    ProductStatus,
+    RFQ,
+    RFQMatch,
+    RFQStatus,
+)
+from app.modules.intake.schemas import (
+    RFQCreate,
+    RFQListResponse,
+    RFQMatchListResponse,
+    RFQMatchResponse,
+    RFQResponse,
+)
 from app.shared.exceptions import (
     IncompleteExtractionError,
     NotFoundException,
@@ -339,6 +356,56 @@ async def add_product(
     return product
 
 
+async def list_rfqs_by_ids(
+    db: AsyncSession,
+    ids: list[str],
+) -> dict[str, RFQ]:
+    """Batch-fetch multiple RFQs by ID, returned as a dict keyed by ID string.
+
+    Args:
+        db: Database session.
+        ids: List of RFQ UUID strings.
+
+    Returns:
+        Dict mapping RFQ ID string -> RFQ instance. Missing IDs are omitted.
+    """
+    uuids = [uuid.UUID(id_) for id_ in ids]
+    result = await db.execute(select(RFQ).where(RFQ.id.in_(uuids)))
+    rfqs = result.scalars().all()
+    return {str(rfq.id): rfq for rfq in rfqs}
+
+
+async def list_products_by_rfq_ids(
+    db: AsyncSession,
+    rfq_ids: list[str],
+) -> dict[str, list[Product]]:
+    """Batch-fetch products for multiple RFQs, returned as a dict keyed by RFQ ID.
+
+    Args:
+        db: Database session.
+        rfq_ids: List of RFQ UUID strings.
+
+    Returns:
+        Dict mapping RFQ ID string -> list of Product instances.
+        RFQ IDs with no products return an empty list.
+    """
+    uuids = [uuid.UUID(id_) for id_ in rfq_ids]
+    result = await db.execute(
+        select(Product)
+        .where(Product.rfq_id.in_(uuids))
+        .order_by(Product.created_at.asc())
+    )
+    products = result.scalars().all()
+    grouped: dict[str, list[Product]] = {}
+    for p in products:
+        key = str(p.rfq_id)
+        grouped.setdefault(key, []).append(p)
+    # Ensure every requested RFQ ID appears (even if empty)
+    for rfq_id in rfq_ids:
+        grouped.setdefault(rfq_id, [])
+    return grouped
+
+
 async def list_products(
     db: AsyncSession,
     rfq_id: str,
@@ -361,3 +428,213 @@ async def list_products(
         .order_by(Product.created_at.asc())
     )
     return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════
+# Matching Engine Integration
+# ═══════════════════════════════════════════════════════════
+
+
+async def run_matching(
+    db: AsyncSession,
+    rfq_id: str,
+) -> list[RFQMatch]:
+    """Trigger the matching algorithm for an RFQ.
+
+    Called automatically after RFQ creation, or manually by admin.
+
+    Args:
+        db: Database session.
+        rfq_id: RFQ UUID string.
+
+    Returns:
+        List of created RFQMatch records.
+    """
+    rfq = await get_rfq(db, rfq_id)
+
+    # Only match OPEN RFQs
+    if rfq.status != RFQStatus.OPEN:
+        raise ValidationError(
+            message=f"Cannot match RFQ in status '{rfq.status.value}'",
+            details={
+                "rfq_id": rfq_id,
+                "current_status": rfq.status.value,
+                "expected_status": RFQStatus.OPEN.value,
+            },
+        )
+
+    matches = await match_rfq_to_suppliers(db, rfq_id)
+    await db.flush()
+    return matches
+
+
+# ═══════════════════════════════════════════════════════════
+# Supplier Match Queries
+# ═══════════════════════════════════════════════════════════
+
+
+async def list_matched_rfqs_for_supplier(
+    db: AsyncSession,
+    supplier_id: str,
+    pagination: PaginationParams,
+    status_filter: Optional[MatchStatus] = None,
+) -> RFQMatchListResponse:
+    """List RFQ matches for a supplier (exclusive window items).
+
+    Args:
+        db: Database session.
+        supplier_id: Supplier (agent) UUID string.
+        pagination: Pagination parameters.
+        status_filter: Optional filter by match status.
+
+    Returns:
+        Paginated RFQ match list response.
+    """
+    query = (
+        select(RFQMatch)
+        .options(
+            joinedload(RFQMatch.rfq).joinedload(RFQ.products),
+            joinedload(RFQMatch.supplier),
+        )
+        .where(RFQMatch.supplier_id == uuid.UUID(supplier_id))
+    )
+
+    if status_filter:
+        query = query.where(RFQMatch.status == status_filter)
+
+    # Count
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar() or 0
+
+    # Fetch page
+    query = (
+        query
+        .order_by(RFQMatch.created_at.desc())
+        .offset(pagination.skip)
+        .limit(pagination.limit)
+    )
+    result = await db.execute(query)
+    matches = result.unique().scalars().all()
+
+    return RFQMatchListResponse(
+        items=[RFQMatchResponse.model_validate(m) for m in matches],
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        total_pages=max(1, (total + pagination.page_size - 1) // pagination.page_size),
+    )
+
+
+async def list_public_rfqs(
+    db: AsyncSession,
+    pagination: PaginationParams,
+    status: Optional[RFQStatus] = None,
+) -> RFQListResponse:
+    """List RFQs in the public pool (is_public = True, open status).
+
+    These are RFQs visible to all suppliers because their exclusive
+    window has expired or they had no matches.
+
+    Args:
+        db: Database session.
+        pagination: Pagination parameters.
+        status: Optional filter by RFQ status.
+
+    Returns:
+        Paginated RFQ list response.
+    """
+    query = select(RFQ).where(RFQ.is_public == True)  # noqa: E712
+
+    if status:
+        query = query.where(RFQ.status == status)
+    else:
+        # Default: only show open RFQs in public pool
+        query = query.where(RFQ.status == RFQStatus.OPEN)
+
+    # Count
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar() or 0
+
+    # Fetch page
+    query = (
+        query
+        .order_by(RFQ.created_at.desc())
+        .offset(pagination.skip)
+        .limit(pagination.limit)
+    )
+    result = await db.execute(query)
+    rfqs = result.scalars().all()
+
+    return RFQListResponse(
+        items=[RFQResponse.model_validate(r) for r in rfqs],
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        total_pages=max(1, (total + pagination.page_size - 1) // pagination.page_size),
+    )
+
+
+async def claim_match(
+    db: AsyncSession,
+    match_id: str,
+    supplier_id: str,
+    action: str,
+) -> RFQMatch:
+    """Respond to a matched RFQ (claim or decline).
+
+    Args:
+        db: Database session.
+        match_id: RFQMatch UUID string.
+        supplier_id: Supplier (agent) UUID string (ownership check).
+        action: 'respond' to accept, 'decline' to reject.
+
+    Returns:
+        Updated RFQMatch instance.
+
+    Raises:
+        NotFoundException: If match not found or not owned by supplier.
+        ValidationError: If match is not in PENDING status.
+    """
+    result = await db.execute(
+        select(RFQMatch).where(RFQMatch.id == uuid.UUID(match_id))
+    )
+    match = result.scalar_one_or_none()
+    if not match:
+        raise NotFoundException(resource="RFQMatch", resource_id=match_id)
+
+    # Ownership check
+    if str(match.supplier_id) != supplier_id:
+        raise NotFoundException(resource="RFQMatch", resource_id=match_id)
+
+    # Status check
+    if match.status != MatchStatus.PENDING:
+        raise ValidationError(
+            message=f"Cannot respond to match with status '{match.status.value}'",
+            details={
+                "match_id": match_id,
+                "current_status": match.status.value,
+                "expected_status": MatchStatus.PENDING.value,
+            },
+        )
+
+    # Deadline check
+    if match.response_deadline and datetime.now(timezone.utc) > match.response_deadline:
+        match.status = MatchStatus.EXPIRED
+        await db.flush()
+        raise ValidationError(
+            message="The exclusive window for this RFQ has expired",
+            details={
+                "match_id": match_id,
+                "deadline": match.response_deadline.isoformat(),
+            },
+        )
+
+    if action == "respond":
+        match.status = MatchStatus.RESPONDED
+    elif action == "decline":
+        match.status = MatchStatus.DECLINED
+
+    match.responded_at = datetime.now(timezone.utc)
+    await db.flush()
+    await db.refresh(match)
+    return match
