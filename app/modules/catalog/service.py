@@ -15,7 +15,7 @@ from typing import Optional
 
 from sqlalchemy import func, or_, select, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy.sql.expression import literal_column
 
 from app.modules.auth.models import SupplierProfile, User, UserRole
@@ -94,6 +94,72 @@ async def sync_document_products(db: AsyncSession, document: Document) -> int:
         count += 1
 
     await db.flush()
+    logger.info(
+        "Synced %d products from document %s into catalog_products",
+        count,
+        document.id,
+    )
+    return count
+
+
+def sync_document_products_sync(db: Session, document: Document) -> int:
+    """Synchronous version of :func:`sync_document_products` for Celery tasks.
+
+    Performs the same logic (delete old + insert new) using a sync
+    SQLAlchemy session, since Celery workers run outside the async
+    FastAPI event loop.
+
+    Args:
+        db: Synchronous SQLAlchemy session.
+        document: The document whose ``extracted_entities['products']``
+                  should be synced.
+
+    Returns:
+        Number of products synced (inserted).
+    """
+    products_data = (document.extracted_entities or {}).get("products", [])
+    if not products_data:
+        logger.info("No products to sync for document %s", document.id)
+        return 0
+
+    # Verify the uploader is an agent (supplier)
+    supplier = document.uploaded_by
+    if not supplier or supplier.role != UserRole.AGENT:
+        logger.warning(
+            "Document %s owner is not an AGENT (role=%s) — skipping sync",
+            document.id,
+            supplier.role if supplier else "None",
+        )
+        return 0
+
+    # Remove previously synced products for this document (idempotent)
+    db.execute(
+        delete(CatalogProduct).where(CatalogProduct.document_id == document.id)
+    )
+
+    # Insert new products
+    count = 0
+    for prod in products_data:
+        product_name = (prod.get("product_name") or "").strip()
+        if not product_name:
+            continue  # Skip entries without a product name
+
+        catalog_product = CatalogProduct(
+            document_id=document.id,
+            supplier_id=supplier.id,
+            product_name=product_name,
+            model_number=(prod.get("model_number") or "").strip() or None,
+            unit_price_rmb=prod.get("unit_price_rmb"),
+            moq=prod.get("moq"),
+            weight_kg=prod.get("weight_kg"),
+            dimensions=prod.get("dimensions"),
+            material=prod.get("material"),
+            category=prod.get("category"),
+        )
+        db.add(catalog_product)
+        count += 1
+
+    db.flush()
     logger.info(
         "Synced %d products from document %s into catalog_products",
         count,
