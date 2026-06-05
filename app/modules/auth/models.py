@@ -68,6 +68,11 @@ class User(Base):
     documents = relationship(
         "app.modules.documents.models.Document", back_populates="uploaded_by"
     )
+    rfq_matches = relationship(
+        "app.modules.intake.models.RFQMatch",
+        foreign_keys="[RFQMatch.supplier_id]",
+        back_populates="supplier",
+    )
 
     # ---- One-to-one profile relationships ----
     client_profile = relationship("ClientProfile", back_populates="user", uselist=False)
@@ -139,6 +144,10 @@ class SupplierProfile(Base):
         server_default=VerificationStatus.PENDING.value,
     )
     """Verification status: pending → verified → rejected."""
+    product_categories = Column(JSONB, nullable=True, default=list)
+    """List of product categories this supplier specializes in.
+    Auto-derived from their uploaded catalog products.
+    Used by the matching algorithm to pair RFQs with relevant suppliers."""
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
