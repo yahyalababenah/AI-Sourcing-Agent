@@ -15,7 +15,6 @@ import {
 const RFQ_STATUS_COLORS: Record<string, string> = {
   open: "bg-blue-100 text-blue-700",
   processing: "bg-yellow-100 text-yellow-700",
-  translated: "bg-purple-100 text-purple-700",
   quoted: "bg-green-100 text-green-700",
   closed: "bg-gray-100 text-gray-700",
   cancelled: "bg-red-100 text-red-700",
