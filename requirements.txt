@@ -55,6 +55,11 @@ slowapi>=0.1.9
 # Image processing
 pillow>=10.2.0
 
+# Local OCR (replaces external Vision LLM API — OpenRouter/Qwen-VL)
+# CPU-only PaddleOCR PP-Structure for catalog document table extraction
+paddlepaddle>=3.0.0
+paddleocr>=2.8.0
+
 # ===== Test dependencies =====
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
