@@ -1,8 +1,12 @@
 """
 AI-Sourcing Hub — Document Service Layer
 
-Handles file uploads to MinIO, database records, OCR/vision processing,
-and PDF-to-image conversion for the VLM pipeline.
+Handles file uploads to MinIO, database records, local OCR processing,
+and catalog synchronisation.
+
+The external VLM pipeline (OpenRouter/Qwen-VL) has been replaced with
+a local PaddleOCR PP-Structure engine — free, offline, and faster.
+All pages of a PDF are now processed (previously only the first page).
 """
 # ═══════════════════════════════════════════════════════════
 # Imports
@@ -27,7 +31,7 @@ from app.modules.documents.schemas import (
     DocumentStatusResponse,
     ItemsUpdateResponse,
 )
-from app.modules.documents.vision_client import extract_from_image
+from app.modules.documents.ocr_client import extract_table_local
 from app.modules.catalog.service import sync_document_products
 from app.shared.exceptions import NotFoundException, DocumentProcessingError
 from app.shared.logging import get_logger
@@ -195,18 +199,23 @@ async def process_document_vision(
     document_id: str,
     provider: Optional[str] = None,
 ) -> dict:
-    """Run vision extraction on a document.
+    """Run local OCR extraction on a document using PaddleOCR PP-Structure.
 
-    Downloads the file from MinIO, converts to image if needed,
-    sends to VLM, and stores extracted data back in the DB.
+    Downloads the file from MinIO and runs local PaddleOCR PP-Structure
+    to extract product table data. Processes ALL pages of PDFs
+    (the old VLM pipeline only processed the first page).
+
+    The ``provider`` parameter is accepted for backward compatibility
+    with existing API callers but is **ignored** — extraction is always
+    local.
 
     Args:
         db: Database session.
         document_id: Document UUID string.
-        provider: Optional vision provider override.
+        provider: Deprecated — ignored (local OCR always used).
 
     Returns:
-        Extracted entities dict.
+        Extracted entities dict with ``{"products": [...]}``.
 
     Raises:
         DocumentProcessingError: If processing fails.
@@ -224,43 +233,31 @@ async def process_document_vision(
             bucket=settings.STORAGE_BUCKET_DOCUMENTS,
         )
 
-        # Determine media type
-        media_type = _map_to_media_type(doc.content_type or "", doc.file_name)
-
-        # For PDFs, we need to convert first page to image
-        if doc.doc_type == DocumentType.PDF:
-            image_bytes = await _pdf_page_to_image(file_bytes)
-            media_type = "image/png"
-        else:
-            image_bytes = file_bytes
-
-        # Call VLM
-        result = await extract_from_image(
-            image_bytes=image_bytes,
-            media_type=media_type,
-            provider=provider,
+        # ── Run local PaddleOCR PP-Structure extraction ────────
+        # Handles both PDFs (all pages) and images internally
+        result_list = await extract_table_local(
+            file_bytes=file_bytes,
+            file_name=doc.file_name,
         )
 
-        # Try to repair if VLM returned malformed JSON
-        if isinstance(result, str):
-            repaired = repair_json(result)
-            if repaired:
-                result = repaired
-            else:
-                raise DocumentProcessingError(
-                    message="Failed to parse VLM response as JSON",
-                    details={"document_id": document_id},
-                )
+        # ── Build the standard entities structure ──────────────
+        result: dict = {"products": result_list}
 
         # Update document with extracted data
         doc.extracted_entities = result
-        doc.extracted_text = str(result.get("products", result))
+        doc.extracted_text = str(result_list) if result_list else None
         doc.status = DocumentStatus.EXTRACTED
         await db.flush()
         await db.refresh(doc)
 
         # Sync extracted products into catalog_products table (B-Tree + GIN indexed)
-        await sync_document_products(db, doc)
+        if result_list:
+            await sync_document_products(db, doc)
+        else:
+            logger.info(
+                "No products extracted from document %s — skipping catalog sync",
+                document_id,
+            )
 
         return result
 
@@ -268,12 +265,12 @@ async def process_document_vision(
         doc.status = DocumentStatus.FAILED
         doc.error_message = str(exc)
         await db.flush()
-        logger.error("Document vision processing failed", extra={
+        logger.error("Document OCR processing failed", extra={
             "document_id": document_id,
             "error": str(exc),
         })
         raise DocumentProcessingError(
-            message="Document vision processing failed",
+            message="Document OCR processing failed",
             details={"document_id": document_id, "error": str(exc)},
         )
 
@@ -379,58 +376,3 @@ def _infer_document_type(content_type: str, file_name: str) -> DocumentType:
         return DocumentType.EXCEL
 
     return DocumentType.OTHER
-
-
-def _map_to_media_type(content_type: str, file_name: str) -> str:
-    """Map content type to media type for VLM."""
-    if content_type and content_type.startswith("image/"):
-        return content_type
-    # Fallback based on extension
-    name_lower = file_name.lower()
-    if name_lower.endswith((".jpg", ".jpeg")):
-        return "image/jpeg"
-    if name_lower.endswith(".png"):
-        return "image/png"
-    if name_lower.endswith(".webp"):
-        return "image/webp"
-    return "image/png"  # default fallback
-
-
-async def _pdf_page_to_image(pdf_bytes: bytes, page_num: int = 0) -> bytes:
-    """Convert a PDF page to a PNG image using pdf2image.
-
-    Args:
-        pdf_bytes: Raw PDF file bytes.
-        page_num: Page number to convert (0-indexed).
-
-    Returns:
-        PNG image bytes.
-
-    Raises:
-        DocumentProcessingError: If conversion fails.
-    """
-    try:
-        from pdf2image import convert_from_bytes
-
-        images = convert_from_bytes(
-            pdf_bytes,
-            first_page=page_num + 1,
-            last_page=page_num + 1,
-            fmt="png",
-            dpi=200,
-        )
-        if not images:
-            raise DocumentProcessingError(
-                message="PDF page conversion returned no images",
-            )
-        buf = io.BytesIO()
-        images[0].save(buf, format="PNG")
-        return buf.getvalue()
-    except ImportError:
-        raise DocumentProcessingError(
-            message="pdf2image is not installed. Install it for PDF processing.",
-        )
-    except Exception as exc:
-        raise DocumentProcessingError(
-            message=f"Failed to convert PDF to image: {exc}",
-        )
