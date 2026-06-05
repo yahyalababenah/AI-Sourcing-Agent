@@ -6,6 +6,7 @@ Uses autodiscovery to find tasks across all modules.
 
 Task discovery:
     - app.modules.documents.tasks    -> parse_document
+    - app.modules.intake.tasks       -> expire-stale-matches
     - app.modules.output.tasks       -> generate_quotation_pdf, cleanup-expired-quotes
     - app.modules.pricing.tasks      -> refresh-exchange-rates
 
@@ -53,6 +54,7 @@ celery_app.conf.update(
 celery_app.autodiscover_tasks(
     packages=[
         "app.modules.documents",
+        "app.modules.intake",
         "app.modules.output",
         "app.modules.pricing",
     ],
@@ -70,6 +72,10 @@ celery_app.conf.beat_schedule = {
     "cleanup-expired-quotes": {
         "task": "cleanup-expired-quotes",
         "schedule": crontab(hour=0, minute=0),  # Daily at midnight
+    },
+    "expire-stale-matches": {
+        "task": "expire-stale-matches",
+        "schedule": crontab(minute="*/5"),  # Every 5 minutes
     },
 }
 
