@@ -63,6 +63,12 @@ class RFQResponse(BaseModel):
     extracted_entities: Optional[dict] = None
     destination_port: Optional[str] = None
     target_currency: Optional[str] = None
+
+    # ── Matching fields ──
+    matched_supplier_ids: Optional[list[str]] = None
+    exclusive_deadline: Optional[datetime] = None
+    is_public: bool = False
+
     created_at: datetime
     updated_at: datetime
 
@@ -77,3 +83,94 @@ class RFQListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# ═══════════════════════════════════════════════════════════
+# Product Schema
+# ═══════════════════════════════════════════════════════════
+
+
+class ProductResponse(BaseModel):
+    """Product detail response."""
+
+    id: UUID
+    rfq_id: UUID
+    name: str
+    quantity: int
+    specifications: Optional[str] = None
+    target_price: Optional[float] = None
+    extracted_metadata: Optional[dict] = None
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════
+# Batch request schemas (eliminate N+1 queries)
+# ═══════════════════════════════════════════════════════════
+
+
+class RFQBatchRequest(BaseModel):
+    """Batch fetch RFQs by IDs."""
+
+    ids: list[UUID] = Field(..., min_length=1, max_length=100)
+
+
+class RFQBatchResponse(BaseModel):
+    """Batch RFQ response keyed by RFQ ID."""
+
+    items: dict[str, RFQResponse]
+
+
+class ProductsBatchRequest(BaseModel):
+    """Batch fetch products for multiple RFQs."""
+
+    rfq_ids: list[UUID] = Field(..., min_length=1, max_length=100)
+
+
+class ProductsBatchResponse(BaseModel):
+    """Batch products response keyed by RFQ ID."""
+
+    items: dict[str, list[ProductResponse]]
+
+
+# ═══════════════════════════════════════════════════════════
+# RFQMatch Schemas
+# ═══════════════════════════════════════════════════════════
+
+
+class RFQMatchResponse(BaseModel):
+    """RFQ match detail response."""
+
+    id: UUID
+    rfq_id: UUID
+    supplier_id: UUID
+    match_score: float = 0.0
+    match_reason: Optional[str] = None
+    response_deadline: Optional[datetime] = None
+    responded_at: Optional[datetime] = None
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RFQMatchListResponse(BaseModel):
+    """Paginated RFQ match list response."""
+
+    items: list[RFQMatchResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ClaimMatchRequest(BaseModel):
+    """Request body for claiming/responding to a matched RFQ."""
+
+    action: str = Field(
+        ...,
+        pattern="^(respond|decline)$",
+        description="'respond' to submit a quote, 'decline' to reject the exclusive match",
+    )
