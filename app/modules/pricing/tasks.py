@@ -18,33 +18,24 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import httpx
-import sqlalchemy as sa
 from redis import Redis as SyncRedis
-from sqlalchemy import create_engine, select, text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.modules.pricing.models import PricingRule, PricingRuleStatus
 from app.shared.celery_app import celery_app
+from app.shared.database import create_sync_session_factory
 from app.shared.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════
-# Sync DB Engine (psycopg2 — not asyncpg)
+# Sync DB Session Factory (uses shared infrastructure)
 # ═══════════════════════════════════════════════════════════
 
-_sync_db_url: str = settings.db_url.replace(
-    "postgresql+asyncpg", "postgresql"
-)
-_sync_engine = create_engine(
-    _sync_db_url,
-    pool_pre_ping=True,
-    pool_size=2,
-    max_overflow=4,
-)
-_SyncSession = sessionmaker(bind=_sync_engine)
+_SyncSession = create_sync_session_factory(pool_size=2, max_overflow=4)
 
 
 def _get_session() -> Session:
