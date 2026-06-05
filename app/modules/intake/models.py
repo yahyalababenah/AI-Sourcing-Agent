@@ -1,5 +1,5 @@
 """
-AI-Sourcing Hub — RFQ & Product Models
+AI-Sourcing Hub — RFQ, Product & RFQMatch Models
 
 ⚠️ String-based relationships to avoid circular imports with other modules.
 """
@@ -7,7 +7,10 @@ AI-Sourcing Hub — RFQ & Product Models
 import enum
 import uuid
 
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean, Column, DateTime, Enum, Float, ForeignKey, Index, Integer, String,
+    Text, UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -28,8 +31,20 @@ class ProductStatus(str, enum.Enum):
     QUOTED = "quoted"
 
 
+class MatchStatus(str, enum.Enum):
+    """Status of a supplier match record for the exclusive window."""
+    PENDING = "pending"      # Awaiting supplier response
+    RESPONDED = "responded"  # Supplier submitted a quote
+    EXPIRED = "expired"      # Deadline passed without response
+    DECLINED = "declined"    # Supplier explicitly declined
+
+
 class RFQ(Base):
     __tablename__ = "rfqs"
+
+    __table_args__ = (
+        Index("ix_rfq_is_public_exclusive_deadline", "is_public", "exclusive_deadline"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     agent_id = Column(
@@ -51,6 +66,14 @@ class RFQ(Base):
     extracted_entities = Column(JSONB, nullable=True)
     destination_port = Column(String(100), nullable=True)
     target_currency = Column(String(10), nullable=True, default="JOD")
+
+    # ── RFQ Matching & Exclusive Window Fields ──
+    matched_supplier_ids = Column(JSONB, nullable=True, default=list)
+    """List of supplier UUIDs auto-matched by the matching algorithm."""
+    exclusive_deadline = Column(DateTime(timezone=True), nullable=True)
+    """Timestamp when the 3-hour exclusive matching window expires."""
+    is_public = Column(Boolean, default=False, nullable=False)
+    """False = exclusive window active; True = public pool."""
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
@@ -78,9 +101,63 @@ class RFQ(Base):
     quotations = relationship(
         "app.modules.output.models.Quotation", back_populates="rfq"
     )
+    matches = relationship(
+        "RFQMatch", back_populates="rfq", cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<RFQ(id={self.id}, status={self.status})>"
+
+
+class RFQMatch(Base):
+    """Records a single supplier match for an RFQ's exclusive window."""
+
+    __tablename__ = "rfq_matches"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    rfq_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("rfqs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    supplier_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    match_score = Column(Float, default=0.0)
+    """Confidence score 0.0–1.0 from the matching algorithm."""
+    match_reason = Column(Text, nullable=True)
+    """Human-readable explanation of why this supplier was matched."""
+    response_deadline = Column(DateTime(timezone=True), nullable=True)
+    """Deadline for the supplier to respond (= RFQ.exclusive_deadline)."""
+    responded_at = Column(DateTime(timezone=True), nullable=True)
+    """When the supplier responded (NULL if not yet)."""
+    status = Column(
+        Enum(MatchStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=MatchStatus.PENDING,
+        nullable=False,
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # ---- Relationships ----
+    rfq = relationship("RFQ", back_populates="matches")
+    supplier = relationship(
+        "app.modules.auth.models.User",
+        foreign_keys=[supplier_id],
+    )
+
+    __table_args__ = (
+        UniqueConstraint("rfq_id", "supplier_id", name="uq_rfq_supplier_match"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<RFQMatch(rfq_id={self.rfq_id}, supplier_id={self.supplier_id}, "
+            f"score={self.match_score}, status={self.status})>"
+        )
 
 
 class Product(Base):
