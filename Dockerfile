@@ -13,7 +13,7 @@ ENV \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     VIRTUAL_ENV=/opt/venv
 
-# System dependencies for WeasyPrint, PDF processing, and psycopg2
+# System dependencies for WeasyPrint, PDF processing, psycopg2, and OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # WeasyPrint dependencies
     libpango-1.0-0 \
@@ -25,6 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     # PostgreSQL client
     libpq-dev \
+    # OpenCV (required by PaddleOCR)
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     # Health check
     curl \
     # Build tools
@@ -64,8 +67,12 @@ WORKDIR /app
 COPY --chown=aisourcing:aisourcing . .
 
 # Create required directories with proper permissions
-RUN mkdir -p /app/app/static/fonts /app/app/static/logos && \
+# PaddleOCR/PaddleX cache dirs are needed for model downloads
+RUN mkdir -p /app/app/static/fonts /app/app/static/logos \
+             /app/.paddleocr /app/.paddlex && \
     chown -R aisourcing:aisourcing /app
+
+ENV PADDLEOCR_HOME=/app/.paddleocr
 
 USER aisourcing
 
