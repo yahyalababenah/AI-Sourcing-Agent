@@ -8,6 +8,10 @@ AI-Sourcing Hub — Intake Endpoints
 /api/v1/intake/rfqs/{id}/status PUT  Update RFQ status (agent/admin only)
 /api/v1/intake/rfqs/{id}/products POST  Add product to RFQ (agent/admin only)
 /api/v1/intake/rfqs/{id}/products GET   List products in RFQ
+/api/v1/intake/rfqs/{id}/match    POST  Run matching algorithm (agent/admin)
+/api/v1/intake/rfqs/matched        GET   Supplier's exclusive matches (agent only)
+/api/v1/intake/rfqs/public         GET   Public pool RFQs (authenticated)
+/api/v1/intake/matches/{id}/claim  POST  Respond to exclusive match (agent only)
 """
 # ═══════════════════════════════════════════════════════════
 # Imports
@@ -17,23 +21,41 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
+from app.modules.auth.dependencies import (
+    get_current_user,
+    require_agent,
+    require_agent_or_admin,
+)
 from app.modules.auth.models import User, UserRole
-from app.modules.intake.models import RFQStatus
+from app.modules.intake.models import MatchStatus, RFQStatus
 from app.modules.intake.schemas import (
+    ClaimMatchRequest,
     ClientRFQCreate,
+    ProductResponse,
+    ProductsBatchRequest,
+    ProductsBatchResponse,
+    RFQBatchRequest,
+    RFQBatchResponse,
     RFQCreate,
-    RFQResponse,
     RFQListResponse,
+    RFQMatchListResponse,
+    RFQMatchResponse,
+    RFQResponse,
     TranslateRequest,
     TranslateResponse,
 )
 from app.modules.intake.service import (
     add_product,
+    claim_match,
     create_rfq,
     get_rfq,
+    list_matched_rfqs_for_supplier,
     list_products,
+    list_products_by_rfq_ids,
+    list_public_rfqs,
     list_rfqs,
+    list_rfqs_by_ids,
+    run_matching,
     translate_request,
     update_rfq_status,
 )
@@ -223,6 +245,7 @@ async def update_rfq_status_endpoint(
 @router.post(
     "/rfqs/{rfq_id}/products",
     status_code=201,
+    response_model=ProductResponse,
     summary="Add product to RFQ",
 )
 async def add_product_endpoint(
@@ -230,6 +253,7 @@ async def add_product_endpoint(
     name: str = Query(..., description="Product name"),
     quantity: int = Query(..., ge=1, description="Product quantity"),
     specifications: Optional[str] = Query(None, description="Technical specs"),
+    target_price: Optional[float] = Query(None, description="Client target/budget price"),
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_agent_or_admin),
 ):
@@ -243,19 +267,14 @@ async def add_product_endpoint(
         name=name,
         quantity=quantity,
         specifications=specifications,
+        target_price=target_price,
     )
-    return {
-        "id": str(product.id),
-        "rfq_id": rfq_id,
-        "name": product.name,
-        "quantity": product.quantity,
-        "specifications": product.specifications,
-        "status": product.status.value,
-    }
+    return product
 
 
 @router.get(
     "/rfqs/{rfq_id}/products",
+    response_model=list[ProductResponse],
     summary="List products in RFQ",
 )
 async def list_products_endpoint(
@@ -282,8 +301,180 @@ async def list_products_endpoint(
             "name": p.name,
             "quantity": p.quantity,
             "specifications": p.specifications,
+            "target_price": p.target_price,
+            "extracted_metadata": p.extracted_metadata,
             "status": p.status.value,
             "created_at": p.created_at.isoformat() if p.created_at else None,
         }
         for p in products
     ]
+
+
+# ═══════════════════════════════════════════════════════════
+# Batch endpoints (eliminate N+1 frontend queries)
+# ═══════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/rfqs/batch",
+    response_model=RFQBatchResponse,
+    summary="Batch-fetch RFQs by IDs",
+)
+async def batch_rfqs_endpoint(
+    body: RFQBatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Batch-fetch multiple RFQs in a single request.
+    Eliminates N+1 queries when the frontend needs details for many RFQs at once.
+    """
+    ids = [str(id_) for id_ in body.ids]
+    rfq_map = await list_rfqs_by_ids(db, ids)
+    items: dict[str, RFQResponse] = {}
+    for id_, rfq in rfq_map.items():
+        items[id_] = RFQResponse.model_validate(rfq)
+    return RFQBatchResponse(items=items)
+
+
+@router.post(
+    "/rfqs/products/batch",
+    response_model=ProductsBatchResponse,
+    summary="Batch-fetch products for multiple RFQs",
+)
+async def batch_products_endpoint(
+    body: ProductsBatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Batch-fetch products for multiple RFQs in a single request.
+    Eliminates N+1 queries when the frontend needs products for many RFQs at once.
+    """
+    rfq_ids = [str(id_) for id_ in body.rfq_ids]
+    products_map = await list_products_by_rfq_ids(db, rfq_ids)
+    items: dict[str, list[ProductResponse]] = {}
+    for rfq_id_str, products in products_map.items():
+        items[rfq_id_str] = [
+            ProductResponse(
+                id=p.id,
+                rfq_id=p.rfq_id,
+                name=p.name,
+                quantity=p.quantity,
+                specifications=p.specifications,
+                target_price=p.target_price,
+                extracted_metadata=p.extracted_metadata,
+                status=p.status.value,
+                created_at=p.created_at,
+            )
+            for p in products
+        ]
+    return ProductsBatchResponse(items=items)
+
+
+# ═══════════════════════════════════════════════════════════
+# RFQ Matching Engine
+# ═══════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/rfqs/{rfq_id}/match",
+    response_model=list[RFQMatchResponse],
+    status_code=201,
+    summary="Run matching algorithm for an RFQ",
+)
+async def run_matching_endpoint(
+    rfq_id: str,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(require_agent_or_admin),
+):
+    """Trigger the hybrid matching algorithm for an RFQ.
+
+    Scans supplier catalogs and profiles to find the best matches,
+    creates RFQMatch records with a 3-hour exclusive window.
+
+    Restricted to agents and admins.
+    """
+    matches = await run_matching(db, rfq_id)
+    return [RFQMatchResponse.model_validate(m) for m in matches]
+
+
+@router.get(
+    "/rfqs/matched",
+    response_model=RFQMatchListResponse,
+    summary="List exclusive-matched RFQs for the current supplier",
+)
+async def list_matched_rfqs_endpoint(
+    pagination: PaginationParams = Depends(),
+    status: Optional[MatchStatus] = Query(
+        None,
+        description="Filter by match status (pending | responded | expired | declined)",
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_agent),
+):
+    """List RFQ matches assigned to the authenticated supplier.
+
+    Shows the supplier's exclusive 3-hour window matches.
+    Only accessible by agents (suppliers).
+    """
+    return await list_matched_rfqs_for_supplier(
+        db,
+        supplier_id=str(current_user.id),
+        pagination=pagination,
+        status_filter=status,
+    )
+
+
+@router.get(
+    "/rfqs/public",
+    response_model=RFQListResponse,
+    summary="List public pool RFQs (expired exclusive windows)",
+)
+async def list_public_rfqs_endpoint(
+    pagination: PaginationParams = Depends(),
+    status: Optional[RFQStatus] = Query(
+        None,
+        description="Filter by RFQ status (defaults to OPEN only)",
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List RFQs in the public pool.
+
+    These are RFQs whose exclusive matching window has expired
+    or had no direct matches, now visible to all authenticated suppliers.
+    """
+    return await list_public_rfqs(
+        db,
+        pagination=pagination,
+        status=status,
+    )
+
+
+@router.post(
+    "/matches/{match_id}/claim",
+    response_model=RFQMatchResponse,
+    summary="Respond to an exclusive match (claim or decline)",
+)
+async def claim_match_endpoint(
+    match_id: str,
+    body: ClaimMatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_agent),
+):
+    """Respond to a matched RFQ within the exclusive window.
+
+    - `respond`: Accept the match and proceed to pricing/quoting.
+    - `decline`: Reject the match, freeing it for other suppliers.
+
+    Enforces ownership: only the matched supplier can respond.
+    Validates status is PENDING and deadline has not passed.
+
+    Restricted to agents (suppliers).
+    """
+    match = await claim_match(
+        db,
+        match_id=match_id,
+        supplier_id=str(current_user.id),
+        action=body.action,
+    )
+    return RFQMatchResponse.model_validate(match)
