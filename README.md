@@ -1,555 +1,332 @@
-# AI-Sourcing Hub
 
-> **B2B Sourcing Automation Platform** — bridging Chinese suppliers and MENA buyers with AI-powered translation, document processing, and intelligent pricing.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-%233776AB?logo=python&logoColor=white" alt="Python 3.12"/>
+  <img src="https://img.shields.io/badge/FastAPI-0.115-%23009688?logo=fastapi&logoColor=white" alt="FastAPI 0.115"/>
+  <img src="https://img.shields.io/badge/React-18.3-%2361DAFB?logo=react&logoColor=white" alt="React 18"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.5-%233178C6?logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-16-%234169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16"/>
+  <img src="https://img.shields.io/badge/Docker-Compose-%232496ED?logo=docker&logoColor=white" alt="Docker Compose"/>
+  <img src="https://img.shields.io/badge/AI-PaddleOCR-%23FF6F00?logo=tensorflow&logoColor=white" alt="AI-PaddleOCR"/>
+  <img src="https://img.shields.io/badge/Celery-5.4-%2337814C?logo=celery&logoColor=white" alt="Celery"/>
+  <img src="https://img.shields.io/badge/Redis-7-%23DC382D?logo=redis&logoColor=white" alt="Redis"/>
+  <img src="https://img.shields.io/badge/License-MIT-%23green" alt="License MIT"/>
+</p>
 
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![License](https://img.shields.io/badge/License-Proprietary-red)](#license)
+<h1 align="center">🚢 AI-Sourcing Hub</h1>
+<h3 align="center">A Deep-Tech B2B Marketplace for China–MENA Cross-Border Trade</h3>
 
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Configuration](#configuration)
-- [API Overview](#api-overview)
-- [Development](#development)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [License](#license)
+<p align="center">
+  <b>Local OCR Pipeline</b> · <b>Predictive Pricing Engine</b> · <b>Trilingual NLP</b> · <b>Smart RFQ Matching</b>
+</p>
 
 ---
 
-## Overview
-
-AI-Sourcing Hub is a full-stack platform that automates the B2B sourcing workflow between **Chinese suppliers** and **MENA (Middle East & North Africa) buyers**. It streamlines the entire process — from RFQ creation in Arabic, AI-powered translation, product extraction from documents, intelligent pricing calculations, to quotation generation.
-
-The platform uses a **modular monolith** architecture on the backend and **role-based routing** on the frontend, supporting three user roles: **Admin**, **Agent** (supplier), and **Client** (buyer).
+**AI-Sourcing Hub** is a full-stack, production-grade B2B marketplace that bridges Chinese suppliers with Middle Eastern & North African (MENA) buyers. Rather than relying on expensive third-party OCR APIs, the system runs a **fully offline PaddleOCR PP-Structure pipeline** to extract structured product data from Chinese supplier catalogues. A **9-step landed-cost pricing engine** computes real-time quotations inclusive of freight, customs, and commission. A **trilingual NLP layer** (Arabic ↔ English ↔ Chinese) handles real-time translation and entity extraction, while an **algorithmic RFQ matching engine** intelligently routes buyer requests to the most relevant suppliers with an exclusive bidding window and public pool fallback.
 
 ---
 
-## Architecture
+## 🧠 System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Frontend (React + Vite)               │
-│  ClientLayout   AgentLayout   AdminLayout                    │
-│  ┌──────────┐   ┌──────────┐  ┌──────────┐                  │
-│  │ Client   │   │ Agent    │  │ Admin    │                  │
-│  │ Sidebar  │   │ Sidebar  │  │ Sidebar  │                  │
-│  └──────────┘   └──────────┘  └──────────┘                  │
-│        │              │              │                       │
-│        └──────────────┴──────────────┘                       │
-│                        │                                     │
-│                  ProtectedRoute + RoleGuard                  │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ HTTP (Axios)
-┌──────────────────────────┴──────────────────────────────────┐
-│                   FastAPI (Modular Monolith)                  │
-│  ┌──────┐ ┌──────┐ ┌────────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
-│  │Auth  │ │Intake│ │Documents│ │Pricing│ │Output│ │Catalog│  │
-│  │Module│ │Module│ │ Module  │ │Module│ │Module│ │Module │  │
-│  └──────┘ └──────┘ └────────┘ └──────┘ └──────┘ └──────┘  │
-│         ┌────────────┐  ┌──────────┐  ┌───────────┐        │
-│         │ Monitoring │  │  Shared  │  │ Celery    │        │
-│         │ (Admin)    │  │  Utils   │  │ Workers   │        │
-│         └────────────┘  └──────────┘  └───────────┘        │
-└─────────────────────────────────────────────────────────────┘
-                           │
-     ┌─────────────────────┼─────────────────────┐
-     ▼                     ▼                     ▼
-┌─────────┐          ┌─────────┐          ┌──────────┐
-│PostgreSQL│          │  Redis  │          │  MinIO   │
-│   (DB)   │          │(Cache/  │          │  (Object │
-│          │          │ Queue)  │          │ Storage) │
-└─────────┘          └─────────┘          └──────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         NGINX (Reverse Proxy)                    │
+└─────────────────┬───────────────────────────────────────────────┘
+                  │
+      ┌───────────┴───────────────┐
+      │                           │
+┌─────▼──────┐            ┌──────▼───────┐
+│  FastAPI   │            │  React SPA   │
+│  Backend   │◄──────────►│  Frontend    │
+│  :8000     │    REST    │  :5173       │
+└─────┬──────┘            └──────────────┘
+      │
+      ├────────────┬───────────────┬────────────────┐
+      │            │               │                │
+┌─────▼────┐ ┌────▼────┐ ┌──────▼──────┐ ┌──────▼───────┐
+│PostgreSQL│ │ Redis   │ │ Celery      │ │   MinIO      │
+│   :5432  │ │ :6379   │ │ Workers     │ │  S3-compat   │
+└──────────┘ └─────────┘ │ :beat       │ │   :9000      │
+                         │ :worker     │ └──────────────┘
+                         └─────────────┘
 ```
 
-### Backend — Modular Monolith
+| Layer | Technology | Role |
+|-------|-----------|------|
+| **API** | Python 3.12 + FastAPI 0.115 | Modular monolith with 8 domain modules |
+| **Frontend** | React 18 + TypeScript 5.5 + Vite | Arabic-first RTL SPA with role-based dashboards |
+| **Database** | PostgreSQL 16 + asyncpg | Relational data with JSONB, full-text search (tsvector) |
+| **Cache** | Redis 7 | Token blacklist, rate limiting, Celery broker/result backend |
+| **Async Tasks** | Celery 5.4 | Document processing, exchange rate refresh, match expiry |
+| **Storage** | MinIO (S3 API) | Document uploads, quotation PDFs |
+| **Orchestration** | Docker Compose | 7-service topology |
 
-The backend is a **FastAPI** application organized as a modular monolith. Each business domain (auth, intake, documents, pricing, output, catalog, monitoring) lives in its own module under [`app/modules/`](app/modules/), with shared infrastructure in [`app/shared/`](app/shared/).
-
-- **Auth Module** — JWT-based registration/login/refresh/logout with role-based access (Admin, Agent/Supplier, Client)
-- **Intake Module** — RFQ creation, AI-powered Arabic→English translation & product extraction via LLM
-- **Documents Module** — Document upload to MinIO, AI-powered vision extraction (PDF/image → structured product data)
-- **Pricing Module** — Configurable pricing rules engine with landed cost calculation, exchange rate caching
-- **Output Module** — Quotation generation with Jinja2 + WeasyPrint PDF rendering
-- **Catalog Module** — Curated product marketplace search
-- **Monitoring Module** — Admin dashboard stats, AI cost tracking, user management
-
-### Frontend — Role-Based SPA
-
-The frontend is a **React 18 SPA** built with Vite, featuring role-based routing:
-
-- **3 layouts**: [`ClientLayout`](frontend/src/components/layout/ClientLayout.tsx), [`AgentLayout`](frontend/src/components/layout/AgentLayout.tsx), [`AdminLayout`](frontend/src/components/layout/AdminLayout.tsx)
-- **Route protection**: [`ProtectedRoute`](frontend/src/components/auth/ProtectedRoute.tsx) (auth guard) + [`RoleGuard`](frontend/src/components/auth/RoleGuard.tsx) (role guard)
-- **State management**: Zustand for auth state, React Query for server state
-- **RTL support**: Tailwind CSS with `tailwindcss-rtl` for Arabic UI
-
----
-
-## Tech Stack
-
-### Backend
-
-| Category | Technology |
-|----------|-----------|
-| **Framework** | [FastAPI](https://fastapi.tiangolo.com) (Python 3.12) |
-| **ORM** | [SQLAlchemy 2.0](https://sqlalchemy.org) (async) |
-| **Database** | [PostgreSQL 16](https://postgresql.org) |
-| **Cache & Queue** | [Redis 7](https://redis.io) |
-| **Task Queue** | [Celery](https://docs.celeryq.dev) |
-| **Auth** | JWT (PyJWT) + bcrypt/passlib |
-| **Object Storage** | [MinIO](https://min.io) (S3-compatible) |
-| **LLM Integration** | OpenRouter, Together AI (vision & translation) |
-| **PDF Generation** | WeasyPrint + Jinja2 |
-| **Validation** | Pydantic v2 |
-| **Monitoring** | Sentry, Prometheus |
-| **Migrations** | Alembic |
-
-### Frontend
-
-| Category | Technology |
-|----------|-----------|
-| **Framework** | [React 18](https://react.dev) |
-| **Build Tool** | [Vite 5](https://vitejs.dev) |
-| **Language** | TypeScript 5.5 |
-| **Routing** | React Router v6 |
-| **Server State** | TanStack React Query v5 |
-| **Client State** | Zustand v4 |
-| **Forms** | React Hook Form + Zod |
-| **HTTP Client** | Axios |
-| **Styling** | Tailwind CSS v3 + `tailwindcss-rtl` |
-| **Icons** | Lucide React |
-
-### Infrastructure
-
-| Category | Technology |
-|----------|-----------|
-| **Containerization** | Docker, Docker Compose |
-| **Reverse Proxy** | Nginx |
-| **Vector Store** | ChromaDB |
-| **CI/CD** | Railway-ready (`railway.json`) |
-
----
-
-## Features
-
-### 🔐 Authentication & Authorization
-- JWT-based auth with access + refresh tokens
-- Role-based access control (Admin, Agent/Supplier, Client)
-- Token blacklisting via Redis on logout
-- Rate limiting (general + upload endpoints)
-
-### 📝 RFQ Management (Intake)
-- Create RFQs with Arabic descriptions
-- AI-powered Arabic→English translation with product extraction
-- RFQ status workflow (draft → open → processing → quoted → closed/cancelled)
-- Paginated listing with role-scoped visibility
-
-### 📄 Document Processing
-- Upload documents (PDF, images) to MinIO storage
-- AI vision extraction: extract structured product data from documents
-- Support for multiple LLM providers with fallback (OpenRouter → Together AI)
-- JSON repair for malformed LLM responses
-
-### 💰 Pricing Engine
-- Configurable pricing rules with categories (markup, margin, discount, clearance, commission)
-- Landed cost calculation (FOB freight, insurance, customs, port handling, clearance, commission)
-- MOQ (Minimum Order Quantity) discount tiers
-- Exchange rate caching with configurable refresh
-
-### 📊 Quotation Generation
-- Create quotations from RFQ line items
-- Auto-generate PDFs via Jinja2 + WeasyPrint
-- Quotation status workflow (draft → sent → accepted → finalized/rejected)
-- Async PDF generation via Celery
-
-### 🛒 Product Catalog
-- Curated marketplace of Chinese products with pricing in RMB
-- Search by product name/category with pagination
-- Direct RFQ creation from catalog products
-
-### 📈 Admin Dashboard
-- System-wide statistics (users, RFQs, quotations, catalog products, pricing rules)
-- AI cost tracking by model and provider
-- User management (list, toggle active status)
-
----
-
-## Project Structure
+### Module Map
 
 ```
-ai-sourcing-hub/
-│
-├── app/                          # Backend application
-│   ├── main.py                   # FastAPI app factory & lifespan
-│   ├── config.py                 # Pydantic Settings (env-based config)
-│   ├── modules/
-│   │   ├── auth/                 # Authentication & authorization
-│   │   │   ├── router.py         #   POST /register, /login, /refresh, /logout
-│   │   │   ├── schemas.py        #   Pydantic request/response models
-│   │   │   ├── models.py         #   SQLAlchemy User, ClientProfile, SupplierProfile
-│   │   │   ├── service.py        #   Business logic (register, authenticate, tokens)
-│   │   │   └── dependencies.py   #   FastAPI dependencies (get_current_user, require_role)
-│   │   ├── intake/               # RFQ creation & AI translation
-│   │   │   ├── router.py
-│   │   │   ├── schemas.py
-│   │   │   ├── models.py         #   RFQ, Product
-│   │   │   ├── service.py
-│   │   │   ├── llm_client.py     #   LLM translation client
-│   │   │   └── prompt_templates.py
-│   │   ├── documents/            # Document upload & AI vision extraction
-│   │   │   ├── router.py
-│   │   │   ├── schemas.py
-│   │   │   ├── models.py         #   Document
-│   │   │   ├── service.py
-│   │   │   ├── tasks.py          #   Celery async tasks
-│   │   │   ├── vision_client.py  #   OpenRouter / Together AI vision calls
-│   │   │   ├── json_repair.py    #   Malformed JSON repair utilities
-│   │   │   └── prompt_templates.py
-│   │   ├── pricing/              # Pricing rules & landed cost engine
-│   │   │   ├── router.py
-│   │   │   ├── schemas.py
-│   │   │   ├── models.py         #   PricingRule, QuotationLineItem
-│   │   │   ├── service.py
-│   │   │   ├── engine.py         #   PricingEngine (landed cost, MOQ discounts)
-│   │   │   ├── cache.py          #   Exchange rate caching
-│   │   │   └── tasks.py
-│   │   ├── output/               # Quotation generation & PDF
-│   │   │   ├── router.py
-│   │   │   ├── schemas.py
-│   │   │   ├── models.py         #   Quotation
-│   │   │   ├── service.py
-│   │   │   ├── tasks.py          #   Async PDF generation
-│   │   │   └── templates/        #   Jinja2 PDF templates
-│   │   ├── catalog/              # Product marketplace catalog
-│   │   │   ├── router.py
-│   │   │   ├── schemas.py
-│   │   │   └── service.py
-│   │   └── monitoring/           # Admin monitoring & management
-│   │       ├── router.py
-│   │       └── models.py         #   AiCostLog
-│   ├── shared/                   # Shared infrastructure
-│   │   ├── database.py           #   Async SQLAlchemy engine & session factory
-│   │   ├── redis_client.py       #   Redis connection pool
-│   │   ├── storage.py            #   MinIO/S3 storage client
-│   │   ├── celery_app.py         #   Celery app configuration
-│   │   ├── ai_cost_tracker.py    #   AI API cost logging
-│   │   ├── pagination.py         #   Pagination utilities
-│   │   ├── logging.py            #   Structured JSON logging
-│   │   ├── metrics.py            #   Prometheus metrics
-│   │   ├── rate_limiter.py       #   Rate limiting middleware
-│   │   ├── security_middleware.py #   Security headers, audit logging
-│   │   ├── error_handlers.py     #   Global exception handlers
-│   │   └── exceptions.py         #   Custom exception classes
-│
-├── frontend/                     # React SPA
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── auth/             #   ProtectedRoute, RoleGuard
-│   │   │   └── layout/           #   AppLayout, ClientLayout, AgentLayout, AdminLayout
-│   │   ├── pages/
-│   │   │   ├── auth/             #   LoginPage, RegisterPage, AdminLoginPage
-│   │   │   ├── dashboard/        #   AdminDashboard, AgentDashboard, ClientDashboard
-│   │   │   ├── rfq/              #   RFQListPage, RFQCreatePage, RFQDetailPage
-│   │   │   ├── documents/        #   DocumentUploadPage, DocumentDetailPage
-│   │   │   ├── pricing/          #   PricingRulesPage, PricingCalcPage
-│   │   │   ├── quotes/           #   QuotationListPage, QuotationDetailPage
-│   │   │   ├── catalog/          #   MarketplacePage
-│   │   │   └── settings/         #   SettingsPage
-│   │   ├── services/             #   API service modules (Axios)
-│   │   ├── constants/            #   API endpoints, route paths
-│   │   ├── types/                #   TypeScript interfaces
-│   │   ├── hooks/                #   Custom React hooks (useAuth)
-│   │   ├── stores/               #   Zustand stores (authStore)
-│   │   ├── lib/                  #   Utilities (api client, auth helpers)
-│   │   └── router/               #   React Router config, route factories
-│   └── package.json
-│
-├── tests/                        # Backend test suite
-│   ├── conftest.py               #   Pytest fixtures & config
-│   ├── test_config.py            #   Centralized test secrets (CI/CD overridable)
-│   ├── test_auth/                #   Auth API tests
-│   ├── test_intake/              #   Intake API tests
-│   ├── test_documents/           #   Documents API tests
-│   ├── test_pricing/             #   Pricing API tests
-│   ├── test_output/              #   Output API & unit tests
-│   └── test_integration/         #   Integration tests
-│
-├── scripts/                      # Utility scripts
-│   ├── seed_demo_users.py        #   Seed demo admin/agent/client accounts
-│   ├── seed_demo_rfqs.py         #   Seed demo RFQs with products
-│   ├── seed_pricing_rules.py     #   Seed default pricing rules
-│   └── scratch_catalog_data.py   #   Seed catalog products
-│
-├── alembic/                      # Database migrations
-│   └── versions/                 #   Migration scripts (001-005)
-│
-├── docker-compose.yml            # Development Docker Compose
-├── docker-compose.prod.yml       # Production Docker Compose
-├── Dockerfile                    # Backend Docker image
-├── deployment.md                 # Production deployment guide
-├── railway.json                  # Railway deployment config
-├── e2e_audit.py                  # End-to-end audit script
-└── pyproject.toml                # Python project metadata & deps
+app/modules/
+├── auth/        JWT auth, role-based access (client/agent/admin), supplier verification
+├── intake/      RFQ lifecycle, LLM translation/extraction, matching engine, public pool
+├── documents/   Upload, PaddleOCR table extraction, catalog sync
+├── pricing/     Landed-cost engine, exchange rate caching, configurable rules
+├── catalog/     Product catalog search, supplier showroom, tsvector full-text search
+├── chat/        Real-time messaging via SSE, Arabic↔Chinese translation
+├── output/      Quotation PDF generation (Jinja2 + WeasyPrint), order tracking
+└── monitoring/  Prometheus metrics, health checks
 ```
 
 ---
 
-## Getting Started
+## 🤖 Core AI Innovations
+
+### 1. 🏭 Local AI OCR Pipeline — Offline Document Intelligence
+
+**File:** [`app/modules/documents/ocr_client.py`](app/modules/documents/ocr_client.py)
+
+Replaces expensive cloud Vision LLM APIs (OpenRouter/Qwen-VL) with a **fully offline, CPU-based PaddleOCR PP-Structure engine**:
+
+```
+PDF/Image → pdf2image → PP-Structure (CPU) → HTML Table Parser → Structured JSON
+```
+
+| Feature | Implementation |
+|---------|---------------|
+| **Engine** | PaddleOCR PP-Structure (`from paddleocr import PPStructure`) |
+| **Initialisation** | Lazy, thread-safe singleton (`threading.Lock`) — first-call init only |
+| **PDF Support** | Multi-page via `pdf2image` (configurable DPI, page limit) |
+| **Table Parsing** | Python stdlib `html.parser` — zero extra dependencies |
+| **Column Mapping** | Heuristic Chinese→English header map covering 20+ catalogue fields |
+| **Product Extraction** | `_rows_to_products()` with fuzzy scoring, MOQ/price parsing |
+| **Output Format** | `list[dict]` matching legacy VLM contract — drop-in replacement |
+
+**Key metrics:** `MAX_PDF_PAGES = 20`, `PDF_DPI = 200`, ~500MB model cache downloaded once at first use.
+
+### 2. 💰 Predictive Pricing Engine — Landed Cost Algorithm
+
+**File:** [`app/modules/pricing/engine.py`](app/modules/pricing/engine.py)
+
+Implements a 9-step landed cost calculation that converts RMB ex-works prices into all-in delivered costs:
+
+```
+1. price_usd = price_rmb × exchange_rate_cny_usd
+2. price_local = price_usd × (USD → target currency)
+3. volume_cbm = weight_kg / 500  (sea freight density)
+4. freight_per_unit = (sea_freight_cbm × volume_cbm) / quantity
+5. customs_per_unit = price_local × (customs_rate / 100)
+6. clearance_per_unit = clearance_fee / quantity
+7. commission = (price + freight + customs + clearance) × commission_rate
+8. total = price + freight + customs + clearance + commission
+9. Apply MOQ discount + early payment discount + VAT
+```
+
+| Component | Configurable | Default | Unit |
+|-----------|-------------|---------|------|
+| Exchange Rate (CNY→USD) | ✅ | 0.14 | rate |
+| Sea Freight (per CBM) | ✅ | $150 | USD |
+| Customs Duty | ✅ | 5.0 | % |
+| Clearance Fee | ✅ | $200 | flat |
+| Commission | ✅ | 3.0 | % |
+| VAT | ✅ | 16.0 | % |
+| MOQ Discount | ✅ | 0.0 | % |
+| Early Payment Discount | ✅ | 0.0 | % |
+
+The engine loads rules from the database (`PricingRule` model) and supports real-time exchange rate caching via Redis with 15-minute refresh cycles.
+
+### 3. 🌐 Trilingual NLP Engine — Arabic · English · Chinese
+
+**File:** [`app/modules/intake/llm_client.py`](app/modules/intake/llm_client.py)
+
+A two-stage LLM pipeline that converts Arabic buyer requests into structured Chinese supplier queries:
+
+```
+Stage 1 (Extract):  Arabic RFQ text → LLM → JSON {products, quantities, specs, port}
+Stage 2 (Translate): JSON → LLM → Chinese translation for supplier communication
+```
+
+| Property | Value |
+|----------|-------|
+| **Primary Provider** | Together AI (`meta-llama/Llama-3.3-70B-Instruct-Turbo`) |
+| **Fallback Provider** | OpenRouter (`meta-llama/llama-3.3-70b-instruct:free`) |
+| **Retry Strategy** | Exponential backoff (3 attempts: 1s, 4s, 15s) |
+| **Timeout** | 30s per request |
+| **Error Handling** | `ProviderUnavailableError`, `IncompleteExtractionError` with fallback chain |
+| **Language Routing** | Arabic input → extract entities (Arabic/English) → translate to Chinese |
+
+The `translate_and_extract()` function at line 441 orchestrates the full pipeline atomically.
+
+### 4. 🎯 Smart RFQ Matching — Algorithmic Supplier Discovery
+
+**Files:** [`app/modules/intake/matcher.py`](app/modules/intake/matcher.py), [`app/modules/intake/service.py`](app/modules/intake/service.py)
+
+A hybrid matching algorithm that pairs buyer RFQs with the most relevant suppliers:
+
+```
+RFQ Created → Category Extraction → Supplier Scoring → Match Creation → 3h Exclusive Window → Public Pool
+```
+
+| Score Component | Weight | Source |
+|----------------|--------|--------|
+| Catalog direct match | 0.60 | Supplier's `CatalogProduct` has the same category as RFQ |
+| Profile specialty match | 0.30 | Supplier's `SupplierProfile.specialities` lists the category |
+| Overlap bonus (max 0.30) | 0.10/product | Number of overlapping product categories |
+
+**Lifecycle:**
+1. RFQ reaches `OPEN` status → matching triggers automatically
+2. Top-10 suppliers get `RFQMatch` records with a 3-hour `exclusive_deadline`
+3. Matched suppliers see the RFQ in their **Exclusive Matches** tab with countdown timer
+4. After deadline expiry → RFQ opens to **Public Pool** for all suppliers
+5. A Celery Beat task (`expire-stale-matches`) runs every 5 minutes to enforce deadlines
+
+---
+
+## 🚀 Local Development Setup
 
 ### Prerequisites
 
-- [Docker Engine](https://docs.docker.com/engine/install/) ≥ 24.x
-- [Docker Compose Plugin](https://docs.docker.com/compose/install/) ≥ v2.24.x
-- Python 3.12+ (for local development)
-- Node.js 20+ (for frontend development)
+- Docker & Docker Compose v2
+- Git
+- 8GB+ RAM recommended (PaddleOCR models ~500MB)
 
-### Quick Start (Docker)
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd ai-sourcing-hub
-   ```
-
-2. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your secrets (DB_PASSWORD, REDIS_PASSWORD, JWT_SECRET, etc.)
-   ```
-
-3. **Start all services**
-   ```bash
-   docker compose up -d
-   ```
-
-4. **Run database migrations**
-   ```bash
-   docker compose exec api alembic upgrade head
-   ```
-
-5. **Seed demo data** (optional)
-   ```bash
-   docker compose exec api python -m scripts.seed_demo_users
-   docker compose exec api python -m scripts.seed_demo_rfqs
-   docker compose exec api python -m scripts.seed_pricing_rules
-   ```
-
-6. **Access the application**
-   - API: [http://localhost:8000](http://localhost:8000)
-   - API Docs: [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
-   - Frontend: [http://localhost:5173](http://localhost:5173) (requires `cd frontend && npm run dev`)
-   - MinIO Console: [http://localhost:9001](http://localhost:9001)
-
-### Local Development (without Docker)
-
-#### Backend
+### Quick Start
 
 ```bash
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+# 1. Clone the repository
+git clone https://github.com/your-org/ai-sourcing-hub.git
+cd ai-sourcing-hub
 
-# Install dependencies
-pip install -e .[dev]
+# 2. Copy environment file and set secrets
+cp .env.example .env
+# Edit .env — at minimum set:
+#   DB_PASSWORD=your_secure_password
+#   REDIS_PASSWORD=your_secure_password
+#   JWT_SECRET=your_jwt_secret
 
-# Run migrations
-alembic upgrade head
+# 3. Launch all services
+docker compose up -d --build
 
-# Start the API server
-uvicorn app.main:app --reload --port 8000
+# 4. Run database migrations
+docker compose exec api alembic upgrade head
 
-# Start Celery worker (separate terminal)
-celery -A app.shared.celery_app worker --loglevel=info
-```
+# 5. Seed demo data (optional)
+docker compose exec api python scripts/seed_demo_users.py
+docker compose exec api python scripts/seed_demo_rfqs.py
+docker compose exec api python scripts/seed_pricing_rules.py
 
-#### Frontend
-
-```bash
+# 6. Install frontend deps and start dev server
 cd frontend
 npm install
 npm run dev
 ```
 
----
+The API is available at **`http://localhost:8000`** and the frontend at **`http://localhost:5173`**.
 
-## Configuration
-
-All configuration is via **environment variables**, loaded by [`app/config.py`](app/config.py) (Pydantic Settings).
-
-### Required Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DB_PASSWORD` | PostgreSQL password | — |
-| `REDIS_PASSWORD` | Redis password | — |
-| `JWT_SECRET` | JWT signing key (min 32 chars) | — |
-
-### Optional Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ENVIRONMENT` | `development`, `staging`, or `production` | `development` |
-| `DATABASE_URL` | Full database URL (overrides constructed URL) | — |
-| `REDIS_URL` | Full Redis URL (overrides constructed URL) | — |
-| `TOGETHER_API_KEY` | Together AI API key (for LLM features) | — |
-| `OPENROUTER_API_KEY` | OpenRouter API key (for LLM features) | — |
-| `EXCHANGE_RATE_API_KEY` | Exchange rate API key | — |
-| `SENTRY_DSN` | Sentry DSN for error tracking | — |
-| `MINIO_ACCESS_KEY` | MinIO access key | `minioadmin` |
-| `MINIO_SECRET_KEY` | MinIO secret key | `minioadmin` |
-
-See [`.env.example`](.env.example) for the full list.
-
----
-
-## API Overview
-
-The API is mounted under `/api/v1/` with the following endpoints:
-
-| Prefix | Module | Key Endpoints |
-|--------|--------|---------------|
-| `/api/v1/auth` | Authentication | `POST /register`, `POST /login`, `POST /refresh`, `GET /me`, `POST /logout` |
-| `/api/v1/intake` | RFQ Intake | `POST /translate`, `POST /rfqs`, `GET /rfqs`, `GET /rfqs/{id}`, `PUT /rfqs/{id}/status`, `POST /rfqs/{id}/products`, `GET /rfqs/{id}/products` |
-| `/api/v1/documents` | Documents | `POST /upload`, `GET /`, `GET /{id}`, `DELETE /{id}`, `POST /{id}/process`, `GET /{id}/status`, `GET /{id}/items`, `PUT /{id}/items` |
-| `/api/v1/pricing` | Pricing | `GET /rules`, `POST /rules`, `GET /rules/{id}`, `PUT /rules/{id}`, `DELETE /rules/{id}`, `POST /calculate`, `POST /exchange-rates/refresh` |
-| `/api/v1/quotes` | Quotations | `POST /`, `GET /`, `GET /{id}`, `PUT /{id}/status`, `POST /generate`, `GET /{id}/pdf`, `POST /{id}/finalize` |
-| `/api/v1/catalog` | Catalog | `GET /products` |
-| `/api/v1/admin` | Admin | `GET /ai-costs`, `GET /stats`, `GET /users`, `PUT /users/{id}/status` |
-| `/health` | System | `GET /health` (DB + Redis health check) |
-
-Interactive API documentation is available at `/api/docs` (Swagger UI) and `/api/redoc` (ReDoc).
-
----
-
-## Development
-
-### Code Quality
-
-The project uses:
-
-- **Ruff** — Python linter & formatter
-  ```bash
-  ruff check app/ tests/
-  ruff format app/ tests/
-  ```
-- **mypy** — Static type checking
-  ```bash
-  mypy app/
-  ```
-- **ESLint** — Frontend linting (in `frontend/`)
-  ```bash
-  cd frontend && npm run lint
-  ```
-
-### Database Migrations
+### Service Topology
 
 ```bash
-# Create a new migration
-alembic revision --autogenerate -m "description"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
+docker compose ps
+# NAME                   STATUS          PORTS
+# ai-sourcing-hub-api    running (healthy)  0.0.0.0:8000->8000
+# ai-sourcing-hub-beat   running             
+# ai-sourcing-hub-worker running             
+# ai-sourcing-hub-flower running            0.0.0.0:5555->5555
+# postgres               running (healthy)  0.0.0.0:5432->5432
+# redis                  running (healthy)  0.0.0.0:6379->6379
+# minio                  running            0.0.0.0:9000->9000
 ```
 
-### Seeding Demo Data
-
-The [`scripts/`](scripts/) directory contains utilities to seed the database for development:
+### Running Tests
 
 ```bash
-python -m scripts.seed_demo_users       # Creates admin, agent, and client accounts
-python -m scripts.seed_demo_rfqs        # Creates demo RFQs linked to demo users
-python -m scripts.seed_pricing_rules    # Creates default pricing rule categories
-python -m scripts.scratch_catalog_data  # Seeds catalog products
+# Backend tests (SQLite in-memory, no PostgreSQL needed)
+docker compose exec api pytest -v --cov=app
+
+# Frontend lint
+cd frontend && npm run lint
 ```
 
 ---
 
-## Testing
+## 🧱 Tech Stack
 
-### Backend Tests
+### Backend
 
-The test suite uses **pytest** with async support. Centralized test configuration is in [`tests/test_config.py`](tests/test_config.py) — all test secrets can be overridden via `TEST_*` environment variables (e.g., `TEST_DB_PASSWORD`) for CI/CD pipelines.
+| Category | Libraries |
+|----------|-----------|
+| **Framework** | FastAPI 0.115, Uvicorn 0.30, Pydantic v2 |
+| **Database** | SQLAlchemy 2.0 (async), asyncpg, Alembic |
+| **Auth** | python-jose (JWT), passlib (bcrypt) |
+| **AI/ML** | PaddlePaddle, PaddleOCR 2.10+, pdf2image |
+| **Async Tasks** | Celery 5.4, Redis broker |
+| **LLM Client** | httpx (Together AI, OpenRouter) |
+| **Storage** | MinIO (S3 API via aioboto3) |
+| **Monitoring** | Sentry SDK, Prometheus client, structlog |
+| **Security** | slowapi (rate limiting), CORS, TrustedHost |
 
-```bash
-# Run all tests
-pytest
+### Frontend
 
-# Run with coverage
-pytest --cov=app --cov-report=term-missing
+| Category | Libraries |
+|----------|-----------|
+| **Framework** | React 18.3, TypeScript 5.5, Vite 5 |
+| **Routing** | React Router DOM v6 |
+| **Data Fetching** | TanStack React Query 5, Axios |
+| **State** | Zustand 4 |
+| **Forms** | React Hook Form 7 + Zod |
+| **Styling** | Tailwind CSS 3.4, tailwindcss-rtl, clsx |
+| **Icons** | Lucide React |
+| **Notifications** | react-hot-toast |
 
-# Run specific test module
-pytest tests/test_auth/ -v
+---
 
-# Run with verbose output
-pytest -v --tb=short
+## 📂 Project Structure
+
 ```
-
-### Test Configuration
-
-Test secrets are centralized in [`tests/test_config.py`](tests/test_config.py) and can be overridden in CI/CD:
-
-```bash
-# Override test database password in CI
-export TEST_DB_PASSWORD="ci_secure_password_123"
-export TEST_REDIS_PASSWORD="ci_redis_secure_456"
-pytest
-```
-
-### End-to-End Audit
-
-The [`e2e_audit.py`](e2e_audit.py) script runs a comprehensive end-to-end test against a running instance:
-
-```bash
-python e2e_audit.py
+ai-sourcing-hub/
+├── app/                        # FastAPI backend
+│   ├── modules/
+│   │   ├── auth/               # JWT auth, RBAC, supplier verification
+│   │   ├── intake/             # RFQ lifecycle, LLM NLP, matching engine
+│   │   ├── documents/          # Upload, PaddleOCR pipeline, catalog sync
+│   │   ├── pricing/            # Landed-cost engine, exchange rates
+│   │   ├── catalog/            # Product search, supplier showroom
+│   │   ├── chat/               # Real-time messaging, translation
+│   │   ├── output/             # Quotation PDF, order tracking
+│   │   └── monitoring/         # Prometheus metrics, health
+│   ├── shared/                 # DB, Redis, storage, logging, middleware
+│   ├── config.py               # Pydantic Settings (env-based)
+│   └── main.py                 # FastAPI app factory
+├── frontend/                   # React SPA
+│   └── src/
+│       ├── pages/              # Route-level page components
+│       ├── components/         # Reusable UI components
+│       ├── services/           # API client wrappers
+│       ├── types/              # TypeScript interfaces
+│       ├── constants/          # API routes, app constants
+│       ├── hooks/              # Custom React hooks
+│       ├── stores/             # Zustand state stores
+│       └── lib/                # Axios instance, auth utils
+├── alembic/                    # Database migrations
+├── tests/                      # pytest suite (SQLite in-memory)
+├── scripts/                    # Demo data seeding
+├── nginx/                      # Production reverse proxy config
+├── docker-compose.yml          # 7-service development topology
+└── Dockerfile                  # Multi-stage (Python 3.12-slim)
 ```
 
 ---
 
-## Deployment
+## 👨‍💻 About the Developer
 
-### Production Docker Compose
+This project was built by a **Data Science & AI Engineering student** passionate about bridging the gap between academic machine learning research and production-grade enterprise architecture.
 
-```bash
-docker compose -f docker-compose.prod.yml up -d
-```
+The developer's approach combines:
+- **Deep ML/NLP fundamentals** — implementing offline OCR pipelines, LLM orchestration with fallback chains, and algorithmic matching engines rather than relying on black-box APIs
+- **Systems engineering discipline** — modular monolith design, thread-safe lazy initialization, connection pooling, exponential backoff retry, and comprehensive error handling
+- **Full-stack craftsmanship** — Arabic-first RTL frontend, TypeScript type safety, reactive data fetching with TanStack Query, and role-based UI routing
+- **DevOps maturity** — multi-service Docker Compose orchestration, Celery async workers with beat scheduling, Prometheus monitoring, and Sentry error tracking
 
-### Railway Deployment
-
-The project includes a [`railway.json`](railway.json) for one-click deployment on [Railway](https://railway.app). Refer to [`DEPLOY_RAILWAY.md`](DEPLOY_RAILWAY.md) for instructions.
-
-### Detailed Deployment Guide
-
-See [`deployment.md`](deployment.md) for a comprehensive guide covering:
-
-- SSL certificate provisioning
-- Production image building
-- Monitoring & logging
-- Backup strategy
-- Rollback procedures
-
----
-
-## License
-
-**Proprietary** — All rights reserved. This software is not open-source and may not be copied, modified, or distributed without explicit permission.
+The result is a **portfolio-grade, deployable platform** that demonstrates the ability to take complex AI concepts from research papers to running production code.
 
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for the China–MENA trade corridor</sub>
+  <sub>Built with Python, FastAPI, React, and a lot of ☕ · © 2026</sub>
 </p>
