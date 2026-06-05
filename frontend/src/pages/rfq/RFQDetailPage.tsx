@@ -1,32 +1,38 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ROUTES } from "@/constants/routes";
 import { intakeService } from "@/services/intakeService";
 import { quotationService } from "@/services/quotationService";
+import {
+  Loader2,
+  Zap,
+  Globe,
+  Clock,
+  Users,
+  AlertCircle,
+} from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  pending: "قيد الانتظار",
-  translated: "تمت الترجمة",
+  open: "مفتوح",
+  processing: "قيد المعالجة",
   quoted: "تم التسعير",
-  accepted: "مقبول",
-  rejected: "مرفوض",
+  closed: "مغلق",
   cancelled: "ملغي",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  pending: "bg-yellow-100 text-yellow-700",
-  translated: "bg-blue-100 text-blue-700",
+  open: "bg-blue-100 text-blue-700",
+  processing: "bg-yellow-100 text-yellow-700",
   quoted: "bg-green-100 text-green-700",
-  accepted: "bg-emerald-100 text-emerald-700",
-  rejected: "bg-red-100 text-red-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  closed: "bg-gray-100 text-gray-500",
+  cancelled: "bg-red-100 text-red-700",
 };
 
 export function RFQDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: rfq, isLoading, error } = useQuery({
     queryKey: ["rfq", id],
@@ -44,6 +50,16 @@ export function RFQDetailPage() {
     queryKey: ["quotes", id],
     queryFn: () => quotationService.list({ rfq_id: id }),
     enabled: !!id,
+  });
+
+  // ── Run Matching Mutation ──
+  const [matchResult, setMatchResult] = useState<{ count: number } | null>(null);
+  const matchMutation = useMutation({
+    mutationFn: () => intakeService.runMatching(id!),
+    onSuccess: (data) => {
+      setMatchResult({ count: data.length });
+      queryClient.invalidateQueries({ queryKey: ["rfq", id] });
+    },
   });
 
   if (isLoading) {
@@ -100,6 +116,77 @@ export function RFQDetailPage() {
         >
           {STATUS_LABELS[rfq.status] || rfq.status}
         </span>
+      </div>
+
+      {/* Matching Status Card */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            <Zap className="ml-2 inline h-5 w-5 text-primary-600" />
+            حالة المطابقة
+          </h2>
+
+          {/* Run Matching Button */}
+          <button
+            onClick={() => matchMutation.mutate()}
+            disabled={matchMutation.isPending || rfq.status !== "open"}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {matchMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            {matchMutation.isPending ? "جاري المطابقة..." : "تشغيل المطابقة"}
+          </button>
+        </div>
+
+        {/* Match Result Feedback */}
+        {matchResult && (
+          <div className="mt-3 flex items-center gap-2 rounded-md bg-green-50 px-4 py-2 text-sm text-green-800">
+            <AlertCircle className="h-4 w-4" />
+            تمت المطابقة — تم العثور على {matchResult.count} مورد(ين)
+          </div>
+        )}
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {/* Public Pool Status */}
+          <div className="rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Globe className="h-4 w-4" />
+              السوق العام
+            </div>
+            <p className={`mt-1 text-sm font-medium ${rfq.is_public ? "text-green-700" : "text-gray-700"}`}>
+              {rfq.is_public ? "متاح للجميع" : "حصرية قيد التشغيل"}
+            </p>
+          </div>
+
+          {/* Exclusive Deadline */}
+          <div className="rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Clock className="h-4 w-4" />
+              المهلة الحصرية
+            </div>
+            <p className="mt-1 text-sm font-medium text-gray-700">
+              {rfq.exclusive_deadline
+                ? new Date(rfq.exclusive_deadline).toLocaleString("ar-SA")
+                : "—"}
+            </p>
+          </div>
+
+          {/* Matched Suppliers */}
+          <div className="rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Users className="h-4 w-4" />
+              الموردين المطابقين
+            </div>
+            <p className="mt-1 text-sm font-medium text-gray-700">
+              {rfq.matched_supplier_ids?.length
+                ? `${rfq.matched_supplier_ids.length} مورد`
+                : "لا يوجد"}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Main Info Card */}
@@ -163,8 +250,8 @@ export function RFQDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {products.map((p, i) => (
-                  <tr key={i}>
+                {products.map((p) => (
+                  <tr key={p.id}>
                     <td className="px-4 py-2 text-sm text-gray-900">{p.name}</td>
                     <td className="px-4 py-2 text-sm text-gray-600">
                       {p.quantity}
