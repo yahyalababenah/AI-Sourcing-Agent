@@ -17,12 +17,13 @@ Usage:
 
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import URL, create_engine, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
@@ -70,3 +71,63 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+# ═══════════════════════════════════════════════════════════
+# Sync Session Factory (for Celery tasks)
+# ═══════════════════════════════════════════════════════════
+
+
+def _build_sync_db_url() -> str:
+    """Convert async database URL to sync URL using proper URL parsing.
+
+    Uses SQLAlchemy's URL.create() instead of fragile string replacement.
+    """
+    parsed = make_url(settings.db_url)
+    sync_url = URL.create(
+        drivername="postgresql",
+        username=parsed.username,
+        password=parsed.password,
+        host=parsed.host,
+        port=parsed.port,
+        database=parsed.database,
+    )
+    return str(sync_url)
+
+
+def create_sync_session_factory(
+    pool_size: int = 2,
+    max_overflow: int = 4,
+    pool_pre_ping: bool = True,
+    pool_recycle: int = 3600,
+) -> sessionmaker:
+    """Create a sync SQLAlchemy session factory for Celery tasks.
+
+    Parses the asyncpg URL and rebuilds it with the sync ``postgresql``
+    driver, avoiding fragile string replacement that can break with
+    unexpected URL formats or query parameters.
+
+    Each module can configure its own pool settings:
+
+        SyncSession = create_sync_session_factory(pool_size=5, max_overflow=10)
+        with SyncSession() as session:
+            session.execute(...)
+
+    Args:
+        pool_size: Number of connections to maintain in the pool.
+        max_overflow: Maximum overflow connections beyond pool_size.
+        pool_pre_ping: Whether to ping connections before using them.
+        pool_recycle: Recycle connections after this many seconds.
+
+    Returns:
+        A ``sessionmaker`` bound to the sync engine.
+    """
+    sync_url = _build_sync_db_url()
+    engine = create_engine(
+        sync_url,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_pre_ping=pool_pre_ping,
+        pool_recycle=pool_recycle,
+    )
+    return sessionmaker(bind=engine)
