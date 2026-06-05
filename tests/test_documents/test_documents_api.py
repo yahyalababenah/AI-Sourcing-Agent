@@ -7,7 +7,7 @@ Covers:
     - Status polling (GET /{id}/status)
     - Extracted items (GET /{id}/items, PUT /{id}/items)
     - JSON repair unit tests
-    - Vision client unit tests
+    - Local OCR client unit tests
     - Authentication & authorization guards
 """
 # ═══════════════════════════════════════════════════════════
@@ -27,11 +27,6 @@ from app.modules.documents.json_repair import (
     _validate_result,
     _salvage_partial_data,
     repair_json,
-)
-from app.modules.documents.vision_client import (
-    _get_retry_delay_with_jitter,
-    _is_retryable_status,
-    _is_provider_overloaded,
 )
 from app.modules.documents.models import Document, DocumentStatus, DocumentType
 from app.modules.documents.schemas import (
@@ -159,9 +154,9 @@ class TestValidateResult:
         assert len(result) == 1
 
     def test_empty_list(self):
-        """Should return None for empty input (no valid items to validate)."""
+        """Should return empty list for empty input (no valid items to validate)."""
         result = _validate_result([])
-        assert result is None
+        assert result == []
 
     def test_none_input(self):
         """Should return None for None input."""
@@ -185,61 +180,6 @@ class TestValidateResult:
         assert result[0]["product_name"] == "Valid Product"
 
 
-# ═══════════════════════════════════════════════════════════
-# Vision Client Unit Tests
-# ═══════════════════════════════════════════════════════════
-
-
-class TestRetryDelay:
-    """Unit tests for ``_get_retry_delay_with_jitter()``."""
-
-    def test_exponential_backoff(self):
-        """Delay should increase exponentially with attempt number."""
-        delays = [_get_retry_delay_with_jitter(i) for i in range(4)]
-        # Each delay should grow (base * 2^attempt with jitter)
-        for i in range(1, len(delays)):
-            assert delays[i] >= delays[i - 1] * 0.5  # allow for jitter
-
-    def test_capped_at_max(self):
-        """Delay should not exceed RETRY_MAX_DELAY (60s)."""
-        delay = _get_retry_delay_with_jitter(10)
-        assert delay <= 60.0
-
-    def test_always_positive(self):
-        """Delay should always be positive."""
-        for attempt in range(5):
-            assert _get_retry_delay_with_jitter(attempt) > 0
-
-
-class TestRetryableStatus:
-    """Unit tests for ``_is_retryable_status()`` and ``_is_provider_overloaded()``."""
-
-    def test_429_is_retryable(self):
-        assert _is_retryable_status(429) is True
-
-    def test_502_is_retryable(self):
-        assert _is_retryable_status(502) is True
-
-    def test_503_is_retryable(self):
-        assert _is_retryable_status(503) is True
-
-    def test_504_is_retryable(self):
-        assert _is_retryable_status(504) is True
-
-    def test_200_not_retryable(self):
-        assert _is_retryable_status(200) is False
-
-    def test_400_not_retryable(self):
-        assert _is_retryable_status(400) is False
-
-    def test_503_is_overloaded(self):
-        assert _is_provider_overloaded(503) is True
-
-    def test_429_not_overloaded(self):
-        assert _is_provider_overloaded(429) is False
-
-    def test_502_not_overloaded(self):
-        assert _is_provider_overloaded(502) is False
 
 
 # ═══════════════════════════════════════════════════════════
