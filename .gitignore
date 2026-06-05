@@ -48,6 +48,10 @@ alembic/versions/*.pyc
 
 # Static files (runtime)
 app/static/fonts/*.ttf
+
+# PaddleOCR model cache (downloaded at runtime)
+.paddleocr/
+.paddlex/
 app/static/fonts/*.otf
 app/static/logos/*
 
