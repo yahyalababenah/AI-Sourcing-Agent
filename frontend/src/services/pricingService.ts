@@ -6,6 +6,7 @@ import type {
   PricingRuleListResponse,
   CalculatePriceRequest,
   CalculatePriceResponse,
+  QuickEstimateResponse,
 } from "@/types/pricing";
 
 export const pricingService = {
@@ -32,6 +33,10 @@ export const pricingService = {
   /** Calculate pricing for an RFQ. */
   calculate: (data: CalculatePriceRequest) =>
     api.post<CalculatePriceResponse>(API.PRICING.CALCULATE, data).then((r) => r.data),
+
+  /** Quick landed-cost estimate for marketplace browsing (all users). */
+  estimate: (data: { unit_price_cny: number; quantity: number; destination_port?: string; target_currency?: string }) =>
+    api.post<QuickEstimateResponse>(API.PRICING.ESTIMATE, data).then((r) => r.data),
 
   /** Refresh exchange rates (admin only). */
   refreshRates: () =>

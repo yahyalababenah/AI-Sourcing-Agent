@@ -7,12 +7,14 @@ export const ROUTES = {
   ADMIN: {
     LOGIN: "/admin/login",
     VERIFICATION: "/admin/verification",
+    MONITOR: "/admin/monitor",
   },
   DASHBOARD: "/dashboard",
   RFQ: {
     LIST: "/rfq",
     CREATE: "/rfq/create",
     DETAIL: (id: string) => `/rfq/${id}`,
+    BUILD_QUOTE: (id: string) => `/rfq/${id}/build-quote`,
     SUPPLIER_INBOX: "/rfq/supplier-inbox",
   },
   DOCUMENTS: {
@@ -34,6 +36,7 @@ export const ROUTES = {
   },
   SUPPLIER: {
     MY_PRODUCTS: "/supplier/products",
+    REVIEW: "/supplier/review",
   },
   ORDERS: {
     LIST: "/orders",
@@ -44,4 +47,5 @@ export const ROUTES = {
     ROOM: (id: string) => `/chat/${id}`,
   },
   SETTINGS: "/settings",
+  PROFILE: "/profile",
 } as const;

@@ -12,7 +12,7 @@ import toast from "react-hot-toast";
  */
 export function useAuth() {
   const navigate = useNavigate();
-  const { setAuth, logout: clearAuth, setUser, user, isAuthenticated, role } = useAuthStore();
+  const { logout: clearAuth, setUser, user, isAuthenticated, role } = useAuthStore();
 
   const login = useCallback(
     async (data: UserLogin) => {

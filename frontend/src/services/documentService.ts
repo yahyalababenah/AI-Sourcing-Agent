@@ -48,7 +48,7 @@ export const documentService = {
 
   /** Get extracted product items. */
   getItems: (id: string) =>
-    api.get<{ items: unknown[]; total: number }>(API.DOCUMENTS.ITEMS(id)).then((r) => r.data),
+    api.get<{ items: Record<string, unknown>[]; total: number }>(API.DOCUMENTS.ITEMS(id)).then((r) => r.data),
 
   /** Override extracted items. */
   updateItems: (id: string, data: ItemsUpdateRequest) =>

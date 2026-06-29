@@ -38,6 +38,7 @@ export const API = {
     RULE: (id: string) => `/pricing/rules/${id}`,
     RULE_HISTORY: (id: string) => `/pricing/rules/${id}/history`,
     CALCULATE: "/pricing/calculate",
+    ESTIMATE: "/pricing/estimate",
     REFRESH_RATES: "/pricing/exchange-rates/refresh",
   },
   QUOTES: {
@@ -48,9 +49,13 @@ export const API = {
     GENERATE: "/quotes/generate",
     PDF: (id: string) => `/quotes/${id}/pdf`,
     FINALIZE: (id: string) => `/quotes/${id}/finalize`,
+    ACCEPT: (id: string) => `/quotes/${id}/accept`,
+    REJECT: (id: string) => `/quotes/${id}/reject`,
     TRACKING: (id: string) => `/quotes/${id}/tracking`,
   },
   CATALOG: {
     PRODUCTS: "/catalog/products",
+    PENDING: "/catalog/products/pending",
+    REVIEW: (id: string) => `/catalog/products/${id}/review`,
   },
 } as const;
