@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy.sql.expression import literal_column
 
 from app.modules.auth.models import SupplierProfile, User, UserRole
-from app.modules.catalog.models import CatalogProduct
+from app.modules.catalog.models import CatalogProduct, ProductReviewStatus
 from app.modules.catalog.schemas import (
     CatalogListResponse,
     CatalogProductResponse,
@@ -82,13 +82,13 @@ async def sync_document_products(db: AsyncSession, document: Document) -> int:
             document_id=document.id,
             supplier_id=supplier.id,
             product_name=product_name,
-            model_number=(prod.get("model_number") or "").strip() or None,
-            unit_price_rmb=prod.get("unit_price_rmb"),
-            moq=prod.get("moq"),
-            weight_kg=prod.get("weight_kg"),
-            dimensions=prod.get("dimensions"),
-            material=prod.get("material"),
-            category=prod.get("category"),
+            model_number=(prod.get("model_number") or prod.get("model") or "").strip() or None,
+            unit_price_rmb=prod.get("unit_price_rmb") or prod.get("unit_price") or prod.get("price"),
+            moq=prod.get("moq") or prod.get("min_order"),
+            weight_kg=prod.get("weight_kg") or prod.get("weight"),
+            dimensions=prod.get("dimensions") or prod.get("size"),
+            material=prod.get("material") or prod.get("fabric_composition") or prod.get("fabric"),
+            category=prod.get("category") or prod.get("type"),
         )
         db.add(catalog_product)
         count += 1
@@ -148,13 +148,13 @@ def sync_document_products_sync(db: Session, document: Document) -> int:
             document_id=document.id,
             supplier_id=supplier.id,
             product_name=product_name,
-            model_number=(prod.get("model_number") or "").strip() or None,
-            unit_price_rmb=prod.get("unit_price_rmb"),
-            moq=prod.get("moq"),
-            weight_kg=prod.get("weight_kg"),
-            dimensions=prod.get("dimensions"),
-            material=prod.get("material"),
-            category=prod.get("category"),
+            model_number=(prod.get("model_number") or prod.get("model") or "").strip() or None,
+            unit_price_rmb=prod.get("unit_price_rmb") or prod.get("unit_price") or prod.get("price"),
+            moq=prod.get("moq") or prod.get("min_order"),
+            weight_kg=prod.get("weight_kg") or prod.get("weight"),
+            dimensions=prod.get("dimensions") or prod.get("size"),
+            material=prod.get("material") or prod.get("fabric_composition") or prod.get("fabric"),
+            category=prod.get("category") or prod.get("type"),
         )
         db.add(catalog_product)
         count += 1
@@ -252,6 +252,9 @@ async def search_catalog(
     )
 
     # ── 2. Apply filters ──
+
+    # 2a-0. Only show approved products in the marketplace
+    base_query = base_query.where(CatalogProduct.review_status == ProductReviewStatus.APPROVED)
 
     # 2a. Full-text search (GIN-indexed tsvector)
     if q:
@@ -361,7 +364,7 @@ async def search_catalog_fallback(
         joinedload(CatalogProduct.document),
     )
 
-    conditions = []
+    conditions = [CatalogProduct.review_status == ProductReviewStatus.APPROVED]
 
     if q:
         q_clean = q.strip().lower()
@@ -440,4 +443,88 @@ async def search_catalog_fallback(
         page=page,
         page_size=page_size,
         total_pages=total_pages,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Review: Agent approves / rejects extracted products
+# ═══════════════════════════════════════════════════════════════
+
+
+async def list_pending_products(
+    db: AsyncSession,
+    supplier_id: uuid.UUID,
+    page: int = 1,
+    page_size: int = 40,
+) -> CatalogListResponse:
+    """List products awaiting review for a given supplier."""
+    base = (
+        select(CatalogProduct)
+        .options(joinedload(CatalogProduct.supplier).joinedload(User.supplier_profile), joinedload(CatalogProduct.document))
+        .where(
+            CatalogProduct.supplier_id == supplier_id,
+            CatalogProduct.review_status == ProductReviewStatus.PENDING,
+        )
+    )
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+    page_size = min(page_size, 100)
+    products = (await db.execute(base.order_by(CatalogProduct.created_at.desc()).offset((page - 1) * page_size).limit(page_size))).scalars().all()
+
+    items = [_to_response(p) for p in products]
+    return CatalogListResponse(items=items, total=total, page=page, page_size=page_size, total_pages=max(1, (total + page_size - 1) // page_size))
+
+
+async def review_product(
+    db: AsyncSession,
+    product_id: uuid.UUID,
+    supplier_id: uuid.UUID,
+    status: ProductReviewStatus,
+    updates: Optional[dict] = None,
+) -> CatalogProduct:
+    """Approve or reject a product, optionally applying field edits."""
+    result = await db.execute(
+        select(CatalogProduct).where(
+            CatalogProduct.id == product_id,
+            CatalogProduct.supplier_id == supplier_id,
+        )
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        from app.shared.exceptions import NotFoundException
+        raise NotFoundException(resource="CatalogProduct", resource_id=str(product_id))
+
+    product.review_status = status
+
+    if updates:
+        editable = {"product_name", "model_number", "unit_price_rmb", "moq", "weight_kg", "dimensions", "material", "category"}
+        for key, val in updates.items():
+            if key in editable and val is not None:
+                setattr(product, key, val)
+
+    await db.commit()
+    await db.refresh(product)
+    return product
+
+
+def _to_response(prod: CatalogProduct) -> CatalogProductResponse:
+    supplier = prod.supplier
+    profile = supplier.supplier_profile if supplier else None
+    return CatalogProductResponse(
+        id=str(prod.id),
+        product_name=prod.product_name,
+        model_number=prod.model_number,
+        unit_price_rmb=prod.unit_price_rmb,
+        moq=prod.moq,
+        weight_kg=prod.weight_kg,
+        dimensions=prod.dimensions,
+        material=prod.material,
+        category=prod.category,
+        supplier_id=prod.supplier_id,
+        supplier_name=supplier.full_name if supplier else None,
+        factory_name=profile.factory_name if profile else None,
+        location_in_china=profile.location_in_china if profile else None,
+        document_id=prod.document_id,
+        document_file_name=prod.document.file_name if prod.document else None,
+        extracted_at=prod.updated_at,
+        review_status=prod.review_status.value if prod.review_status else None,
     )

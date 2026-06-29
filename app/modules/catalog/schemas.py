@@ -27,15 +27,18 @@ class CatalogProductResponse(BaseModel):
     )
 
     # Supplier info
-    supplier_id: UUID
-    supplier_name: str
+    supplier_id: Optional[UUID] = None
+    supplier_name: Optional[str] = None
     factory_name: Optional[str] = None
     location_in_china: Optional[str] = None
 
     # Source document
-    document_id: UUID
-    document_file_name: str
+    document_id: Optional[UUID] = None
+    document_file_name: Optional[str] = None
     extracted_at: Optional[datetime] = None
+
+    # Review
+    review_status: Optional[str] = None
 
 
 class CatalogListResponse(BaseModel):
