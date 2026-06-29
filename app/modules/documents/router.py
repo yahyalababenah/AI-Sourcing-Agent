@@ -18,8 +18,56 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# ── File type whitelist ──────────────────────────────────
+_ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+# Magic bytes → canonical MIME type
+_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
+    (b"%PDF", "application/pdf"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"\x89PNG", "image/png"),
+    (b"GIF8", "image/gif"),
+    (b"\xd0\xcf\x11\xe0", "application/vnd.ms-excel"),
+    (b"PK\x03\x04", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+]
+
+
+def _detect_mime(data: bytes) -> Optional[str]:
+    for magic, mime in _MAGIC_SIGNATURES:
+        if data[: len(magic)] == magic:
+            return mime
+    return None
+
+
+def _validate_upload(file: UploadFile, file_bytes: bytes) -> None:
+    """Raise HTTPException if file type is not allowed or content doesn't match header."""
+    if file.content_type not in _ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{file.content_type}' not allowed. Accepted: PDF, JPEG, PNG, GIF, XLS, XLSX.",
+        )
+    detected = _detect_mime(file_bytes)
+    if detected is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot verify file type from content. Upload rejected.",
+        )
+    if detected != file.content_type:
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match declared Content-Type. Upload rejected.",
+        )
+
 from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserRole
+from app.shared.exceptions import AuthorizationError
 from app.modules.documents.schemas import (
     DocumentListResponse,
     DocumentResponse,
@@ -34,10 +82,10 @@ from app.modules.documents.service import (
     get_document_items,
     get_document_status,
     list_documents,
-    process_document_vision,
     update_document_items,
     upload_document,
 )
+from app.modules.documents.tasks import process_document_vision as _ocr_celery_task
 from app.modules.intake.service import get_rfq
 from app.shared.database import get_db
 
@@ -70,6 +118,7 @@ async def upload(
         current_user_role=str(current_user.role.value),
     )
     file_bytes = await file.read()
+    _validate_upload(file, file_bytes)
     doc = await upload_document(
         db,
         rfq_id=rfq_id,
@@ -78,6 +127,8 @@ async def upload(
         file_bytes=file_bytes,
         content_type=file.content_type,
     )
+    # Trigger OCR asynchronously via Celery (non-blocking)
+    _ocr_celery_task.delay(str(doc.id))
     return DocumentUploadResponse.model_validate(doc)
 
 
@@ -139,9 +190,17 @@ async def get_doc(
 async def delete_doc(
     document_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(require_agent_or_admin),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
 ):
-    """Delete a document from storage and database."""
+    """Delete a document from storage and database.
+
+    Agents can only delete documents they uploaded.
+    Admins can delete any document.
+    """
+    doc = await get_document(db, document_id)
+    if current_user.role != UserRole.ADMIN and str(doc.uploaded_by_id) != str(current_user.id):
+        raise AuthorizationError(message="You can only delete documents you uploaded")
     await delete_document(db, document_id)
 
 
@@ -152,20 +211,19 @@ async def delete_doc(
 async def process_doc(
     document_id: str,
     provider: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_agent_or_admin),
 ):
-    """Run vision extraction on a document to extract product data.
+    """Re-trigger OCR extraction on a document via Celery (background task).
 
     Args:
         document_id: Document UUID.
-        provider: Optional vision provider ('together' | 'openrouter').
+        provider: Deprecated — ignored (local OCR always used).
     """
-    result = await process_document_vision(db, document_id, provider=provider)
+    _ocr_celery_task.delay(document_id)
     return {
         "document_id": document_id,
-        "status": "processed",
-        "extracted_entities": result,
+        "status": "queued",
+        "message": "OCR task queued — poll /status to track progress",
     }
 
 

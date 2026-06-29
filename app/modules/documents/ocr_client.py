@@ -1,570 +1,349 @@
 """
-AI-Sourcing Hub — Local OCR Client using PaddleOCR PP-Structure
+AI-Sourcing Hub — Document Extraction Pipeline
 
-Replaces the expensive external Vision LLM API (OpenRouter/Qwen-VL)
-with a free, local, offline PaddleOCR PP-Structure table extraction engine.
+Two-phase pipeline:
 
-Pipeline:
-    1. Accept raw file bytes (PDF or image)
-    2. If PDF: convert all pages to images via pdf2image
-    3. For each page: run PP-Structure engine (CPU) to detect tables
-    4. Parse PP-Structure HTML table output into structured product dicts
-    5. Aggregate all products across all pages
-    6. Return list[dict] matching the same format as the old VLM pipeline
+Phase 1 — Raw text extraction:
+    • PDF  → pypdfium2 (instant, no ML, handles text-based PDFs)
+    • Image / scanned PDF → PaddleOCR (skipped gracefully if runtime broken)
 
-Key design decisions:
-    - Lazy engine initialisation (first-call init) to avoid import-time cost
-    - CPU-bound sync engine wrapped via run_in_executor() for async callers
-    - Multi-page PDF support (old VLM pipeline only processed first page)
-    - HTML table parsing via Python stdlib html.parser (no extra deps)
-    - Heuristic column mapping: Chinese headers → English field names
+Phase 2 — LLM structuring:
+    • Raw text is sent to the LLM with a dynamic extraction prompt.
+    • The LLM reads whatever columns/headers exist in this specific document
+      and returns a JSON array where each object has the fields found in that
+      document (not a hardcoded set of columns).
+    • Falls back to empty list if no API key is configured or all calls fail.
 """
-# ═══════════════════════════════════════════════════════════
-# Imports
-# ═══════════════════════════════════════════════════════════
+from __future__ import annotations
+
 import asyncio
+import json
 import os
-import tempfile
+import re
 import threading
-from html.parser import HTMLParser
 from typing import Optional
 
 from app.shared.logging import get_logger
 
 logger = get_logger(__name__)
 
-# ═══════════════════════════════════════════════════════════
-# Constants
-# ═══════════════════════════════════════════════════════════
-
 MAX_PDF_PAGES = 20
-PDF_DPI = 200
-
-# Expected output field names (matches catalog/service.py sync_document_products)
-KNOWN_FIELDS = [
-    "product_name",
-    "model_number",
-    "unit_price_rmb",
-    "moq",
-    "weight_kg",
-    "dimensions",
-    "material",
-]
-
-# Minimum ratio of confidently mapped columns to accept heuristic fallback
-MIN_CONFIDENT_COLUMN_RATIO = 0.5
-
-# Chinese-to-English column header mapping for PP-Structure table output
-CHINESE_HEADER_MAP: dict[str, str] = {
-    "产品名称": "product_name",
-    "产品名": "product_name",
-    "名称": "product_name",
-    "型号": "model_number",
-    "规格型号": "model_number",
-    "编号": "model_number",
-    "货号": "model_number",
-    "单价": "unit_price_rmb",
-    "价格": "unit_price_rmb",
-    "零售价": "unit_price_rmb",
-    "出厂价": "unit_price_rmb",
-    "moq": "moq",
-    "起订量": "moq",
-    "最小起订量": "moq",
-    "数量": "moq",
-    "重量": "weight_kg",
-    "毛重": "weight_kg",
-    "净重": "weight_kg",
-    "尺寸": "dimensions",
-    "规格": "dimensions",
-    "外形尺寸": "dimensions",
-    "材料": "material",
-    "材质": "material",
-    "物料": "material",
-}
-
-# English header aliases (covers common PP-Structure/CSV output in English)
-ENGLISH_HEADER_MAP: dict[str, str] = {
-    "product name": "product_name",
-    "product": "product_name",
-    "item": "product_name",
-    "description": "product_name",
-    "name": "product_name",
-    "product description": "product_name",
-    "model": "model_number",
-    "model no": "model_number",
-    "model number": "model_number",
-    "part number": "model_number",
-    "part no": "model_number",
-    "sku": "model_number",
-    "unit price": "unit_price_rmb",
-    "unit price (rmb)": "unit_price_rmb",
-    "price": "unit_price_rmb",
-    "price (rmb)": "unit_price_rmb",
-    "rmb": "unit_price_rmb",
-    "unit price (usd)": "unit_price_rmb",
-    "moq": "moq",
-    "min order qty": "moq",
-    "minimum order quantity": "moq",
-    "min qty": "moq",
-    "weight": "weight_kg",
-    "weight (kg)": "weight_kg",
-    "gross weight": "weight_kg",
-    "net weight": "weight_kg",
-    "kg": "weight_kg",
-    "dimensions": "dimensions",
-    "size": "dimensions",
-    "dimension": "dimensions",
-    "measurement": "dimensions",
-    "material": "material",
-    "materials": "material",
-    "specification": "material",
-    "spec": "material",
-}
-
-# Material-specific keywords for content-based heuristic scoring
-MATERIAL_KEYWORDS: set[str] = {
-    "steel", "stainless", "plastic", "wood", "glass", "iron", "copper",
-    "aluminum", "aluminium", "fabric", "leather", "ceramic", "rubber",
-    "silicone", "carbon", "fiber", "nylon", "polyester", "cotton",
-    "acrylic", "brass", "bronze", "zinc", "alloy",
-}
 
 # ═══════════════════════════════════════════════════════════
-# Lazy Engine Singleton
-# ═══════════════════════════════════════════════════════════
-
-_table_engine = None
-_engine_lock = threading.Lock()
-
-
-def _get_engine():
-    """Get or initialise the PP-Structure engine singleton.
-
-    The engine is initialised lazily on the first call to avoid
-    importing heavy PaddleOCR modules at application startup.
-
-    Returns:
-        PPStructure engine instance.
-    """
-    global _table_engine
-    if _table_engine is None:
-        with _engine_lock:
-            # Double-check after acquiring lock — another thread may have
-            # already initialised the engine while we were waiting.
-            if _table_engine is not None:
-                return _table_engine
-            logger.info("Initialising PaddleOCR PP-Structure engine (lazy load)...")
-            try:
-                from paddleocr import PPStructure
-
-                _table_engine = PPStructure(show_log=False, lang="ch")
-                logger.info("PP-Structure engine initialised successfully.")
-            except ImportError as exc:
-                logger.error(
-                    "Failed to import PaddleOCR. "
-                    "Install it with: pip install paddlepaddle paddleocr",
-                    extra={"error": str(exc)},
-                )
-                raise
-            except Exception as exc:
-                logger.error(
-                    "Failed to initialise PP-Structure engine",
-                    extra={"error": str(exc)},
-                )
-                raise
-    return _table_engine
-
-
-# ═══════════════════════════════════════════════════════════
-# HTML Table Parser
+# Phase 1A — pypdfium2 text extraction (PDFs)
 # ═══════════════════════════════════════════════════════════
 
 
-class _TableHtmlParser(HTMLParser):
-    """Minimal HTML table parser extracting rows of cell texts.
+def _pdf_to_text(file_bytes: bytes) -> str:
+    """Extract all text from a PDF using pypdfium2.
 
-    Parses PP-Structure HTML output into a list of rows, where each
-    row is a list of cell text strings.
+    Returns the raw multi-line text string, or '' if extraction fails.
     """
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        logger.warning("pypdfium2 not installed — skipping PDF text extraction")
+        return ""
 
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.rows: list[list[str]] = []
-        self._current_row: list[str] = []
-        self._current_cell: list[str] = []
-        self._in_cell = False
+    try:
+        pdf = pdfium.PdfDocument(file_bytes)
+    except Exception as exc:
+        logger.warning("pypdfium2 could not open PDF: %s", exc)
+        return ""
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
-        if tag == "tr":
-            self._current_row = []
-        elif tag in ("td", "th"):
-            self._in_cell = True
-            self._current_cell = []
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "tr":
-            if self._current_row:
-                self.rows.append(self._current_row)
-            self._current_row = []
-        elif tag in ("td", "th"):
-            self._in_cell = False
-            cell_text = "".join(self._current_cell).strip()
-            self._current_row.append(cell_text)
-            self._current_cell = []
-
-    def handle_data(self, data: str) -> None:
-        if self._in_cell:
-            self._current_cell.append(data)
-
-
-def _parse_table_html(html: str) -> list[list[str]]:
-    """Parse an HTML table string into a list of rows (list of cell texts).
-
-    Args:
-        html: Raw HTML table string from PP-Structure.
-
-    Returns:
-        List of rows, where each row is a list of cell text strings.
-    """
-    parser = _TableHtmlParser()
-    parser.feed(html)
-    return parser.rows
-
-
-def _score_column_content(values: list[str]) -> dict[str, float]:
-    """Score each KNOWN_FIELD for how likely it matches column values.
-
-    Analyses the actual cell content across all data rows to infer
-    the most likely column type using numeric patterns, units, and keywords.
-
-    Args:
-        values: All non-header cell values for one column.
-
-    Returns:
-        Dict mapping field name → confidence score (0.0 – 1.0).
-    """
-    scores: dict[str, float] = {f: 0.0 for f in KNOWN_FIELDS}
-    non_empty = [v for v in values if v and v.strip()]
-    if not non_empty:
-        return scores
-
-    n = len(non_empty)
-    numeric_count = 0
-    integer_count = 0
-    currency_count = 0
-    weight_unit_count = 0
-    dim_char_count = 0
-    material_hits = 0
-    total_length = 0
-
-    for v in non_empty:
-        cleaned = v.strip()
-        total_length += len(cleaned)
-
-        # Check for currency symbols / price indicators
-        if any(c in cleaned for c in ("¥", "$", "USD", "RMB", "CNY")):
-            currency_count += 1
-
-        # Check for weight units
-        cleaned_lower = cleaned.lower()
-        if any(unit in cleaned_lower for unit in ("kg", "g ", "gram", "kilogram", "lbs", "pound")):
-            weight_unit_count += 1
-
-        # Check for dimension characters
-        if any(c in cleaned for c in ("*", "×", "x")) and any(
-            unit in cleaned_lower for unit in ("cm", "mm", "inch", "ft")
-        ):
-            dim_char_count += 1
-        elif any(c in cleaned for c in ("*", "×", "x")) and not any(
-            c.isalpha() for c in cleaned
-        ):
-            dim_char_count += 1
-
-        # Check for material keywords
-        if any(kw in cleaned_lower for kw in MATERIAL_KEYWORDS):
-            material_hits += 1
-
-        # Try numeric parsing
-        cleaned_num = (
-            cleaned.replace(",", "")
-            .replace("¥", "")
-            .replace("$", "")
-            .replace(" ", "")
-            .strip()
-        )
+    pages_text: list[str] = []
+    for page_idx in range(min(len(pdf), MAX_PDF_PAGES)):
         try:
-            f_val = float(cleaned_num)
-            numeric_count += 1
-            # Integers (small enough to be MOQ) vs decimals (likely price/weight)
-            if f_val == int(f_val) and abs(f_val) < 100_000:
-                integer_count += 1
-        except (ValueError, TypeError):
+            page = pdf[page_idx]
+            text_page = page.get_textpage()
+            try:
+                text = "".join(text_page.get_text_bounded())
+            except (AttributeError, TypeError):
+                text = text_page.get_text_range()
+            if text.strip():
+                pages_text.append(text.strip())
+        except Exception as exc:
+            logger.debug("pypdfium2 page %d error: %s", page_idx, exc)
+
+    return "\n\n".join(pages_text)
+
+
+# ═══════════════════════════════════════════════════════════
+# Phase 1B — PaddleOCR (images / scanned PDFs)
+# ═══════════════════════════════════════════════════════════
+
+_ocr_engine = None
+_ocr_lock = threading.Lock()
+_ocr_unavailable = False  # set True permanently on first runtime failure
+
+
+def _get_ocr_engine():
+    global _ocr_engine, _ocr_unavailable
+    if _ocr_unavailable:
+        return None
+    if _ocr_engine is not None:
+        return _ocr_engine
+    with _ocr_lock:
+        if _ocr_engine is not None:
+            return _ocr_engine
+        if _ocr_unavailable:
+            return None
+        try:
+            from paddleocr import PaddleOCR
+            _ocr_engine = PaddleOCR(
+                lang="ch",
+                use_textline_orientation=False,
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+            )
+            logger.info("PaddleOCR engine ready")
+        except Exception as exc:
+            logger.warning("PaddleOCR unavailable (%s) — will skip OCR step", exc)
+            _ocr_unavailable = True
+    return _ocr_engine
+
+
+def _ocr_image_to_text(img_path: str) -> str:
+    """Run PaddleOCR on an image and return extracted text as a string."""
+    engine = _get_ocr_engine()
+    if engine is None:
+        return ""
+
+    try:
+        results = engine.predict(
+            img_path,
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+        )
+    except Exception as exc:
+        logger.warning("PaddleOCR predict failed: %s", exc)
+        global _ocr_unavailable
+        _ocr_unavailable = True
+        return ""
+
+    # Collect (y_center, x_left, text) then sort top→bottom, left→right
+    boxes: list[tuple[float, float, str]] = []
+    for page_result in (results or []):
+        try:
+            rec_texts = getattr(page_result, "rec_texts", None) or []
+            dt_boxes  = getattr(page_result, "dt_boxes",  None) or []
+            if rec_texts and dt_boxes:
+                for box, text in zip(dt_boxes, rec_texts):
+                    ys = [p[1] for p in box]; xs = [p[0] for p in box]
+                    boxes.append((sum(ys)/len(ys), min(xs), text))
+                continue
+        except Exception:
+            pass
+        # Paddle 2.x list-of-tuple fallback
+        try:
+            for item in page_result:
+                box, (text, _) = item
+                ys = [p[1] for p in box]; xs = [p[0] for p in box]
+                boxes.append((sum(ys)/len(ys), min(xs), text))
+        except Exception:
             pass
 
-    numeric_ratio = numeric_count / n
-    integer_ratio = integer_count / n
-    currency_ratio = currency_count / n
-    weight_ratio = weight_unit_count / n
-    dim_ratio = dim_char_count / n
-    material_ratio = material_hits / n
-    avg_len = total_length / n
+    if not boxes:
+        return ""
 
-    # ── Score each field based on column characteristics ──────
-    # unit_price_rmb: mostly numeric (decimals), often with currency symbols
-    if currency_ratio > 0.3:
-        scores["unit_price_rmb"] = 0.5 * currency_ratio + 0.3 * numeric_ratio + 0.2
-    elif numeric_ratio > 0.7 and integer_ratio / max(numeric_ratio, 0.01) < 0.6:
-        scores["unit_price_rmb"] = 0.6 * numeric_ratio
+    boxes.sort(key=lambda t: t[0])
+    lines: list[str] = []
+    current_row: list[tuple[float, str]] = []
+    y0 = boxes[0][0]
+    Y_THRESHOLD = 15.0
 
-    # moq: small integers, no currency/weight indicators
-    if integer_ratio > 0.7 and currency_ratio < 0.1 and weight_ratio < 0.1:
-        scores["moq"] = 0.7 * integer_ratio + 0.3 * (1 - weight_ratio)
-
-    # weight_kg: has weight units, or mostly numeric with decimal
-    if weight_ratio > 0.2:
-        scores["weight_kg"] = 0.8 * weight_ratio + 0.2 * numeric_ratio
-    elif numeric_ratio > 0.5 and avg_len < 15 and integer_ratio < 0.4:
-        scores["weight_kg"] = 0.4 * numeric_ratio
-
-    # dimensions: contains * or ×, or has unit suffixes
-    if dim_ratio > 0.2:
-        scores["dimensions"] = 0.8 * dim_ratio + 0.2 * (1 - numeric_ratio)
-
-    # product_name: longer text, low numeric ratio, may contain Chinese
-    if numeric_ratio < 0.3 and avg_len > 5:
-        scores["product_name"] = (
-            0.4 * (1 - numeric_ratio)
-            + 0.4 * min(avg_len / 30, 1.0)
-            + 0.2 * (1 - weight_ratio)
-        )
-
-    # model_number: short alphanumeric, moderate numeric mix
-    if 0.2 < numeric_ratio < 0.8 and avg_len < 20 and dim_ratio < 0.1:
-        scores["model_number"] = (
-            0.5 * (1 - abs(numeric_ratio - 0.5) * 2)
-            + 0.3 * (1 - min(avg_len / 20, 1.0))
-            + 0.2 * (1 - dim_ratio)
-        )
-
-    # material: contains material keywords, not numeric
-    if material_ratio > 0.2:
-        scores["material"] = 0.8 * material_ratio + 0.2 * (1 - numeric_ratio)
-    elif numeric_ratio < 0.2 and avg_len > 8 and dim_ratio < 0.1:
-        scores["material"] = 0.3 * (1 - numeric_ratio)
-
-    return scores
-
-
-def _infer_column_mapping(
-    headers: list[str],
-    data_rows: Optional[list[list[str]]] = None,
-) -> list[Optional[str]]:
-    """Map table header names to known field names.
-
-    Uses Chinese/English header matching first. Falls back to content-based
-    heuristic analysis of the data rows. Last resort is positional mapping
-    with a strong warning.
-
-    Args:
-        headers: List of header cell strings from the first table row.
-        data_rows: Data rows (excluding header) for content-based analysis.
-
-    Returns:
-        List of field names (or None for unmapped columns) same length as headers.
-    """
-    mapping: list[Optional[str]] = []
-
-    # ── Phase 1: Try Chinese header matching ─────────────────
-    found_any = False
-    for h in headers:
-        stripped = h.strip().lower()
-        if stripped in CHINESE_HEADER_MAP:
-            mapping.append(CHINESE_HEADER_MAP[stripped])
-            found_any = True
+    for y, x, text in boxes:
+        if abs(y - y0) <= Y_THRESHOLD:
+            current_row.append((x, text))
         else:
-            mapping.append(None)
+            if current_row:
+                lines.append("  ".join(t for _, t in sorted(current_row)))
+            current_row = [(x, text)]
+            y0 = y
+    if current_row:
+        lines.append("  ".join(t for _, t in sorted(current_row)))
 
-    if found_any:
-        return mapping
-
-    # ── Phase 2: Try English header matching ─────────────────
-    found_any = False
-    mapping = []
-    for h in headers:
-        stripped = h.strip().lower()
-        if stripped in ENGLISH_HEADER_MAP:
-            mapping.append(ENGLISH_HEADER_MAP[stripped])
-            found_any = True
-        else:
-            mapping.append(None)
-
-    if found_any:
-        return mapping
-
-    # ── Phase 3: Content-based heuristic (if data rows provided) ──
-    if data_rows:
-        # Transpose: collect all values per column across all data rows
-        num_cols = len(headers)
-        columns_values: list[list[str]] = [[] for _ in range(num_cols)]
-        for row in data_rows:
-            for col_idx, cell in enumerate(row):
-                if col_idx < num_cols:
-                    columns_values[col_idx].append(cell)
-
-        # Score each column
-        col_scores: list[dict[str, float]] = [
-            _score_column_content(vals) for vals in columns_values
-        ]
-
-        # Greedy assignment: assign highest-scoring unused field per column
-        used_fields: set[str] = set()
-        heuristic_mapping: list[Optional[str]] = [None] * num_cols
-        confident_count = 0
-
-        # Sort columns by their max score (highest confidence first)
-        col_order = sorted(
-            range(num_cols),
-            key=lambda i: max(col_scores[i].values(), default=0.0),
-            reverse=True,
-        )
-
-        for col_idx in col_order:
-            # Find best unused field for this column
-            sorted_fields = sorted(
-                col_scores[col_idx].items(),
-                key=lambda kv: kv[1],
-                reverse=True,
-            )
-            for field, score in sorted_fields:
-                if field not in used_fields and score > 0.3:
-                    heuristic_mapping[col_idx] = field
-                    used_fields.add(field)
-                    if score >= 0.5:
-                        confident_count += 1
-                    break
-
-        # Accept heuristic mapping if enough columns are confidently mapped
-        if num_cols > 0 and confident_count / num_cols >= MIN_CONFIDENT_COLUMN_RATIO:
-            logger.info(
-                "Content-based column mapping assigned %d/%d columns confidently",
-                confident_count,
-                num_cols,
-            )
-            return heuristic_mapping
-
-        # If heuristic found at least a partial mapping, log what we got
-        assigned = sum(1 for f in heuristic_mapping if f is not None)
-        if assigned > 0:
-            logger.warning(
-                "Content-based heuristic only confident on %d/%d columns "
-                "(%d partially assigned). Falling through to positional.",
-                confident_count,
-                num_cols,
-                assigned,
-            )
-
-    # ── Phase 4: Positional fallback (last resort) ─────────────
-    logger.warning(
-        "No known headers matched and content analysis insufficient — "
-        "falling back to positional mapping for %d columns. "
-        "Extracted data may have incorrect field assignments.",
-        len(headers),
-    )
-    mapping = []
-    for i in range(len(headers)):
-        if i < len(KNOWN_FIELDS):
-            mapping.append(KNOWN_FIELDS[i])
-        else:
-            mapping.append(None)
-
-    return mapping
-
-
-def _rows_to_products(rows: list[list[str]]) -> list[dict]:
-    """Convert parsed HTML table rows to product dicts.
-
-    Skips the header row (first row) after using it for column mapping.
-
-    Args:
-        rows: List of rows from _parse_table_html().
-
-    Returns:
-        List of product dicts with known field names.
-    """
-    if not rows:
-        return []
-
-    # Use first row as header for column mapping
-    headers = rows[0] if rows else []
-    data_rows = rows[1:]  # Skip header row
-    column_map = _infer_column_mapping(headers, data_rows)
-
-    products: list[dict] = []
-
-    for row in data_rows:
-        product: dict[str, Optional[str | float | int]] = {}
-        has_product_name = False
-
-        for idx, cell_text in enumerate(row):
-            if idx >= len(column_map):
-                break
-            field = column_map[idx]
-            if field is None:
-                continue
-
-            value: Optional[str | float | int] = cell_text.strip()
-            if not value:
-                value = None
-
-            # Type conversion for numeric fields
-            if value is not None and field in (
-                "unit_price_rmb",
-                "weight_kg",
-            ):
-                try:
-                    value = float(value.replace(",", "").replace("¥", "").strip())
-                except (ValueError, AttributeError):
-                    value = None
-
-            if value is not None and field in ("moq",):
-                try:
-                    value = int(
-                        float(value.replace(",", "").replace(" ", "").strip())
-                    )
-                except (ValueError, AttributeError):
-                    value = None
-
-            product[field] = value
-
-            if field == "product_name" and value is not None:
-                has_product_name = True
-
-        if has_product_name:
-            products.append(product)
-        else:
-            # Check if row has valuable numeric data despite missing product name
-            has_numeric_data = any(
-                product.get(f) is not None
-                for f in ("unit_price_rmb", "moq", "weight_kg")
-            )
-            if has_numeric_data:
-                logger.warning(
-                    "Row has numeric data but no product name — including with placeholder: %s",
-                    product,
-                )
-                product["product_name"] = "(غير محدد)"
-                products.append(product)
-            else:
-                logger.warning(
-                    "Skipping row with no product name and no numeric data: %s",
-                    product,
-                )
-
-    return products
+    return "\n".join(lines)
 
 
 # ═══════════════════════════════════════════════════════════
-# Core OCR Function
+# Phase 2 — LLM structuring
+# ═══════════════════════════════════════════════════════════
+
+_SYSTEM_PROMPT = """\
+You are a universal product data extractor for B2B supplier catalogs.
+You work with ANY type of catalog: electronics, furniture, textiles, clothing, food, \
+chemicals, machinery, lighting, construction materials, cosmetics, medical supplies, \
+or anything else. Never assume what industry you are in — read the document and adapt.
+
+Your job:
+1. Read the supplier document text provided by the user.
+2. Identify ALL distinct products or items in the document.
+3. For each product, extract EVERY field that appears in the document for that product.
+   - Use the document's own column headers / labels as field names (translate to English).
+   - Do NOT map to a fixed schema — every catalog is different.
+4. Return ONLY a valid JSON array. No markdown fences, no explanation, nothing else.
+
+Field naming rules:
+- Translate any non-English field name to English (snake_case, e.g. "unit_price").
+- Always include "product_name" (or the closest equivalent in the document).
+- Common label mappings (not exhaustive — use whatever the document actually has):
+    产品名称 / اسم المنتج / Item Name → product_name
+    型号 / رقم الموديل / Model / SKU / Article → model_number
+    颜色 / Color / Colour / اللون → color
+    尺寸 / Size / Dimension / المقاس → size
+    材质 / Material / الخامة / الخامات → material
+    重量 / Weight / الوزن → weight
+    起订量 / MOQ / الحد الأدنى → moq
+    出厂单价 / Unit Price / السعر → unit_price
+    سعر الجملة / Wholesale Price → wholesale_price
+    سعر التجزئة / Retail Price → retail_price
+    الكمية / Quantity / Stock → quantity
+    الكود / Code / Ref / Reference → code
+    الوصف / Description / Notes → description
+    الفئة / Category / Type / نوع → category
+    العلامة التجارية / Brand / ماركة → brand
+    Origin / Country of Origin / بلد المنشأ → origin
+    Voltage / Wattage / Power → voltage / wattage / power
+    Expiry / Shelf Life / تاريخ الانتهاء → shelf_life
+    Fabric / Composition / التركيب → fabric_composition
+    Season / الموسم → season
+    Gender / الجنس → gender
+    Packaging / التعبئة → packaging
+    Certification / شهادة → certification
+
+Numeric values: store as numbers, not strings (e.g. 12.5 not "12.5").
+Missing field for a product: omit the key entirely — do NOT use null.
+If the document has sections or categories, add a "category" field to each product.
+
+Output format (example — your actual fields will differ):
+[
+  {"product_name": "...", "model_number": "...", "unit_price": 12.5, "moq": 500, "color": "red", ...},
+  {"product_name": "...", ...}
+]
+"""
+
+
+async def _llm_extract(raw_text: str) -> list[dict]:
+    """Send raw document text to the LLM and return structured product list.
+
+    Tries OpenRouter then Together AI. Returns [] if unavailable.
+    """
+    try:
+        from app.config import settings
+    except Exception:
+        return []
+
+    openrouter_key = getattr(settings, "OPENROUTER_API_KEY", "") or ""
+    together_key   = getattr(settings, "TOGETHER_API_KEY",   "") or ""
+
+    if not openrouter_key and not together_key:
+        logger.warning("No LLM API key configured — skipping LLM extraction")
+        return []
+
+    # Trim to ~8 000 chars so we stay well inside free-tier context limits
+    trimmed = raw_text[:8000]
+    if len(raw_text) > 8000:
+        logger.debug("Document text trimmed from %d to 8 000 chars for LLM", len(raw_text))
+
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user",   "content": f"Extract all products from this document:\n\n{trimmed}"},
+    ]
+
+    # Free OpenRouter models — tried in order (verified available as of 2026-06).
+    # On rate limit (429), immediately falls through to the next model.
+    OPENROUTER_MODELS = [
+        "meta-llama/llama-3.3-70b-instruct:free",       # primary
+        "google/gemma-4-31b-it:free",                    # Google Gemma 4
+        "qwen/qwen3-next-80b-a3b-instruct:free",         # Qwen3 — good for Chinese
+        "openai/gpt-oss-120b:free",                      # OpenAI OSS
+        "openai/gpt-oss-20b:free",                       # smaller fallback
+        "meta-llama/llama-3.2-3b-instruct:free",         # tiny but works
+    ]
+
+    endpoints = []
+    if openrouter_key:
+        for model in OPENROUTER_MODELS:
+            endpoints.append({
+                "url":   "https://openrouter.ai/api/v1/chat/completions",
+                "key":   openrouter_key,
+                "model": model,
+            })
+    if together_key:
+        endpoints.append({
+            "url":   "https://api.together.xyz/v1/chat/completions",
+            "key":   together_key,
+            "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        })
+
+    import httpx
+
+    for ep in endpoints:
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    ep["url"],
+                    headers={
+                        "Authorization": f"Bearer {ep['key']}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model":       ep["model"],
+                        "messages":    messages,
+                        "temperature": 0.1,
+                        "max_tokens":  4096,
+                    },
+                )
+
+            if resp.status_code == 429:
+                logger.warning(
+                    "Rate limited by %s model=%s — trying next model",
+                    ep["url"], ep["model"],
+                )
+                continue  # next model immediately, no sleep
+
+            if resp.status_code in (401, 403):
+                logger.warning("Auth error for %s model=%s — skipping", ep["url"], ep["model"])
+                continue
+
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"].strip()
+
+            # Strip markdown fences if the model wrapped the JSON
+            content = re.sub(r"^```[a-z]*\s*", "", content, flags=re.IGNORECASE)
+            content = re.sub(r"\s*```$",        "", content)
+            content = content.strip()
+
+            # Find the JSON array (handle preamble text from chatty models)
+            array_start = content.find("[")
+            if array_start != -1:
+                content = content[array_start:]
+
+            data = json.loads(content)
+
+            if isinstance(data, dict) and "products" in data:
+                data = data["products"]
+
+            if isinstance(data, list) and data:
+                logger.info(
+                    "LLM extracted %d products — model=%s", len(data), ep["model"]
+                )
+                return data
+
+            logger.warning("LLM returned empty list — model=%s", ep["model"])
+
+        except json.JSONDecodeError as exc:
+            logger.warning("Invalid JSON from model=%s: %s", ep["model"], exc)
+        except Exception as exc:
+            logger.warning("LLM call error model=%s: %s", ep["model"], exc)
+
+    return []
+
+
+# ═══════════════════════════════════════════════════════════
+# Public async interface (called by Celery task)
 # ═══════════════════════════════════════════════════════════
 
 
@@ -573,124 +352,98 @@ async def extract_table_local(
     file_name: str,
     max_pages: int = MAX_PDF_PAGES,
 ) -> list[dict]:
-    """Extract structured product table data using local PaddleOCR PP-Structure.
+    """Extract structured product data from a document file.
 
-    Handles both single images and multi-page PDFs. Processes all pages
-    up to ``max_pages`` and aggregates results.
+    Pipeline:
+        1. Extract raw text (pypdfium2 for PDFs, PaddleOCR for images).
+        2. Send raw text to LLM → get back dynamic JSON product list.
+        3. If LLM unavailable → return [].
 
     Args:
         file_bytes: Raw file bytes (PDF or image).
-        file_name: Original file name (used to determine file type).
-        max_pages: Maximum PDF pages to process (default: 20).
+        file_name:  Original file name (used to detect type).
+        max_pages:  Max PDF pages to read (default 20).
 
     Returns:
-        List of product dicts with fields:
-            product_name, model_number, unit_price_rmb, moq,
-            weight_kg, dimensions, material.
-
-        Returns an empty list if no tables are found.
-
-    Raises:
-        ImportError: If PaddleOCR is not installed.
-        ValueError: If the file format is unsupported or conversion fails.
+        List of product dicts with whatever fields the LLM found in the doc.
     """
+    import tempfile
+
     ext = os.path.splitext(file_name)[1].lower()
+    is_pdf = ext == ".pdf"
 
-    # ── Step 1: Convert input to list of image paths ──────────
-    image_paths: list[str] = []
+    raw_text = ""
 
-    try:
-        if ext in (".pdf",):
-            # Multi-page PDF → convert all pages to temp images
-            from pdf2image import convert_from_bytes
-
-            pages = convert_from_bytes(file_bytes, dpi=PDF_DPI)
+    # ── Phase 1: Extract raw text ──────────────────────────────
+    if is_pdf:
+        raw_text = await asyncio.get_event_loop().run_in_executor(
+            None, _pdf_to_text, file_bytes
+        )
+        if raw_text.strip():
             logger.info(
-                "PDF has %d pages, processing up to %d",
-                len(pages),
-                min(len(pages), max_pages),
+                "pypdfium2 extracted %d chars from %s", len(raw_text), file_name
+            )
+        else:
+            logger.info(
+                "PDF has no embedded text (%s) — trying PaddleOCR on page images",
+                file_name,
             )
 
-            for i, page in enumerate(pages):
-                if i >= max_pages:
-                    logger.warning(
-                        "Reached max_pages limit (%d), stopping PDF processing",
-                        max_pages,
-                    )
-                    break
-                tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-                page.save(tmp.name, "JPEG")
-                image_paths.append(tmp.name)
-        elif ext in (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"):
-            # Single image → write to temp file
-            tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
-            tmp.write(file_bytes)
-            tmp.close()
-            image_paths.append(tmp.name)
-        else:
-            # Unknown type — try as PNG (or raise)
-            if ext in (".png",):
-                tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    # For images OR scanned PDFs with no embedded text → use PaddleOCR
+    if not raw_text.strip():
+        image_paths: list[str] = []
+        try:
+            if is_pdf:
+                try:
+                    from pdf2image import convert_from_bytes
+                    pages = convert_from_bytes(file_bytes, dpi=200)
+                    for i, page in enumerate(pages[:max_pages]):
+                        tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+                        page.save(tmp.name, "JPEG")
+                        image_paths.append(tmp.name)
+                except Exception as exc:
+                    logger.warning("pdf2image failed: %s", exc)
+            elif ext in (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"):
+                tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
                 tmp.write(file_bytes)
                 tmp.close()
                 image_paths.append(tmp.name)
-            else:
-                raise ValueError(
-                    f"Unsupported file extension '{ext}'. "
-                    f"Supported: .pdf, .jpg, .jpeg, .png, .webp, .bmp, .tiff"
+
+            ocr_parts: list[str] = []
+            for img_path in image_paths:
+                page_text = await asyncio.get_event_loop().run_in_executor(
+                    None, _ocr_image_to_text, img_path
                 )
-    except ImportError:
-        raise ImportError(
-            "pdf2image is not installed. Install it with: pip install pdf2image"
+                if page_text.strip():
+                    ocr_parts.append(page_text.strip())
+
+            raw_text = "\n\n".join(ocr_parts)
+            if raw_text.strip():
+                logger.info(
+                    "PaddleOCR extracted %d chars from %s", len(raw_text), file_name
+                )
+
+        finally:
+            for p in image_paths:
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+
+    if not raw_text.strip():
+        logger.warning(
+            "Could not extract any text from %s — returning empty product list",
+            file_name,
         )
-    except Exception as exc:
-        raise ValueError(f"Failed to prepare images for OCR: {exc}")
+        return []
 
-    # ── Step 2: Run PP-Structure on each image ────────────────
-    engine = _get_engine()
-    all_products: list[dict] = []
+    # ── Phase 2: LLM structuring ───────────────────────────────
+    products = await _llm_extract(raw_text)
 
-    try:
-        for img_path in image_paths:
-            try:
-                # PP-Structure is CPU-bound — run in thread pool
-                result = await asyncio.get_event_loop().run_in_executor(
-                    None, engine, img_path
-                )
+    if not products:
+        logger.warning(
+            "LLM returned no products for %s — document marked extracted with 0 items",
+            file_name,
+        )
 
-                for region in result:
-                    if region.get("type") == "table":
-                        html = region.get("res", {}).get("html", "")
-                        if not html:
-                            continue
-
-                        rows = _parse_table_html(html)
-                        products = _rows_to_products(rows)
-                        all_products.extend(products)
-                        logger.debug(
-                            "Extracted %d products from page image %s",
-                            len(products),
-                            os.path.basename(img_path),
-                        )
-
-            except Exception as exc:
-                logger.warning(
-                    "PP-Structure failed on image %s: %s",
-                    os.path.basename(img_path),
-                    exc,
-                )
-                continue  # Skip problematic pages, continue with others
-    finally:
-        # ── Step 3: Clean up temp files ───────────────────────
-        for img_path in image_paths:
-            try:
-                os.unlink(img_path)
-            except OSError:
-                pass
-
-    logger.info(
-        "Local OCR complete — extracted %d products total",
-        len(all_products),
-    )
-
-    return all_products
+    return products
