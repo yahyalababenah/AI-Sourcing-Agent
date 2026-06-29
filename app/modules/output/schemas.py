@@ -10,17 +10,17 @@ from pydantic import BaseModel, Field
 class QuotationLineItemSchema(BaseModel):
     """A single line item in a quotation."""
 
-    product_id: str
+    product_id: Optional[str] = None
     product_name: str
     quantity: int
     unit_price_cny: float
     unit_price_converted: float
-    exchange_rate: float
-    freight_cost: float
-    customs_duty: float
-    commission: float
-    subtotal: float
-    discount: float
+    exchange_rate: Optional[float] = None
+    freight_cost: float = 0.0
+    customs_duty: float = 0.0
+    commission: float = 0.0
+    subtotal: Optional[float] = None
+    discount: float = 0.0
     total: float
 
 
@@ -29,7 +29,7 @@ class QuotationLineItemResponse(BaseModel):
 
     id: UUID
     quotation_id: UUID
-    product_id: UUID
+    product_id: Optional[UUID] = None
     product_name: str
     quantity: int
     unit_price_cny: float

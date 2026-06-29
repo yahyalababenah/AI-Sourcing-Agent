@@ -23,6 +23,7 @@ from app.modules.intake.prompt_templates import (
     build_extract_user_prompt,
     build_translate_user_prompt,
 )
+from app.shared.circuit_breaker import CircuitBreaker
 from app.shared.exceptions import IncompleteExtractionError, ProviderUnavailableError
 from app.shared.logging import get_logger
 
@@ -48,6 +49,13 @@ REQUEST_TIMEOUT = 30.0  # seconds
 # Retry configuration
 MAX_RETRIES = 3
 RETRY_DELAYS = [1.0, 4.0, 15.0]  # seconds between retries
+
+# Per-provider circuit breakers — shared state across requests via Redis.
+# Opens after 5 consecutive failures; recovers after a 120-second cooldown.
+_circuit_breakers: dict[str, CircuitBreaker] = {
+    "openrouter": CircuitBreaker("llm_openrouter", failure_threshold=5, recovery_timeout=120),
+    "together": CircuitBreaker("llm_together", failure_threshold=5, recovery_timeout=120),
+}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -143,10 +151,12 @@ async def _call_with_retry(
     messages: list[dict],
     model: str,
 ) -> dict:
-    """Call an LLM provider with retry logic and exponential backoff.
+    """Call an LLM provider with circuit-breaker guard, retry, and exponential backoff.
 
-    Tries OpenRouter first, then falls back to Together AI if configured.
-    Within each provider, retries up to MAX_RETRIES times with increasing delays.
+    Before each attempt the Redis-backed circuit breaker for the provider is
+    checked.  If the circuit is OPEN the call is fast-failed immediately without
+    hitting the network.  Successful calls reset the failure counter; failed
+    calls increment it, opening the circuit after 5 consecutive failures.
 
     Args:
         provider_name: 'together' or 'openrouter'.
@@ -157,18 +167,57 @@ async def _call_with_retry(
         Parsed JSON response dict.
 
     Raises:
-        ProviderUnavailableError: If all retries and fallbacks are exhausted.
+        ProviderUnavailableError: If circuit is open or all retries are exhausted.
     """
+    breaker = _circuit_breakers.get(provider_name)
+
+    # ── Circuit Breaker pre-check ────────────────────────────────────
+    if breaker:
+        try:
+            from app.shared.redis_client import get_redis
+            redis = await get_redis()
+            if not await breaker.call_allowed(redis):
+                raise ProviderUnavailableError(
+                    message=f"{provider_name} circuit breaker is OPEN — skipping provider",
+                    details={"provider": provider_name, "circuit_state": "open"},
+                )
+        except ProviderUnavailableError:
+            raise
+        except Exception:
+            pass  # Redis unavailable — fail open and attempt the call
+
     last_error: Optional[Exception] = None
 
     for attempt in range(MAX_RETRIES):
         try:
             if provider_name == "together":
-                return await _call_together(messages, model=model)
+                result = await _call_together(messages, model=model)
             else:
-                return await _call_openrouter(messages, model=model)
+                result = await _call_openrouter(messages, model=model)
+
+            # Record success so the breaker can close if it was half-open
+            if breaker:
+                try:
+                    from app.shared.redis_client import get_redis
+                    redis = await get_redis()
+                    await breaker.record_success(redis)
+                except Exception:
+                    pass
+
+            return result
+
         except ProviderUnavailableError as exc:
             last_error = exc
+
+            # Record failure for circuit breaker bookkeeping
+            if breaker:
+                try:
+                    from app.shared.redis_client import get_redis
+                    redis = await get_redis()
+                    await breaker.record_failure(redis)
+                except Exception:
+                    pass
+
             if attempt < MAX_RETRIES - 1:
                 delay = _get_retry_delay(attempt)
                 logger.warning(
