@@ -29,7 +29,10 @@ from app.shared.exceptions import AuthenticationError, ValidationError
 
 def _hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
-    salt = bcrypt.gensalt()
+    # rounds=12 in production (default), 10 in dev for faster iteration
+    from app.config import settings
+    rounds = 12 if settings.ENVIRONMENT == "production" else 10
+    salt = bcrypt.gensalt(rounds=rounds)
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
@@ -130,14 +133,13 @@ async def register_user(db: AsyncSession, user_data: UserCreate) -> User:
     Raises:
         ValidationError: If email already exists or required profile fields missing.
     """
-    # Check for existing user
+    # Check for existing user — use generic message to prevent email enumeration
     result = await db.execute(
         select(User).where(User.email == user_data.email)
     )
     if result.scalar_one_or_none():
         raise ValidationError(
-            message="A user with this email already exists",
-            details={"email": user_data.email},
+            message="Registration failed. Please check your details and try again.",
         )
 
     # Determine role from payload
@@ -240,16 +242,20 @@ async def create_tokens(user: User) -> dict:
 
 
 async def refresh_access_token(
-    db: AsyncSession, refresh_token: str
+    db: AsyncSession, refresh_token: str, redis=None
 ) -> dict:
-    """Validate a refresh token and issue a new access token.
+    """Validate a refresh token and issue a new token pair (Refresh Token Rotation).
+
+    The old refresh token is blacklisted immediately so it cannot be reused,
+    preventing replay attacks even if the token is intercepted.
 
     Args:
         db: Database session.
         refresh_token: JWT refresh token.
+        redis: Redis client (optional — blacklisting skipped if unavailable).
 
     Returns:
-        New token pair dict.
+        New token pair dict with fresh access + refresh tokens.
     """
     try:
         payload = jwt.decode(
@@ -285,6 +291,16 @@ async def refresh_access_token(
             message="Invalid user ID in refresh token",
         )
 
+    # Reject already-blacklisted refresh tokens (replay attack prevention)
+    jti = payload.get("jti")
+    if redis and jti:
+        already_used = await redis.get(f"blacklisted:{jti}")
+        if already_used:
+            raise AuthenticationError(
+                message="Refresh token has already been used. Please login again.",
+                details={"expired": True},
+            )
+
     # Verify user still exists and is active
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -293,6 +309,14 @@ async def refresh_access_token(
         raise AuthenticationError(
             message="User not found or deactivated",
         )
+
+    # Blacklist the old refresh token immediately (Refresh Token Rotation).
+    # TTL is set to the remaining lifetime of the token so Redis auto-cleans it.
+    if redis and jti:
+        exp = payload.get("exp")
+        if exp:
+            ttl = max(1, exp - int(datetime.now(timezone.utc).timestamp()))
+            await redis.setex(f"blacklisted:{jti}", ttl, "true")
 
     return await create_tokens(user)
 
@@ -312,10 +336,22 @@ async def logout_user(redis, refresh_token: str) -> None:
         )
         jti = payload.get("jti")
         exp = payload.get("exp")
+        user_id = payload.get("sub")
 
         if jti and exp:
             ttl = max(0, exp - int(datetime.now(timezone.utc).timestamp()))
             await redis.setex(f"blacklisted:{jti}", ttl, "true")
+
+        # Invalidate all access tokens issued before this moment for this user.
+        # Any access token with iat <= this timestamp will be rejected.
+        if user_id:
+            logout_ts = int(datetime.now(timezone.utc).timestamp())
+            ttl_session = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
+            await redis.setex(
+                f"session_invalidated:{user_id}",
+                ttl_session,
+                str(logout_ts),
+            )
     except jwt.InvalidTokenError:
         # Ignore invalid tokens during logout
         pass
