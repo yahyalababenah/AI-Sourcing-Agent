@@ -24,9 +24,18 @@ from sqlalchemy import (
     func,
     DDL,
     event,
+    Enum as SAEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID, TSVECTOR
 from sqlalchemy.orm import relationship
+
+import enum
+
+
+class ProductReviewStatus(str, enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 from app.shared.database import Base
 
@@ -106,6 +115,15 @@ class CatalogProduct(Base):
         String(200),
         nullable=True,
         doc="Product category — B-Tree indexed for filtered queries",
+    )
+
+    # ── Review Status ──
+    review_status = Column(
+        SAEnum(ProductReviewStatus, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=ProductReviewStatus.PENDING,
+        server_default=ProductReviewStatus.PENDING.value,
+        doc="Agent review status: pending → approved/rejected",
     )
 
     # ── Full-Text Search Vector (GIN-indexed) ──
