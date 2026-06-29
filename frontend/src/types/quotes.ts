@@ -66,7 +66,21 @@ export interface QuotationListResponse {
 }
 
 export interface QuotationGenerateRequest {
-  rfq_ids: string[];
+  rfq_id: string;
+  target_currency?: string;
+  exchange_rate_used: number;
+  line_items: QuotationLineItem[];
+  subtotal: number;
+  freight_total?: number;
+  customs_total?: number;
+  commission_total?: number;
+  discount_total?: number;
+  vat_total?: number;
+  grand_total: number;
+  payment_terms?: string;
+  delivery_terms?: string;
+  validity_days?: number;
+  notes?: string;
 }
 
 export interface QuotationGeneratePdfResponse {
@@ -75,7 +89,8 @@ export interface QuotationGeneratePdfResponse {
 }
 
 export interface QuotationGenerateAcceptedResponse {
-  task_id: string;
+  quotation_id: string;
+  task_id?: string;
   status: string;
   message: string;
 }

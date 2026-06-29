@@ -11,15 +11,17 @@ export interface CatalogProduct {
   category: string | null;
 
   /** Supplier (agent) who owns this product. */
-  supplier_id: string;
-  supplier_name: string;
+  supplier_id: string | null;
+  supplier_name: string | null;
   factory_name: string | null;
   location_in_china: string | null;
 
   /** Source document reference. */
-  document_id: string;
-  document_file_name: string;
+  document_id: string | null;
+  document_file_name: string | null;
   extracted_at: string | null;
+
+  review_status?: "pending" | "approved" | "rejected" | null;
 }
 
 /** Paginated catalog listing response. */

@@ -73,3 +73,17 @@ export interface CalculatePriceResponse {
   discount_total: number;
   rules_applied: string[];
 }
+
+export interface QuickEstimateResponse {
+  unit_price_cny: number;
+  quantity: number;
+  exchange_rate: number;
+  target_currency: string;
+  unit_price_converted: number;
+  customs_duty: number;
+  clearance_fee: number;
+  subtotal_excl_shipping: number;
+  vat: number;
+  estimated_total: number;
+  note: string;
+}

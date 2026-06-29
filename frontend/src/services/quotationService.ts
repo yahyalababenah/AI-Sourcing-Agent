@@ -14,7 +14,7 @@ export const quotationService = {
     api.post<Quotation>(API.QUOTES.CREATE, data).then((r) => r.data),
 
   /** List quotations. */
-  list: (params?: { rfq_id?: string; status?: string }) =>
+  list: (params?: { rfq_id?: string; status?: string; limit?: number }) =>
     api.get<QuotationListResponse>(API.QUOTES.LIST, { params }).then((r) => r.data),
 
   /** Get a single quotation by ID. */
@@ -34,6 +34,14 @@ export const quotationService = {
     api
       .post<QuotationGenerateAcceptedResponse>(API.QUOTES.GENERATE, data)
       .then((r) => r.data),
+
+  /** Client accepts a quotation. */
+  accept: (id: string) =>
+    api.post<import("@/types/quotes").Quotation>(API.QUOTES.ACCEPT(id)).then((r) => r.data),
+
+  /** Client rejects a quotation. */
+  reject: (id: string) =>
+    api.post<import("@/types/quotes").Quotation>(API.QUOTES.REJECT(id)).then((r) => r.data),
 
   /** Generate PDF for a quotation (synchronous). */
   generatePdf: (id: string, showDetails = false) =>

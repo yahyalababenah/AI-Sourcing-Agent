@@ -15,20 +15,20 @@ import type {
 export const chatService = {
   /** Create a new chat room between current user and a supplier. */
   createRoom: (data: CreateRoomRequest) =>
-    api.post<ChatRoom>("/v1/chat/rooms", data).then((r) => r.data),
+    api.post<ChatRoom>("/chat/rooms", data).then((r) => r.data),
 
   /** List all chat rooms for the current user (with last message preview). */
   listRooms: () =>
-    api.get<RoomListResponse>("/v1/chat/rooms").then((r) => r.data),
+    api.get<RoomListResponse>("/chat/rooms").then((r) => r.data),
 
   /** Get a single room by ID. */
   getRoom: (id: string) =>
-    api.get<ChatRoom>(`/v1/chat/rooms/${id}`).then((r) => r.data),
+    api.get<ChatRoom>(`/chat/rooms/${id}`).then((r) => r.data),
 
   /** Get paginated messages for a room. */
   getMessages: (roomId: string, page = 1, pageSize = 50) =>
     api
-      .get<MessageListResponse>(`/v1/chat/rooms/${roomId}/messages`, {
+      .get<MessageListResponse>(`/chat/rooms/${roomId}/messages`, {
         params: { page, page_size: pageSize },
       })
       .then((r) => r.data),
@@ -36,7 +36,7 @@ export const chatService = {
   /** Send a message. */
   sendMessage: (roomId: string, data: SendMessageRequest) =>
     api
-      .post<ChatMessage>(`/v1/chat/rooms/${roomId}/messages`, data)
+      .post<ChatMessage>(`/chat/rooms/${roomId}/messages`, data)
       .then((r) => r.data),
 
   /**
