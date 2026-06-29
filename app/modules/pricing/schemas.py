@@ -106,3 +106,32 @@ class CalculatePriceResponse(BaseModel):
     grand_total: float
     discount_total: float
     rules_applied: list[str]
+
+
+# ═══════════════════════════════════════════════════════════
+# Quick Estimate (marketplace — no RFQ required)
+# ═══════════════════════════════════════════════════════════
+
+class QuickEstimateRequest(BaseModel):
+    """Lightweight cost estimate for marketplace browsing."""
+
+    unit_price_cny: float = Field(ge=0)
+    quantity: int = Field(default=1, ge=1)
+    destination_port: str = Field(default="Aqaba", max_length=100)
+    target_currency: str = Field(default="JOD", max_length=10)
+
+
+class QuickEstimateResponse(BaseModel):
+    """Estimated landed cost breakdown (without shipping)."""
+
+    unit_price_cny: float
+    quantity: int
+    exchange_rate: float
+    target_currency: str
+    unit_price_converted: float
+    customs_duty: float
+    clearance_fee: float
+    subtotal_excl_shipping: float
+    vat: float
+    estimated_total: float
+    note: str = "الشحن يُحدَّد بعد تأكيد الكمية مع المندوب"

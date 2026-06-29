@@ -20,6 +20,7 @@ Invalidation Triggers:
 # ═══════════════════════════════════════════════════════════
 # Imports
 # ═══════════════════════════════════════════════════════════
+import asyncio
 import json
 from decimal import Decimal
 from typing import Optional
@@ -37,10 +38,15 @@ logger = get_logger(__name__)
 EXCHANGE_RATE_CACHE_PREFIX = "pricing:exchange_rate:"
 RULES_CACHE_KEY = "pricing:rules:all"
 
+# Stampede-prevention lock keys and TTLs
+EXCHANGE_RATE_LOCK_PREFIX = "pricing:exchange_rate:lock:"
+RULES_CACHE_LOCK_KEY = "pricing:rules:rebuild_lock"
+REBUILD_LOCK_TTL = 10  # seconds — max time to hold a rebuild lock
+
 # TTL values
 RULES_CACHE_TTL = 3600           # 1 hour
 EXCHANGE_RATE_CACHE_TTL = 86400  # 24 hours (per roadmap §3.3)
-EXCHANGE_RATE_API_TIMEOUT = 10.0 # seconds
+EXCHANGE_RATE_API_TIMEOUT = 5.0  # seconds — reduced from 10s to fail fast
 
 
 # ═══════════════════════════════════════════════════════════
@@ -199,11 +205,16 @@ async def get_exchange_rate(
 ) -> Optional[float]:
     """Get exchange rate with automatic cache-miss fallback to external API.
 
+    Uses a Redis lock (SET NX) to prevent cache stampede — only one worker
+    fetches from the external API when the cache expires; others wait briefly
+    and then read the freshly-cached value.
+
     Implements the strategy from roadmap §3.3:
     1. Check Redis key ``exchange_rate:{from}:{to}``.
     2. If present and TTL > 0, return cached value.
-    3. If absent / missed, fetch from external API, store in Redis
-       with 24h TTL, return.
+    3. If absent / missed, acquire a rebuild lock.
+       - If lock acquired: fetch from API, store in Redis, release lock, return.
+       - If lock not acquired: sleep 200 ms and re-read from cache (stampede guard).
     4. If API unreachable, log warning and return None.
 
     Args:
@@ -226,24 +237,41 @@ async def get_exchange_rate(
         )
         return cached
 
-    # 2. Cache miss — fetch from API
-    logger.info(
-        "Exchange rate cache miss — fetching from API",
-        extra={"pair": f"{from_upper}/{to_upper}"},
-    )
-    rate = await _fetch_exchange_rate_from_api(from_upper, to_upper)
+    # 2. Cache miss — try to acquire a rebuild lock to prevent stampede
+    lock_key = f"{EXCHANGE_RATE_LOCK_PREFIX}{from_upper}:{to_upper}"
+    acquired = await redis.set(lock_key, "1", nx=True, ex=REBUILD_LOCK_TTL)
 
-    # 3. Cache the result if we got one
-    if rate is not None:
-        await set_cached_exchange_rate(redis, from_upper, to_upper, rate)
-        return rate
+    if not acquired:
+        # Another worker is already fetching — wait and read from cache
+        await asyncio.sleep(0.2)
+        result = await get_cached_exchange_rate(redis, from_upper, to_upper)
+        if result is not None:
+            return result
+        # If still None after wait, fall through to fetch below (lock may have expired)
 
-    # 4. API unreachable — log warning
-    logger.warning(
-        "Exchange rate unavailable — cache miss and API unreachable",
-        extra={"pair": f"{from_upper}/{to_upper}"},
-    )
-    return None
+    try:
+        # 3. Fetch from external API
+        logger.info(
+            "Exchange rate cache miss — fetching from API",
+            extra={"pair": f"{from_upper}/{to_upper}"},
+        )
+        rate = await _fetch_exchange_rate_from_api(from_upper, to_upper)
+
+        # 4. Cache the result if we got one
+        if rate is not None:
+            await set_cached_exchange_rate(redis, from_upper, to_upper, rate)
+            return rate
+
+        # API unreachable
+        logger.warning(
+            "Exchange rate unavailable — cache miss and API unreachable",
+            extra={"pair": f"{from_upper}/{to_upper}"},
+        )
+        return None
+
+    finally:
+        if acquired:
+            await redis.delete(lock_key)
 
 
 async def set_exchange_rate(

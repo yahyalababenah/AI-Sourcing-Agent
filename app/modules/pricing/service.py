@@ -22,6 +22,8 @@ from app.modules.pricing.cache import (
     set_exchange_rate,
     invalidate_rules_cache,
     invalidate_exchange_rate,
+    RULES_CACHE_LOCK_KEY,
+    REBUILD_LOCK_TTL,
 )
 from app.modules.pricing.engine import PricingEngine, LineItemInput
 from app.modules.pricing.models import (
@@ -196,32 +198,52 @@ async def _load_rules_for_engine(
     Returns:
         Dict of rule_name → value.
     """
+    import asyncio
+
     # Try cache first
+    lock_acquired = False
     if redis:
         cached = await get_cached_rules(redis)
         if cached:
             logger.debug("Loaded pricing rules from cache")
             return cached
 
-    # Fall back to DB
-    result = await db.execute(
-        select(PricingRule).where(
-            PricingRule.is_active.is_(True),
-            PricingRule.status == PricingRuleStatus.ACTIVE,
+        # Cache miss — acquire rebuild lock to prevent stampede
+        lock_acquired = bool(
+            await redis.set(RULES_CACHE_LOCK_KEY, "1", nx=True, ex=REBUILD_LOCK_TTL)
         )
-    )
-    db_rules = list(result.scalars().all())
+        if not lock_acquired:
+            # Another worker is rebuilding — wait briefly and re-read cache
+            await asyncio.sleep(0.2)
+            cached = await get_cached_rules(redis)
+            if cached:
+                logger.debug("Loaded pricing rules from cache (after lock wait)")
+                return cached
+            # Still None — proceed to DB query below
 
-    rules_dict: dict[str, float] = {}
-    for rule in db_rules:
-        rules_dict[rule.name] = rule.value
+    # Fall back to DB
+    try:
+        result = await db.execute(
+            select(PricingRule).where(
+                PricingRule.is_active.is_(True),
+                PricingRule.status == PricingRuleStatus.ACTIVE,
+            )
+        )
+        db_rules = list(result.scalars().all())
 
-    # Cache if Redis available
-    if redis and rules_dict:
-        await set_cached_rules(redis, rules_dict)
-        logger.debug("Loaded pricing rules from DB and cached")
+        rules_dict: dict[str, float] = {}
+        for rule in db_rules:
+            rules_dict[rule.name] = rule.value
 
-    return rules_dict
+        # Cache if Redis available
+        if redis and rules_dict:
+            await set_cached_rules(redis, rules_dict)
+            logger.debug("Loaded pricing rules from DB and cached")
+
+        return rules_dict
+    finally:
+        if redis and lock_acquired:
+            await redis.delete(RULES_CACHE_LOCK_KEY)
 
 
 # ═══════════════════════════════════════════════════════════
