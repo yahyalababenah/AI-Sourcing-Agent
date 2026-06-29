@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.modules.auth.models import User, UserRole
 
 
@@ -76,8 +76,24 @@ class UserCreate(BaseModel):
     """User registration request with profile fields."""
 
     email: EmailStr = Field(..., examples=["agent@example.com"])
-    password: str = Field(..., min_length=8, max_length=128, examples=["secure_password"])
+    password: str = Field(..., min_length=8, max_length=128, examples=["Secure@123"])
     full_name: str = Field(..., min_length=1, max_length=255, examples=["Ahmed Al-Masri"])
+
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        errors = []
+        if not any(c.isupper() for c in v):
+            errors.append("at least one uppercase letter (A-Z)")
+        if not any(c.islower() for c in v):
+            errors.append("at least one lowercase letter (a-z)")
+        if not any(c.isdigit() for c in v):
+            errors.append("at least one digit (0-9)")
+        if not any(c in r"!@#$%^&*()-_=+[]{}|;:',.<>?/`~" for c in v):
+            errors.append("at least one special character (!@#$%^&* ...)")
+        if errors:
+            raise ValueError("Password must contain: " + ", ".join(errors))
+        return v
     phone: Optional[str] = Field(None, max_length=50, examples=["+962791234567"])
     role: str = Field(..., description="User role: client | agent | admin")
 
@@ -123,6 +139,24 @@ class TokenRefresh(BaseModel):
     """Refresh token request."""
 
     refresh_token: str
+
+
+class UpdateProfileRequest(BaseModel):
+    """Self-service profile update for any authenticated user."""
+
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    phone: Optional[str] = Field(None, max_length=50)
+
+    # Client-specific
+    company_name: Optional[str] = Field(None, max_length=255)
+    preferred_port: Optional[str] = Field(None, max_length=100)
+    contact_number: Optional[str] = Field(None, max_length=50)
+
+    # Agent-specific
+    factory_name: Optional[str] = Field(None, max_length=255)
+    location_in_china: Optional[str] = Field(None, max_length=255)
+    specialty: Optional[str] = Field(None, max_length=255)
+    factory_address: Optional[str] = Field(None, max_length=500)
 
 
 class UpdateVerificationRequest(BaseModel):

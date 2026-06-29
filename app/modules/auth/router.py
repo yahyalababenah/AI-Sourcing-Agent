@@ -18,6 +18,7 @@ from app.modules.auth.models import User, UserRole
 from app.modules.auth.schemas import (
     TokenRefresh,
     TokenResponse,
+    UpdateProfileRequest,
     UserCreate,
     UserLogin,
     UserResponse,
@@ -79,9 +80,10 @@ async def login(
 async def refresh(
     token_data: TokenRefresh,
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis_client),
 ):
     """Exchange a valid refresh token for a new access token pair."""
-    tokens = await refresh_access_token(db, token_data.refresh_token)
+    tokens = await refresh_access_token(db, token_data.refresh_token, redis=redis)
     return TokenResponse(**tokens)
 
 
@@ -99,6 +101,61 @@ async def get_me(
     in the ``profile`` field.
     """
     return build_user_response(current_user)
+
+
+@router.patch(
+    "/me",
+    response_model=UserResponse,
+    summary="Update current user's profile",
+)
+async def update_me(
+    data: UpdateProfileRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update the authenticated user's name, phone, and role-specific profile fields."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    # Update base user fields
+    if data.full_name is not None:
+        current_user.full_name = data.full_name
+    if data.phone is not None:
+        current_user.phone = data.phone
+
+    # Update role-specific profile
+    if current_user.role == UserRole.CLIENT and current_user.client_profile:
+        p = current_user.client_profile
+        if data.company_name is not None:
+            p.company_name = data.company_name
+        if data.preferred_port is not None:
+            p.preferred_port = data.preferred_port
+        if data.contact_number is not None:
+            p.contact_number = data.contact_number
+
+    elif current_user.role == UserRole.AGENT and current_user.supplier_profile:
+        p = current_user.supplier_profile
+        if data.factory_name is not None:
+            p.factory_name = data.factory_name
+        if data.location_in_china is not None:
+            p.location_in_china = data.location_in_china
+        if data.specialty is not None:
+            p.specialty = data.specialty
+        if data.factory_address is not None:
+            p.factory_address = data.factory_address
+
+    await db.commit()
+
+    # Re-fetch with relationships to build full response
+    from app.modules.auth.models import ClientProfile, SupplierProfile
+    stmt = (
+        select(User)
+        .options(selectinload(User.client_profile), selectinload(User.supplier_profile))
+        .where(User.id == current_user.id)
+    )
+    result = await db.execute(stmt)
+    refreshed = result.scalar_one()
+    return build_user_response(refreshed)
 
 
 @router.post(

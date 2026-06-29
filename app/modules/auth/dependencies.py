@@ -28,6 +28,7 @@ from app.config import settings
 from app.modules.auth.models import User, UserRole
 from app.shared.database import get_db
 from app.shared.exceptions import AuthenticationError, AuthorizationError
+from app.shared.redis_client import get_redis
 
 
 async def get_current_user(
@@ -91,6 +92,23 @@ async def get_current_user(
         raise AuthenticationError(
             message="Invalid user ID in token",
         )
+
+    # Check if the session was invalidated after this token was issued (logout).
+    # Fail open if Redis is unavailable to avoid locking users out.
+    iat = payload.get("iat")
+    try:
+        redis = await get_redis()
+        invalidated_val = await redis.get(f"session_invalidated:{raw_user_id}")
+        if invalidated_val and iat is not None:
+            if int(iat) <= int(invalidated_val):
+                raise AuthenticationError(
+                    message="Session has been invalidated. Please login again.",
+                    details={"expired": True},
+                )
+    except AuthenticationError:
+        raise
+    except Exception:
+        pass  # Redis unavailable — fail open
 
     # Fetch user from DB (eagerly load profile relationships)
     stmt = (
