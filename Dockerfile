@@ -70,7 +70,8 @@ COPY --chown=aisourcing:aisourcing . .
 # PaddleOCR/PaddleX cache dirs are needed for model downloads
 RUN mkdir -p /app/app/static/fonts /app/app/static/logos \
              /app/.paddleocr /app/.paddlex && \
-    chown -R aisourcing:aisourcing /app
+    chown -R aisourcing:aisourcing /app && \
+    chmod +x /app/entrypoint.sh
 
 ENV PADDLEOCR_HOME=/app/.paddleocr
 
@@ -78,5 +79,7 @@ USER aisourcing
 
 EXPOSE 8000
 
-# Default command — overridden by docker-compose for api vs worker
+# Run migrations then start the server.
+# The ENTRYPOINT runs alembic upgrade head before any CMD.
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

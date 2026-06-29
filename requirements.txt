@@ -56,9 +56,11 @@ slowapi>=0.1.9
 pillow>=10.2.0
 
 # Local OCR (replaces external Vision LLM API — OpenRouter/Qwen-VL)
-# CPU-only PaddleOCR PP-Structure for catalog document table extraction
+# PaddleOCR for table extraction; text-based PDFs handled via pypdfium2 directly.
+# Note: paddlepaddle 3.x with onednn may error on some CPUs; ocr_client.py
+# handles this gracefully and falls back to pypdfium2 text extraction.
 paddlepaddle>=3.0.0
-paddleocr>=2.8.0
+paddleocr>=3.0.0
 
 # ===== Test dependencies =====
 pytest>=8.0.0
