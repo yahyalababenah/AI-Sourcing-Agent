@@ -37,6 +37,7 @@ engine = create_async_engine(
     echo=False,
     connect_args={
         "statement_cache_size": 0,  # Disable for asyncpg compatibility
+        "command_timeout": 30,       # Kill queries running longer than 30 seconds
     },
 )
 
@@ -78,13 +79,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 # ═══════════════════════════════════════════════════════════
 
 
-def _build_sync_db_url() -> str:
+def _build_sync_db_url() -> URL:
     """Convert async database URL to sync URL using proper URL parsing.
 
-    Uses SQLAlchemy's URL.create() instead of fragile string replacement.
+    Returns a URL object (not a string) so the password is never masked
+    by SQLAlchemy's __str__ rendering (which replaces it with '***').
     """
     parsed = make_url(settings.db_url)
-    sync_url = URL.create(
+    return URL.create(
         drivername="postgresql",
         username=parsed.username,
         password=parsed.password,
@@ -92,7 +94,6 @@ def _build_sync_db_url() -> str:
         port=parsed.port,
         database=parsed.database,
     )
-    return str(sync_url)
 
 
 def create_sync_session_factory(

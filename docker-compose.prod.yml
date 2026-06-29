@@ -60,12 +60,19 @@ services:
       context: .
       dockerfile: Dockerfile
     command: >
-      /bin/sh -c "
-      chmod +x /app/scripts/entrypoint.sh &&
-      /app/scripts/entrypoint.sh
-      "
+      gunicorn app.main:app
+      --worker-class uvicorn.workers.UvicornWorker
+      --workers 4
+      --bind 0.0.0.0:8000
+      --timeout 120
+      --access-logfile -
+      --error-logfile -
     environment:
       ENVIRONMENT: production
+      # TLS: Set DATABASE_URL with ?ssl=require for encrypted DB connections
+      # DATABASE_URL: postgresql+asyncpg://user:pass@host:5432/db?ssl=require
+      # TLS: Use rediss:// scheme for encrypted Redis connections
+      # REDIS_URL: rediss://:password@host:6379/0
     deploy:
       resources:
         limits:
@@ -204,6 +211,88 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ── Certbot — SSL Certificate Auto-Renewal ────────────────────────
+  # Usage (first time): docker compose run --rm certbot certonly --webroot ...
+  # Renewal runs automatically every 12 hours via the entrypoint loop.
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ── Celery Flower — Task Monitoring UI ────────────────────────────
+  # Access: https://your-domain/flower  (protected by Nginx basic auth)
+  # Set FLOWER_BASIC_AUTH=user:password in .env
+  flower:
+    image: mher/flower:2.0
+    command: >
+      celery
+      --broker=${REDIS_URL}
+      flower
+      --port=5555
+      --basic_auth=${FLOWER_BASIC_AUTH:-admin:changeme}
+    environment:
+      ENVIRONMENT: production
+    depends_on:
+      - redis
+      - celery_worker
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+        reservations:
+          cpus: "0.1"
+          memory: 64m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ── Grafana — Metrics Dashboards ───────────────────────────────────
+  # Access: https://your-domain/grafana  (Nginx proxy)
+  # Default login: admin / set via GF_SECURITY_ADMIN_PASSWORD in .env
+  grafana:
+    image: grafana/grafana:10.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-changeme}
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - api
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+        reservations:
+          cpus: "0.1"
+          memory: 64m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # ── ChromaDB Vector Store ───────────────────────────────────────────
   chromadb:
     restart: always
@@ -232,4 +321,8 @@ volumes:
   chroma_data:
     driver: local
   static_volume:
+    driver: local
+  certbot_webroot:
+    driver: local
+  grafana_data:
     driver: local

@@ -15,6 +15,7 @@ Usage:
 """
 
 import asyncio
+import ipaddress
 import re
 import time
 import uuid
@@ -68,6 +69,9 @@ def _parse_rate_limit(rate_str: str) -> tuple[int, int]:
 
 # ---- Scope Definitions ----
 
+# Auth paths get the strictest limit (brute-force protection)
+_AUTH_PATHS = {"/api/v1/auth/login", "/api/v1/auth/register"}
+
 # Upload paths get a stricter limit
 _UPLOAD_PATHS = {"/api/v1/documents/upload", "/api/v1/documents"}
 
@@ -78,16 +82,37 @@ _EXCLUDED_PATHS = {"/health", "/metrics", "/api/docs", "/api/redoc", "/api/opena
 def _get_rate_limit_for_path(path: str) -> tuple[int, int]:
     """Determine which rate limit applies to a given request path.
 
+    Priority: auth > upload > general.
+
     Args:
         path: The request URL path.
 
     Returns:
         Tuple of (max_requests, window_seconds).
     """
+    for auth_path in _AUTH_PATHS:
+        if path.startswith(auth_path):
+            return _parse_rate_limit(settings.RATE_LIMIT_AUTH)
     for upload_path in _UPLOAD_PATHS:
         if path.startswith(upload_path):
             return _parse_rate_limit(settings.RATE_LIMIT_UPLOAD)
     return _parse_rate_limit(settings.RATE_LIMIT_GENERAL)
+
+
+def _is_trusted_proxy(ip: str) -> bool:
+    """Return True if ip falls within one of the configured trusted proxy CIDRs.
+
+    Prevents X-Forwarded-For spoofing: we only honour the header when the
+    direct connection comes from a known proxy (Nginx in Docker Compose).
+    """
+    try:
+        addr = ipaddress.ip_address(ip)
+        for cidr in settings.TRUSTED_PROXY_CIDRS:
+            if addr in ipaddress.ip_network(cidr, strict=False):
+                return True
+    except ValueError:
+        pass
+    return False
 
 
 def _get_client_identifier(request: Request) -> tuple[str, str]:
@@ -95,8 +120,11 @@ def _get_client_identifier(request: Request) -> tuple[str, str]:
 
     Priority:
         1. Authenticated user_id (from ``request.state.user``)
-        2. X-Forwarded-For header
+        2. X-Forwarded-For — only if the direct connection is from a trusted proxy
         3. Remote IP (``request.client.host``)
+
+    X-Forwarded-For is validated against TRUSTED_PROXY_CIDRS so an attacker
+    cannot spoof their IP by setting the header from an untrusted connection.
 
     Returns:
         Tuple of (identifier_type, identifier_value).
@@ -108,12 +136,13 @@ def _get_client_identifier(request: Request) -> tuple[str, str]:
         user_id = getattr(user, "id", None) or str(user)
         return "user", str(user_id)
 
-    # Fallback to IP
+    # Only trust X-Forwarded-For when the direct connection is from a trusted proxy
+    direct_ip = request.client.host if request.client else None
     forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
+    if forwarded and direct_ip and _is_trusted_proxy(direct_ip):
         ip = forwarded.split(",")[0].strip()
-    elif request.client is not None:
-        ip = request.client.host
+    elif direct_ip:
+        ip = direct_ip
     else:
         ip = "unknown"
     return "ip", ip
@@ -191,9 +220,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         max_requests, window_seconds = _get_rate_limit_for_path(path)
 
         # Determine scope name for Redis key
-        scope = "upload" if any(
-            path.startswith(p) for p in _UPLOAD_PATHS
-        ) else "general"
+        if any(path.startswith(p) for p in _AUTH_PATHS):
+            scope = "auth"
+        elif any(path.startswith(p) for p in _UPLOAD_PATHS):
+            scope = "upload"
+        else:
+            scope = "general"
 
         # ---- Extract client identifier ----
         id_type, identifier = _get_client_identifier(request)

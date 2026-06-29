@@ -124,6 +124,15 @@ class Settings(BaseSettings):
     # ---- Rate Limiting ----
     RATE_LIMIT_GENERAL: str = Field(default="100/minute")
     RATE_LIMIT_UPLOAD: str = Field(default="10/minute")
+    RATE_LIMIT_AUTH: str = Field(default="5/minute")
+
+    # ---- Trusted Proxies ----
+    # CIDRs whose X-Forwarded-For header is trusted.
+    # In production this should be the Nginx container subnet only.
+    # Default covers all RFC-1918 private ranges (safe for Docker Compose internal networks).
+    TRUSTED_PROXY_CIDRS: list[str] = Field(
+        default=["127.0.0.1/32", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    )
 
     # ---- Validation ----
     @field_validator("DB_PASSWORD", "REDIS_PASSWORD", "JWT_SECRET")
@@ -143,6 +152,21 @@ class Settings(BaseSettings):
                 f"{info.field_name} contains a forbidden placeholder word. "
                 f"Generate a strong, unique value."
             )
+        return v
+
+    @field_validator("CORS_ORIGINS")
+    @classmethod
+    def no_localhost_in_production(cls, v: list[str], info: Field) -> list[str]:
+        """Reject localhost origins in production to prevent accidental misconfig."""
+        import os
+        env = os.getenv("ENVIRONMENT", "development")
+        if env == "production":
+            for origin in v:
+                if "localhost" in origin or "127.0.0.1" in origin:
+                    raise ValueError(
+                        f"CORS_ORIGINS contains '{origin}' which is not allowed in production. "
+                        "Set CORS_ORIGINS to the actual frontend domain."
+                    )
         return v
 
 

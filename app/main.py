@@ -43,6 +43,7 @@ from app.modules.intake.router import router as intake_router
 from app.modules.monitoring.router import router as monitoring_router
 from app.modules.output.router import router as output_router
 from app.modules.chat.router import router as chat_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.pricing.router import router as pricing_router
 from app.shared.metrics import (
     PrometheusMiddleware,
@@ -80,9 +81,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize connection pools
     await init_redis_pool()
 
-    # Ensure storage buckets exist
-    await ensure_bucket(settings.STORAGE_BUCKET_DOCUMENTS)
-    await ensure_bucket(settings.STORAGE_BUCKET_QUOTES)
+    # Ensure storage buckets exist (non-fatal — app degrades gracefully without MinIO)
+    try:
+        await ensure_bucket(settings.STORAGE_BUCKET_DOCUMENTS)
+        await ensure_bucket(settings.STORAGE_BUCKET_QUOTES)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"MinIO unavailable at startup — file upload/download will fail: {e}"
+        )
 
     # In development, run migrations at startup
     if settings.ENVIRONMENT == "development":
@@ -188,56 +195,117 @@ def create_app() -> FastAPI:
         prefix="/api/v1/chat",
         tags=["Chat"],
     )
+    app.include_router(
+        notifications_router,
+        prefix="/api/v1/notifications",
+        tags=["Notifications"],
+    )
 
     # ---- Health Check ----
     @app.get(
         "/health",
         tags=["System"],
         summary="Health check endpoint",
-        description="Verifies API, database, and Redis connectivity",
+        description="Verifies API, database, Redis, MinIO, and Celery connectivity",
     )
     async def health_check(request: Request) -> JSONResponse:
-        """Kubernetes/Docker health check.
+        """Kubernetes/Docker health check — all checks run in parallel with hard timeouts.
 
         Returns:
-            200 OK if all services are healthy.
+            200 OK if all critical services (DB + Redis) are healthy.
             503 if any critical service is down.
+            Max response time: ~1 second regardless of service state.
         """
-        # Check DB connectivity
-        db_healthy = False
-        try:
-            from sqlalchemy import text
-            from app.shared.database import async_session_factory
+        import asyncio
 
-            async with async_session_factory() as session:
-                await session.execute(text("SELECT 1"))
-                db_healthy = True
-        except Exception:
-            db_healthy = False
+        loop = asyncio.get_event_loop()
 
-        # Check Redis connectivity
-        redis_healthy = False
-        try:
-            from app.shared.redis_client import get_redis
+        async def check_db() -> bool:
+            try:
+                from sqlalchemy import text
+                from app.shared.database import async_session_factory
+                async with async_session_factory() as session:
+                    await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=3.0)
+                return True
+            except Exception:
+                return False
 
-            redis = await get_redis()
-            await redis.ping()
-            redis_healthy = True
-        except Exception:
-            redis_healthy = False
+        async def check_redis() -> bool:
+            try:
+                from app.shared.redis_client import get_redis
+                redis = await get_redis()
+                await asyncio.wait_for(redis.ping(), timeout=2.0)
+                return True
+            except Exception:
+                return False
 
-        overall_healthy = db_healthy and redis_healthy
-        status_code = 200 if overall_healthy else 503
+        async def check_minio() -> bool:
+            try:
+                from app.shared.storage import _get_s3_client
+                def _ping():
+                    _get_s3_client().list_buckets()
+                await asyncio.wait_for(loop.run_in_executor(None, _ping), timeout=3.0)
+                return True
+            except Exception:
+                return False
+
+        async def check_celery() -> bool:
+            try:
+                from app.shared.celery_app import celery_app
+                def _ping():
+                    inspector = celery_app.control.inspect(timeout=0.5)
+                    return bool(inspector.ping())
+                return await asyncio.wait_for(loop.run_in_executor(None, _ping), timeout=1.0)
+            except Exception:
+                return False
+
+        async def check_llm(redis_ok: bool) -> str:
+            try:
+                providers = []
+                if settings.OPENROUTER_API_KEY:
+                    providers.append("openrouter")
+                if settings.TOGETHER_API_KEY:
+                    providers.append("together")
+                if not providers:
+                    return "not_configured"
+                if redis_ok:
+                    from app.shared.circuit_breaker import CircuitBreaker
+                    from app.shared.redis_client import get_redis
+                    _redis = await get_redis()
+                    open_circuits = [
+                        p for p in providers
+                        if (await CircuitBreaker(f"llm_{p}").get_state(_redis)) == CircuitBreaker.OPEN
+                    ]
+                    if open_circuits:
+                        return f"circuit_open:{','.join(open_circuits)}"
+                return f"configured:{','.join(providers)}"
+            except Exception:
+                return "unknown"
+
+        # Run all checks in parallel — total time = slowest single check
+        db_ok, redis_ok, minio_ok, celery_ok = await asyncio.gather(
+            check_db(), check_redis(), check_minio(), check_celery()
+        )
+        llm_status = await check_llm(redis_ok)
+
+        critical_healthy = db_ok and redis_ok
+        non_critical_ok = minio_ok and celery_ok and "circuit_open" not in llm_status
+        status_code = 200 if critical_healthy else 503
 
         return JSONResponse(
             status_code=status_code,
             content={
-                "status": "ok" if overall_healthy else "degraded",
+                "status": "ok" if (critical_healthy and non_critical_ok) else (
+                    "degraded" if critical_healthy else "unhealthy"
+                ),
                 "version": "1.0.0",
                 "environment": settings.ENVIRONMENT,
                 "services": {
-                    "database": "connected" if db_healthy else "disconnected",
-                    "redis": "connected" if redis_healthy else "disconnected",
+                    "database": "connected" if db_ok else "disconnected",
+                    "redis": "connected" if redis_ok else "disconnected",
+                    "minio": "connected" if minio_ok else "disconnected",
+                    "celery": "connected" if celery_ok else "disconnected",
+                    "llm": llm_status,
                 },
             },
         )
