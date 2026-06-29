@@ -12,6 +12,8 @@ All pages of a PDF are now processed (previously only the first page).
 # Imports
 # ═══════════════════════════════════════════════════════════
 import io
+import os
+import re
 import uuid
 from typing import Any, Optional
 
@@ -38,6 +40,17 @@ from app.shared.logging import get_logger
 from app.shared.storage import storage_client
 
 logger = get_logger(__name__)
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Strip directory components and restrict to safe characters."""
+    # Remove any directory traversal components
+    filename = os.path.basename(filename)
+    # Replace anything that isn't alphanumeric, dot, hyphen, or underscore
+    filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
+    # Strip leading dots to prevent hidden files
+    filename = filename.lstrip(".")
+    return filename or "upload"
 
 
 # ═══════════════════════════════════════════════════════════
@@ -71,8 +84,11 @@ async def upload_document(
     # Determine document type from content type
     doc_type = _infer_document_type(content_type or "", file_name)
 
+    # Sanitize filename to prevent path traversal
+    safe_name = _sanitize_filename(file_name)
+
     # Generate object key for MinIO
-    object_key = f"{rfq_id}/{uuid.uuid4()}/{file_name}"
+    object_key = f"{rfq_id}/{uuid.uuid4()}/{safe_name}"
 
     # Upload to MinIO
     try:

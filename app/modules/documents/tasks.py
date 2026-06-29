@@ -21,6 +21,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.shared.celery_app import celery_app
 from app.shared.database import create_sync_session_factory
 from app.shared.logging import get_logger
@@ -31,6 +32,12 @@ from app.modules.documents.models import (
 )
 from app.modules.documents.ocr_client import extract_table_local
 from app.shared.storage import download_file
+
+# Import all cross-module models so SQLAlchemy can resolve string-based
+# relationships (e.g., User.quotations → Quotation) before mapper config.
+import app.modules.output.models  # noqa: F401
+import app.modules.intake.models  # noqa: F401
+import app.modules.auth.models    # noqa: F401
 
 logger = get_logger(__name__)
 
