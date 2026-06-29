@@ -13,7 +13,7 @@ import { Toaster } from "react-hot-toast";
  */
 export function AdminLayout() {
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Sidebar */}
       <div className="hidden lg:block">
         <AdminSidebar />
