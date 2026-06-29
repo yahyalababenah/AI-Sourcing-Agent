@@ -51,6 +51,175 @@ function ConfirmDialog({
   );
 }
 
+// ─── Field label translations ────────────────────────────────────────────────
+const FIELD_LABELS: Record<string, string> = {
+  // Identity
+  product_name:       "اسم المنتج",
+  name:               "الاسم",
+  item_name:          "اسم الصنف",
+  model_number:       "الموديل",
+  model:              "الموديل",
+  sku:                "كود المنتج",
+  code:               "الكود",
+  reference:          "المرجع",
+  ref:                "المرجع",
+  article:            "المادة",
+  barcode:            "الباركود",
+
+  // Pricing
+  unit_price_rmb:     "السعر (¥)",
+  unit_price:         "سعر الوحدة",
+  price:              "السعر",
+  wholesale_price:    "سعر الجملة",
+  retail_price:       "سعر التجزئة",
+  cost:               "التكلفة",
+  msrp:               "السعر المقترح",
+
+  // Ordering
+  moq:                "الحد الأدنى للطلب",
+  min_order:          "الحد الأدنى",
+  quantity:           "الكمية",
+  stock:              "المخزون",
+  lead_time:          "وقت التسليم",
+
+  // Physical
+  weight_kg:          "الوزن (kg)",
+  weight:             "الوزن",
+  dimensions:         "الأبعاد",
+  size:               "المقاس / الحجم",
+  length:             "الطول",
+  width:              "العرض",
+  height:             "الارتفاع",
+  volume:             "الحجم",
+  packaging:          "التعبئة",
+  package:            "التعبئة",
+
+  // Material / Composition
+  material:           "المادة / الخامة",
+  fabric_composition: "تركيب القماش",
+  composition:        "التركيب",
+  fabric:             "القماش",
+
+  // Classification
+  category:           "الفئة",
+  type:               "النوع",
+  brand:              "العلامة التجارية",
+  origin:             "بلد المنشأ",
+  manufacturer:       "الشركة المصنعة",
+  supplier:           "المورد",
+
+  // Attributes (apparel / general)
+  color:              "اللون",
+  colour:             "اللون",
+  size_range:         "نطاق المقاسات",
+  gender:             "الجنس",
+  age_group:          "الفئة العمرية",
+  season:             "الموسم",
+  style:              "الستايل",
+  pattern:            "النقشة",
+
+  // Technical / Electronics
+  voltage:            "الجهد",
+  wattage:            "القدرة (واط)",
+  power:              "الطاقة",
+  capacity:           "السعة",
+  frequency:          "التردد",
+  certification:      "الشهادة",
+
+  // Food / FMCG
+  shelf_life:         "مدة الصلاحية",
+  expiry:             "تاريخ الانتهاء",
+  ingredients:        "المكونات",
+  net_weight:         "الوزن الصافي",
+  gross_weight:       "الوزن الإجمالي",
+  flavor:             "النكهة",
+
+  // General
+  description:        "الوصف",
+  notes:              "ملاحظات",
+  specs:              "المواصفات",
+  specification:      "المواصفات",
+  specifications:     "المواصفات",
+  features:           "المميزات",
+  image:              "الصورة",
+  url:                "الرابط",
+};
+
+function formatFieldLabel(key: string): string {
+  return FIELD_LABELS[key] ?? key.replace(/_/g, " ");
+}
+
+function formatFieldValue(key: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (Array.isArray(value)) return value.join(" / ");
+  if (typeof value === "object") return JSON.stringify(value);
+  const str = String(value);
+  const num = Number(value);
+  if (key.includes("price") || key.includes("rmb") || key === "cost" || key === "msrp") {
+    if (!isNaN(num)) return num.toLocaleString();
+  }
+  if (key.includes("weight") || key === "net_weight" || key === "gross_weight") {
+    if (!isNaN(num)) return `${num} kg`;
+  }
+  if (key === "moq" || key === "min_order") {
+    if (!isNaN(num)) return `${num.toLocaleString()} وحدة`;
+  }
+  if (key === "wattage" || key === "power") {
+    if (!isNaN(num)) return `${num} W`;
+  }
+  return str;
+}
+
+function DynamicProductTable({ items }: { items: Record<string, unknown>[] }) {
+  // Collect all unique keys across all products, product_name first
+  const allKeys = Array.from(
+    items.reduce((acc, item) => {
+      Object.keys(item).forEach((k) => acc.add(k));
+      return acc;
+    }, new Set<string>())
+  ).sort((a, b) => {
+    const order = ["product_name", "model_number", "model", "category",
+                   "unit_price_rmb", "unit_price", "price", "moq",
+                   "weight_kg", "weight", "dimensions", "size", "material",
+                   "voltage", "capacity", "specs", "specification", "package", "description"];
+    const ai = order.indexOf(a);
+    const bi = order.indexOf(b);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-100">
+      <table className="w-full text-right text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-3 py-2 text-xs font-medium text-gray-400 w-8">#</th>
+            {allKeys.map((key) => (
+              <th key={key} className="px-3 py-2 text-xs font-medium text-gray-600 whitespace-nowrap">
+                {formatFieldLabel(key)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {items.map((item, i) => (
+            <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+              <td className="px-3 py-2 text-xs text-gray-400">{i + 1}</td>
+              {allKeys.map((key) => (
+                <td key={key} className="px-3 py-2 text-gray-800 whitespace-nowrap">
+                  {formatFieldValue(key, item[key])}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const STATUS_COLORS: Record<string, string> = {
   uploaded: "bg-gray-100 text-gray-700",
   processing: "bg-yellow-100 text-yellow-700",
@@ -195,7 +364,7 @@ export function DocumentDetailPage() {
           <div>
             <p className="text-sm text-gray-500">تاريخ الرفع</p>
             <p className="font-medium text-gray-900">
-              {new Date(doc.created_at).toLocaleDateString("ar-SA")}
+              {new Date(doc.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
             </p>
           </div>
         </div>
@@ -224,36 +393,14 @@ export function DocumentDetailPage() {
         )}
         {currentStatus === "extracted" && itemsData && (
           <div>
-            <p className="text-sm text-green-600 mb-4">تم استخراج البيانات بنجاح ✓</p>
+            <p className="text-sm text-green-600 mb-4">
+              تم استخراج البيانات بنجاح ✓ &nbsp;
+              <span className="text-gray-400">({itemsData.items.length} منتج)</span>
+            </p>
             {itemsData.items.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-right">
-                  <thead className="border-b border-gray-100 bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-500">المنتج</th>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-500">الموديل</th>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-500">السعر (¥)</th>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-500">الوزن</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {itemsData.items.map((item: any, i: number) => (
-                      <tr key={i}>
-                        <td className="px-4 py-2 text-sm text-gray-900">{item.product_name}</td>
-                        <td className="px-4 py-2 text-sm text-gray-500">{item.model_number || "—"}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">
-                          {item.unit_price_rmb ? `${item.unit_price_rmb} ¥` : "—"}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-600">
-                          {item.weight_kg ? `${item.weight_kg} kg` : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DynamicProductTable items={itemsData.items} />
             ) : (
-              <p className="text-sm text-gray-400">لم يتم استخراج أي منتجات</p>
+              <p className="text-sm text-gray-400">لم يتم استخراج أي منتجات من هذا المستند</p>
             )}
           </div>
         )}

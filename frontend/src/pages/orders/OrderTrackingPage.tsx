@@ -56,7 +56,7 @@ function getPipelineIndex(status: string | null): number {
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString("ar-SA", {
+  return d.toLocaleString("ar-SA-u-ca-gregory", {
     year: "numeric",
     month: "short",
     day: "numeric",
