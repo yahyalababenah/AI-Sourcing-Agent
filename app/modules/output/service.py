@@ -107,18 +107,24 @@ async def create_quotation(
 
     # Create line items
     for item in data.line_items:
+        product_uuid = uuid.UUID(item.product_id) if item.product_id else None
+        exchange_rate = item.exchange_rate if item.exchange_rate is not None else data.exchange_rate_used
+        computed_subtotal = item.subtotal if item.subtotal is not None else (
+            item.unit_price_converted * item.quantity
+            + item.freight_cost + item.customs_duty + item.commission
+        )
         line_item = QuotationLineItem(
             quotation_id=quotation.id,
-            product_id=uuid.UUID(item.product_id),
+            product_id=product_uuid,
             product_name=item.product_name,
             quantity=item.quantity,
             unit_price_cny=item.unit_price_cny,
             unit_price_converted=item.unit_price_converted,
-            exchange_rate_used=item.exchange_rate,
+            exchange_rate_used=exchange_rate,
             freight_cost=item.freight_cost,
             customs_duty=item.customs_duty,
             commission=item.commission,
-            subtotal=item.subtotal,
+            subtotal=computed_subtotal,
             discount=item.discount,
             total=item.total,
         )

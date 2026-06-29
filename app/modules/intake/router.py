@@ -26,6 +26,7 @@ from app.modules.auth.dependencies import (
     require_agent,
     require_agent_or_admin,
 )
+from app.shared.exceptions import AuthorizationError
 from app.modules.auth.models import User, UserRole
 from app.modules.intake.models import MatchStatus, RFQStatus
 from app.modules.intake.schemas import (
@@ -126,6 +127,15 @@ async def create_rfq_endpoint(
             agent_id=None,
             client_id=str(current_user.id),
         )
+        # Notify all online agents about the new RFQ
+        from app.shared.notifications import notify_role
+        product_hint = (rfq_data.model_dump().get("client_request_arabic") or rfq_data.model_dump().get("description") or "")[:60]
+        await notify_role("agent", {
+            "type": "new_rfq",
+            "title": "طلب عرض سعر جديد",
+            "body": product_hint or "عميل جديد طلب عرض سعر",
+            "rfq_id": str(rfq.id),
+        })
     else:
         # Agents and admins use the full schema
         rfq = await create_rfq(
@@ -196,6 +206,60 @@ async def list_rfqs_endpoint(
 
 
 @router.get(
+    "/rfqs/matched",
+    response_model=RFQMatchListResponse,
+    summary="List exclusive-matched RFQs for the current supplier",
+)
+async def list_matched_rfqs_endpoint(
+    pagination: PaginationParams = Depends(),
+    status: Optional[MatchStatus] = Query(
+        None,
+        description="Filter by match status (pending | responded | expired | declined)",
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent),
+):
+    """List RFQ matches assigned to the authenticated supplier.
+
+    Shows the supplier's exclusive 3-hour window matches.
+    Only accessible by agents (suppliers).
+    """
+    return await list_matched_rfqs_for_supplier(
+        db,
+        supplier_id=str(current_user.id),
+        pagination=pagination,
+        status_filter=status,
+    )
+
+
+@router.get(
+    "/rfqs/public",
+    response_model=RFQListResponse,
+    summary="List public pool RFQs (expired exclusive windows)",
+)
+async def list_public_rfqs_endpoint(
+    pagination: PaginationParams = Depends(),
+    status: Optional[RFQStatus] = Query(
+        None,
+        description="Filter by RFQ status (defaults to OPEN only)",
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List RFQs in the public pool.
+
+    These are RFQs whose exclusive matching window has expired
+    or had no direct matches, now visible to all authenticated suppliers.
+    """
+    return await list_public_rfqs(
+        db,
+        pagination=pagination,
+        status=status,
+    )
+
+
+@router.get(
     "/rfqs/{rfq_id}",
     response_model=RFQResponse,
     summary="Get RFQ details (ownership-enforced)",
@@ -228,12 +292,22 @@ async def update_rfq_status_endpoint(
     rfq_id: str,
     new_status: RFQStatus,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(require_agent_or_admin),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
 ):
     """Transition an RFQ to a new status (validates state machine).
 
     Restricted to agents and admins — clients cannot change RFQ status.
+    Agents can only update RFQs assigned to them.
     """
+    rfq = await get_rfq(
+        db,
+        rfq_id,
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
+    if current_user.role == UserRole.AGENT and str(rfq.agent_id) != str(current_user.id):
+        raise AuthorizationError(message="You can only update status of RFQs assigned to you")
     rfq = await update_rfq_status(db, rfq_id, new_status)
     return RFQResponse.model_validate(rfq)
 
@@ -255,12 +329,20 @@ async def add_product_endpoint(
     specifications: Optional[str] = Query(None, description="Technical specs"),
     target_price: Optional[float] = Query(None, description="Client target/budget price"),
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(require_agent_or_admin),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
 ):
     """Add a product line item to an RFQ.
 
     Restricted to agents and admins — part of the sourcing workflow.
+    Verifies the agent has access to the target RFQ.
     """
+    await get_rfq(
+        db,
+        rfq_id,
+        current_user_id=str(current_user.id),
+        current_user_role=str(current_user.role.value),
+    )
     product = await add_product(
         db,
         rfq_id=rfq_id,
@@ -395,59 +477,6 @@ async def run_matching_endpoint(
     """
     matches = await run_matching(db, rfq_id)
     return [RFQMatchResponse.model_validate(m) for m in matches]
-
-
-@router.get(
-    "/rfqs/matched",
-    response_model=RFQMatchListResponse,
-    summary="List exclusive-matched RFQs for the current supplier",
-)
-async def list_matched_rfqs_endpoint(
-    pagination: PaginationParams = Depends(),
-    status: Optional[MatchStatus] = Query(
-        None,
-        description="Filter by match status (pending | responded | expired | declined)",
-    ),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_agent),
-):
-    """List RFQ matches assigned to the authenticated supplier.
-
-    Shows the supplier's exclusive 3-hour window matches.
-    Only accessible by agents (suppliers).
-    """
-    return await list_matched_rfqs_for_supplier(
-        db,
-        supplier_id=str(current_user.id),
-        pagination=pagination,
-        status_filter=status,
-    )
-
-
-@router.get(
-    "/rfqs/public",
-    response_model=RFQListResponse,
-    summary="List public pool RFQs (expired exclusive windows)",
-)
-async def list_public_rfqs_endpoint(
-    pagination: PaginationParams = Depends(),
-    status: Optional[RFQStatus] = Query(
-        None,
-        description="Filter by RFQ status (defaults to OPEN only)",
-    ),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """List RFQs in the public pool.
-
-    These are RFQs whose exclusive matching window has expired
-    or had no direct matches, now visible to all authenticated suppliers.
-    """
-    return await list_public_rfqs(
-        db,
-        pagination=pagination,
-        status=status,
-    )
 
 
 @router.post(

@@ -57,7 +57,7 @@ async def get_ai_costs(
                 COALESCE(SUM(estimated_cost_usd), 0) as total_cost,
                 COUNT(*) as total_calls
             FROM ai_cost_log
-            WHERE created_at >= NOW() - (:days || ' days')::INTERVAL
+            WHERE created_at >= NOW() - make_interval(days => :days)
         """),
         {"days": days},
     )
@@ -83,7 +83,7 @@ async def get_ai_costs(
                 COUNT(*) as calls,
                 COALESCE(SUM(estimated_cost_usd), 0) as cost
             FROM ai_cost_log
-            WHERE created_at >= NOW() - (:days || ' days')::INTERVAL
+            WHERE created_at >= NOW() - make_interval(days => :days)
             GROUP BY model
             ORDER BY cost DESC
         """),
@@ -102,7 +102,7 @@ async def get_ai_costs(
                 COUNT(*) as calls,
                 COALESCE(SUM(estimated_cost_usd), 0) as cost
             FROM ai_cost_log
-            WHERE created_at >= NOW() - (:days || ' days')::INTERVAL
+            WHERE created_at >= NOW() - make_interval(days => :days)
             GROUP BY provider
             ORDER BY cost DESC
         """),

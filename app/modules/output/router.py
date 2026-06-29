@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
 from app.modules.auth.models import User, UserRole
+from app.shared.exceptions import AuthorizationError
 from app.modules.output.models import QuotationStatus
 from app.modules.output.schemas import (
     QuotationCreate,
@@ -142,6 +143,21 @@ async def generate_async(
 
     generate_quotation_pdf_task.delay(str(quotation.id))
 
+    # Notify the client that their quote is ready
+    from sqlalchemy import select as _select
+    from app.modules.intake.models import RFQ
+    rfq_result = await db.execute(_select(RFQ).where(RFQ.id == quotation.rfq_id))
+    rfq_obj = rfq_result.scalar_one_or_none()
+    if rfq_obj and rfq_obj.client_id:
+        from app.shared.notifications import notify_user
+        await notify_user(str(rfq_obj.client_id), {
+            "type": "quote_ready",
+            "title": "عرض سعر جديد",
+            "body": f"وصلك عرض سعر جديد — {quotation.quotation_number}",
+            "quotation_id": str(quotation.id),
+            "rfq_id": str(quotation.rfq_id),
+        })
+
     return QuotationGenerateAcceptedResponse(
         quotation_id=str(quotation.id),
     )
@@ -171,9 +187,17 @@ async def update_status(
     quotation_id: str,
     new_status: QuotationStatus,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(require_agent_or_admin),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(require_agent_or_admin),
 ):
-    """Update the status of a quotation."""
+    """Update the status of a quotation.
+
+    Agents can only update quotations they created.
+    Admins can update any quotation.
+    """
+    quotation = await get_quotation(db, quotation_id)
+    if current_user.role != UserRole.ADMIN and str(quotation.agent_id) != str(current_user.id):
+        raise AuthorizationError(message="You can only update quotations you created")
     quotation = await update_quotation_status(db, quotation_id, new_status)
     return QuotationResponse.model_validate(quotation)
 
@@ -205,12 +229,20 @@ async def get_pdf_redirect(
 ):
     """Redirect to the presigned MinIO URL for the quotation PDF.
 
-    Returns a 302 redirect to a temporary (1-hour) presigned URL.
+    Returns a 302 redirect to a temporary (15-minute) presigned URL.
     Returns 404 if no PDF has been generated yet.
+    Returns 403 if the quotation has been rejected or expired.
     """
     from app.modules.output.service import get_quotation
 
     quotation = await get_quotation(db, quotation_id)
+
+    # Revoke access for terminal negative states — PDF should not be accessible
+    if quotation.status in (QuotationStatus.REJECTED, QuotationStatus.EXPIRED):
+        raise HTTPException(
+            status_code=403,
+            detail=f"PDF access denied — quotation is {quotation.status.value}",
+        )
 
     if not quotation.pdf_path:
         raise HTTPException(
@@ -221,13 +253,103 @@ async def get_pdf_redirect(
     from app.shared.storage import storage_client
     from app.config import settings
 
+    # 15 minutes — short enough to limit exposure if URL is leaked or shared
     pdf_url = await storage_client.get_presigned_url(
         key=quotation.pdf_path,
         bucket=settings.STORAGE_BUCKET_QUOTES,
-        expiry=3600,
+        expiry=900,
     )
 
     return RedirectResponse(url=pdf_url)
+
+
+@router.post(
+    "/{quotation_id}/accept",
+    response_model=QuotationResponse,
+    summary="Client accepts a quotation",
+)
+async def client_accept(
+    quotation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Client accepts a quotation that was sent to them.
+
+    - Verifies the current user is the client who owns the RFQ.
+    - Sets status to ACCEPTED and triggers the first tracking step.
+    """
+    from sqlalchemy import select as _select
+    from app.modules.intake.models import RFQ
+    from app.modules.output.models import Quotation
+
+    quotation = await get_quotation(db, quotation_id)
+
+    # Allow clients only — agent/admin use the generic status endpoint
+    if current_user.role == UserRole.AGENT:
+        raise AuthorizationError(message="Agents cannot accept their own quotes")
+
+    if current_user.role == UserRole.CLIENT:
+        rfq_result = await db.execute(_select(RFQ).where(RFQ.id == quotation.rfq_id))
+        rfq = rfq_result.scalar_one_or_none()
+        if not rfq or str(rfq.client_id) != str(current_user.id):
+            raise AuthorizationError(message="You can only accept quotes for your own RFQs")
+
+    if quotation.status not in (QuotationStatus.FINALIZED, QuotationStatus.SENT):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot accept a quote with status '{quotation.status.value}'",
+        )
+
+    quotation = await update_quotation_status(db, quotation_id, QuotationStatus.ACCEPTED)
+
+    # Auto-create the first tracking step
+    try:
+        await update_tracking(
+            db,
+            quotation_id,
+            new_status="awaiting_payment",
+            notes="العميل وافق على عرض السعر",
+            changed_by_id=str(current_user.id),
+        )
+    except ValueError:
+        pass  # Tracking may already exist
+
+    # Notify the agent
+    from app.shared.notifications import notify_user
+    await notify_user(str(quotation.agent_id), {
+        "type": "quote_accepted",
+        "title": "تم قبول عرض السعر",
+        "body": f"العميل وافق على العرض {quotation.quotation_number}",
+        "quotation_id": str(quotation.id),
+    })
+
+    return QuotationResponse.model_validate(quotation)
+
+
+@router.post(
+    "/{quotation_id}/reject",
+    response_model=QuotationResponse,
+    summary="Client rejects a quotation",
+)
+async def client_reject(
+    quotation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Client rejects a quotation."""
+    from sqlalchemy import select as _select
+    from app.modules.intake.models import RFQ
+
+    quotation = await get_quotation(db, quotation_id)
+
+    if current_user.role == UserRole.CLIENT:
+        rfq_result = await db.execute(_select(RFQ).where(RFQ.id == quotation.rfq_id))
+        rfq = rfq_result.scalar_one_or_none()
+        if not rfq or str(rfq.client_id) != str(current_user.id):
+            raise AuthorizationError(message="You can only reject quotes for your own RFQs")
+
+    quotation = await update_quotation_status(db, quotation_id, QuotationStatus.REJECTED)
+    return QuotationResponse.model_validate(quotation)
 
 
 @router.post(

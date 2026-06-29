@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.dependencies import get_current_user, require_any_role
 from app.modules.auth.models import User, UserRole
+from app.shared.exceptions import AuthorizationError
 from app.modules.chat.schemas import (
     CreateRoomRequest,
     MessageListResponse,
@@ -37,6 +38,14 @@ from app.modules.chat.service import (
 from app.shared.database import get_db
 
 router = APIRouter()
+
+
+def _assert_room_member(room, current_user: User) -> None:
+    """Raise AuthorizationError if current_user is not a participant in the room."""
+    if current_user.role == UserRole.ADMIN:
+        return
+    if str(room.client_id) != str(current_user.id) and str(room.supplier_id) != str(current_user.id):
+        raise AuthorizationError(message="You are not a member of this chat room")
 
 
 @router.post(
@@ -106,6 +115,7 @@ async def get_chat_room(
 ):
     """Get details of a specific chat room."""
     room = await get_room(db, room_id)
+    _assert_room_member(room, current_user)
     client_name = room.client.full_name if room.client else "Client"
     supplier_name = room.supplier.full_name if room.supplier else "Supplier"
     return RoomResponse(
@@ -136,6 +146,8 @@ async def get_room_messages(
 
     Messages are returned oldest-first. Unread messages are marked as read.
     """
+    room = await get_room(db, room_id)
+    _assert_room_member(room, current_user)
     return await get_messages(
         db, room_id=room_id, user_id=str(current_user.id), page=page, page_size=page_size
     )
@@ -159,6 +171,8 @@ async def send_chat_message(
     - Client sends in Arabic → translated to Chinese for supplier
     - Supplier sends in Chinese → translated to Arabic for client
     """
+    room = await get_room(db, room_id)
+    _assert_room_member(room, current_user)
     msg = await send_message(
         db,
         room_id=room_id,
@@ -195,6 +209,9 @@ async def stream_room_messages(
     Emits events when new messages are sent to this room.
     Client should use EventSource on the frontend.
     """
+    room = await get_room(db, room_id)
+    _assert_room_member(room, current_user)
+
     async def event_generator():
         async for event in subscribe_room(room_id):
             if await request.is_disconnected():
