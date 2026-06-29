@@ -153,7 +153,7 @@ export function RFQListPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(rfq.created_at).toLocaleDateString("ar-SA")}
+                      {new Date(rfq.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
                     </td>
                     <td className="px-4 py-3">
                       <button

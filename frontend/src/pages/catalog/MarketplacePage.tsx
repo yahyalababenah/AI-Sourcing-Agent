@@ -4,7 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, ShoppingCart, X, Package, Factory, MapPin, AlertCircle, CheckCircle, SlidersHorizontal, ExternalLink } from "lucide-react";
 import { catalogService } from "@/services/catalogService";
 import { intakeService } from "@/services/intakeService";
+import { pricingService } from "@/services/pricingService";
 import { useAuthStore } from "@/stores/authStore";
+import type { QuickEstimateResponse } from "@/types/pricing";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import type { CatalogProduct, CatalogListResponse } from "@/types/catalog";
@@ -35,17 +37,31 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const [quantity, setQuantity] = useState<number>(product.moq ?? 1);
-  const [destinationPort, setDestinationPort] = useState("");
+  const [destinationPort, setDestinationPort] = useState("Aqaba");
   const [error, setError] = useState<string | null>(null);
 
   // Reset state when modal opens with a different product
   useEffect(() => {
     if (open) {
       setQuantity(product.moq ?? 1);
-      setDestinationPort("");
+      setDestinationPort("Aqaba");
       setError(null);
     }
   }, [open, product.moq]);
+
+  // Live cost estimate — re-fetches when quantity or destination changes
+  const { data: estimate, isLoading: estimateLoading } = useQuery<QuickEstimateResponse>({
+    queryKey: ["estimate", product.id, quantity, destinationPort],
+    queryFn: () =>
+      pricingService.estimate({
+        unit_price_cny: product.unit_price_rmb ?? 0,
+        quantity,
+        destination_port: destinationPort || "Aqaba",
+      }),
+    enabled: open && !!product.unit_price_rmb && quantity > 0,
+    retry: false,
+    staleTime: 60_000,
+  });
 
   const createRfqMutation = useMutation({
     mutationFn: (data: RFQCreate) => intakeService.create(data),
@@ -145,35 +161,84 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Quantity */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              الكمية المطلوبة <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-              required
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder="1"
-            />
+          {/* Quantity + Destination — side by side */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                الكمية <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+                required
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                ميناء الوصول
+              </label>
+              <input
+                type="text"
+                value={destinationPort}
+                onChange={(e) => setDestinationPort(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="Aqaba"
+              />
+            </div>
           </div>
 
-          {/* Destination Port */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              ميناء الوصول
-            </label>
-            <input
-              type="text"
-              value={destinationPort}
-              onChange={(e) => setDestinationPort(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder="ميناء العقبة، الأردن"
-            />
-          </div>
+          {/* Cost Estimate Panel */}
+          {product.unit_price_rmb && (
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                التكلفة التقديرية
+              </p>
+              {estimateLoading ? (
+                <div className="flex items-center gap-2 text-sm text-blue-400">
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                  جاري الحساب...
+                </div>
+              ) : estimate ? (
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between text-gray-600">
+                    <span>السعر الأساسي × {estimate.quantity}</span>
+                    <span dir="ltr">
+                      {(estimate.unit_price_converted * estimate.quantity).toFixed(2)} {estimate.target_currency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>الجمارك والرسوم</span>
+                    <span dir="ltr">{estimate.customs_duty.toFixed(2)} {estimate.target_currency}</span>
+                  </div>
+                  {estimate.clearance_fee > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>رسوم التخليص</span>
+                      <span dir="ltr">{estimate.clearance_fee.toFixed(2)} {estimate.target_currency}</span>
+                    </div>
+                  )}
+                  {estimate.vat > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>ضريبة القيمة المضافة</span>
+                      <span dir="ltr">{estimate.vat.toFixed(2)} {estimate.target_currency}</span>
+                    </div>
+                  )}
+                  <div className="mt-1 flex justify-between border-t border-blue-200 pt-2 font-semibold text-blue-800">
+                    <span>المجموع التقديري</span>
+                    <span dir="ltr">{estimate.estimated_total.toFixed(2)} {estimate.target_currency}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">{estimate.note}</p>
+                  <p className="text-xs text-gray-400">
+                    سعر الصرف: 1 CNY = {estimate.exchange_rate.toFixed(4)} {estimate.target_currency}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">تعذّر حساب التكلفة التقديرية</p>
+              )}
+            </div>
+          )}
 
           {/* Success State */}
           {isSuccess && (
@@ -222,7 +287,7 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, onRequestQuote }: ProductCardProps) {
-  const showroomPath = ROUTES.CATALOG.SUPPLIER_SHOWROOM(product.supplier_id);
+  const showroomPath = ROUTES.CATALOG.SUPPLIER_SHOWROOM(product.supplier_id ?? "");
   return (
     <div className="card group flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-primary-200 hover:shadow-md">
       {/* Product Icon / Image placeholder */}
@@ -349,7 +414,7 @@ export function MarketplacePage() {
   const uniqueSuppliers = useMemo(() => {
     if (!data?.items) return [];
     const map = new Map<string, string>();
-    data.items.forEach((p) => map.set(p.supplier_id, p.supplier_name));
+    data.items.forEach((p) => { if (p.supplier_id && p.supplier_name) map.set(p.supplier_id, p.supplier_name); });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [data]);
 

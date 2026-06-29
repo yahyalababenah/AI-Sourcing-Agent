@@ -236,7 +236,7 @@ function ExclusiveMatchesTab() {
           rfq={rfqMap[match.rfq_id]}
           products={productsMap[match.rfq_id] ?? []}
           loadingDetails={loadingDetails}
-          onQuote={() => navigate(`${ROUTES.PRICING.CALCULATE}?rfq_id=${match.rfq_id}`)}
+          onQuote={() => navigate(ROUTES.RFQ.BUILD_QUOTE(match.rfq_id))}
           onClaim={(action) => claimMutation.mutate({ matchId: match.id, action })}
           isPending={claimMutation.isPending}
         />
@@ -335,7 +335,7 @@ function MatchCard({ match, rfq, products, loadingDetails, onQuote, onClaim, isP
             </p>
             <p className="text-xs text-gray-400">
               <Calendar className="ml-1 inline h-3 w-3" />
-              {rfq ? new Date(rfq.created_at).toLocaleDateString("ar-SA") : "—"}
+              {rfq ? new Date(rfq.created_at).toLocaleDateString("ar-SA-u-ca-gregory") : "—"}
             </p>
           </div>
         </div>
@@ -410,7 +410,7 @@ function MatchCard({ match, rfq, products, loadingDetails, onQuote, onClaim, isP
                   {p.name}
                 </span>
                 <span className="text-gray-500">
-                  {p.quantity.toLocaleString("ar-SA")}{" "}
+                  {p.quantity.toLocaleString("ar-SA-u-ca-gregory")}{" "}
                   {p.specifications ? `- ${p.specifications}` : "وحدة"}
                 </span>
               </div>
@@ -575,7 +575,7 @@ function PublicPoolTab() {
           rfq={rfq}
           products={productsMap[rfq.id] ?? []}
           loadingProducts={loadingProducts}
-          onQuote={() => navigate(`${ROUTES.PRICING.CALCULATE}?rfq_id=${rfq.id}`)}
+          onQuote={() => navigate(ROUTES.RFQ.BUILD_QUOTE(rfq.id))}
         />
       ))}
     </div>
@@ -617,7 +617,7 @@ function PublicRfqCard({ rfq, products, loadingProducts, onQuote }: PublicRfqCar
             </p>
             <p className="text-xs text-gray-400">
               <Calendar className="ml-1 inline h-3 w-3" />
-              {new Date(rfq.created_at).toLocaleDateString("ar-SA")}
+              {new Date(rfq.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
             </p>
           </div>
         </div>
@@ -663,7 +663,7 @@ function PublicRfqCard({ rfq, products, loadingProducts, onQuote }: PublicRfqCar
                   {p.name}
                 </span>
                 <span className="text-gray-500">
-                  {p.quantity.toLocaleString("ar-SA")}{" "}
+                  {p.quantity.toLocaleString("ar-SA-u-ca-gregory")}{" "}
                   {p.specifications ? `- ${p.specifications}` : "وحدة"}
                 </span>
               </div>

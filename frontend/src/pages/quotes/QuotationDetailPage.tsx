@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ROUTES } from "@/constants/routes";
 import { quotationService } from "@/services/quotationService";
 import { intakeService } from "@/services/intakeService";
+import { useAuthStore } from "@/stores/authStore";
 import type { QuotationLineItem } from "@/types/quotes";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -35,6 +38,9 @@ const TRACKING_LABELS: Record<string, string> = {
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
   const { data: quote, isLoading, error } = useQuery({
     queryKey: ["quotation", id],
@@ -53,6 +59,24 @@ export function QuotationDetailPage() {
   const currency = quote?.target_currency || "JOD";
   const lineItems: QuotationLineItem[] = (quote?.line_items as QuotationLineItem[]) || [];
   const trackingStatus = (quote as any)?.tracking_status as string | undefined;
+
+  // Client accept / reject mutations
+  const acceptMutation = useMutation({
+    mutationFn: () => quotationService.accept(id!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotation", id] }),
+  });
+  const rejectMutation = useMutation({
+    mutationFn: () => quotationService.reject(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quotation", id] });
+      setShowRejectConfirm(false);
+    },
+  });
+
+  const canRespond =
+    role === "client" &&
+    quote &&
+    (quote.status === "sent" || quote.status === "finalized");
 
   if (isLoading) {
     return (
@@ -205,6 +229,65 @@ export function QuotationDetailPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Client: Accept / Reject panel */}
+      {canRespond && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <h3 className="mb-1 text-sm font-semibold text-blue-900">هل تقبل عرض السعر هذا؟</h3>
+          <p className="mb-4 text-xs text-blue-700">
+            الموافقة تعني انطلاق عملية الشراء — سيصل إشعار للمندوب فوراً.
+          </p>
+
+          {showRejectConfirm ? (
+            <div className="flex items-center gap-3">
+              <p className="text-sm font-medium text-red-700">تأكيد الرفض؟</p>
+              <button
+                onClick={() => rejectMutation.mutate()}
+                disabled={rejectMutation.isPending}
+                className="flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {rejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                نعم، ارفض
+              </button>
+              <button
+                onClick={() => setShowRejectConfirm(false)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                إلغاء
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => acceptMutation.mutate()}
+                disabled={acceptMutation.isPending}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+              >
+                {acceptMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
+                )}
+                قبول عرض السعر
+              </button>
+              <button
+                onClick={() => setShowRejectConfirm(true)}
+                className="flex items-center gap-2 rounded-lg border border-red-200 px-5 py-2.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-50"
+              >
+                <XCircle className="h-4 w-4" />
+                رفض
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Accepted confirmation */}
+      {quote.status === "accepted" && (
+        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          ✅ وافقت على هذا العرض — الطلب قيد التنفيذ
         </div>
       )}
 

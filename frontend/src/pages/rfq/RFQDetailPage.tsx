@@ -169,7 +169,7 @@ export function RFQDetailPage() {
             </div>
             <p className="mt-1 text-sm font-medium text-gray-700">
               {rfq.exclusive_deadline
-                ? new Date(rfq.exclusive_deadline).toLocaleString("ar-SA")
+                ? new Date(rfq.exclusive_deadline).toLocaleString("ar-SA-u-ca-gregory")
                 : "—"}
             </p>
           </div>
@@ -214,7 +214,7 @@ export function RFQDetailPage() {
           <div>
             <p className="text-sm text-gray-500">تاريخ الإنشاء</p>
             <p className="font-medium text-gray-900">
-              {new Date(rfq.created_at).toLocaleDateString("ar-SA")}
+              {new Date(rfq.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
             </p>
           </div>
         </div>
@@ -281,7 +281,7 @@ export function RFQDetailPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">{q.quotation_number}</p>
                   <p className="text-xs text-gray-500">
-                    {new Date(q.created_at).toLocaleDateString("ar-SA")}
+                    {new Date(q.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
                   </p>
                 </div>
                 <div className="text-left">
@@ -297,10 +297,10 @@ export function RFQDetailPage() {
           <p className="text-sm text-gray-400">لم يتم إنشاء عروض أسعار بعد</p>
         )}
         <button
-          onClick={() => navigate(ROUTES.PRICING.CALCULATE)}
+          onClick={() => navigate(ROUTES.RFQ.BUILD_QUOTE(id!))}
           className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
         >
-          إنشاء عرض سعر
+          إنشاء وإرسال عرض السعر
         </button>
       </div>
     </div>

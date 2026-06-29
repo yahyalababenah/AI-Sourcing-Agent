@@ -154,7 +154,7 @@ export function QuotationListPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(q.created_at).toLocaleDateString("ar-SA")}
+                      {new Date(q.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">

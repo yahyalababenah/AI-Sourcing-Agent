@@ -17,7 +17,7 @@ import type { ChatMessage, ChatRoom } from "@/types/chat";
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("ar-SA-u-ca-gregory", { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatDate(iso: string): string {
@@ -28,7 +28,7 @@ function formatDate(iso: string): string {
 
   if (d.toDateString() === today.toDateString()) return "اليوم";
   if (d.toDateString() === yesterday.toDateString()) return "أمس";
-  return d.toLocaleDateString("ar-SA", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("ar-SA-u-ca-gregory", { day: "numeric", month: "short" });
 }
 
 function groupByDate(messages: ChatMessage[]): { date: string; items: ChatMessage[] }[] {
@@ -142,8 +142,11 @@ export function ChatRoomDetailPage() {
     chatService
       .getRoom(roomId)
       .then(setRoom)
-      .catch(() => navigate("/chat"));
-  }, [roomId, navigate]);
+      .catch((err: any) => {
+        setError(err?.response?.data?.detail || "لم يتم العثور على المحادثة");
+        setLoading(false);
+      });
+  }, [roomId]);
 
   // Fetch messages
   useEffect(() => {
@@ -247,12 +250,20 @@ export function ChatRoomDetailPage() {
       <div className="mx-auto max-w-3xl p-4">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
           <p className="text-red-600">{error}</p>
-          <button
-            onClick={() => navigate("/chat")}
-            className="mt-3 rounded-lg bg-gray-600 px-4 py-2 text-sm text-white transition hover:bg-gray-700"
-          >
-            العودة للمحادثات
-          </button>
+          <div className="mt-3 flex justify-center gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-primary-600 px-4 py-2 text-sm text-white transition hover:bg-primary-700"
+            >
+              إعادة المحاولة
+            </button>
+            <button
+              onClick={() => navigate("/chat")}
+              className="rounded-lg bg-gray-600 px-4 py-2 text-sm text-white transition hover:bg-gray-700"
+            >
+              العودة للمحادثات
+            </button>
+          </div>
         </div>
       </div>
     );
