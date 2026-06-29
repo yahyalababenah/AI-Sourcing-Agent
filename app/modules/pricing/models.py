@@ -94,7 +94,7 @@ class QuotationLineItem(Base):
         UUID(as_uuid=True), ForeignKey("quotations.id"), nullable=False, index=True
     )
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("products.id"), nullable=True
     )
     product_name = Column(String(255), nullable=False)
     quantity = Column(Integer, nullable=False)

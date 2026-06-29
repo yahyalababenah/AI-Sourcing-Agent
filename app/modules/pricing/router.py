@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, Query
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.dependencies import require_admin, require_agent_or_admin
+from app.modules.auth.dependencies import get_current_user, require_admin, require_agent_or_admin
 from app.modules.auth.models import User
 from app.modules.pricing.models import PricingRuleCategory
 from app.modules.pricing.schemas import (
@@ -28,6 +28,8 @@ from app.modules.pricing.schemas import (
     PricingRuleCreate,
     PricingRuleListResponse,
     PricingRuleResponse,
+    QuickEstimateRequest,
+    QuickEstimateResponse,
 )
 from app.modules.pricing.service import (
     calculate_price,
@@ -177,6 +179,60 @@ async def calculate(
 ):
     """Calculate pricing for an RFQ including exchange rates, freight, customs, etc."""
     return await calculate_price(db, request, redis=redis)
+
+
+# ═══════════════════════════════════════════════════════════
+# Quick Estimate (all authenticated users — marketplace)
+# ═══════════════════════════════════════════════════════════
+
+@router.post(
+    "/estimate",
+    response_model=QuickEstimateResponse,
+    summary="Quick landed-cost estimate for marketplace browsing",
+)
+async def quick_estimate(
+    request: QuickEstimateRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis_client),
+    _current_user: User = Depends(get_current_user),
+):
+    """Return an estimated landed cost (FOB + customs + VAT, no shipping).
+
+    Accessible to all authenticated users so clients can see the cost
+    breakdown before submitting a formal RFQ.
+    """
+    calc_request = CalculatePriceRequest(
+        rfq_id="estimate",
+        target_currency=request.target_currency,
+        destination_port=request.destination_port,
+        products=[{
+            "product_id": "estimate",
+            "name": "Estimate",
+            "quantity": request.quantity,
+            "unit_price_cny": request.unit_price_cny,
+        }],
+    )
+    result = await calculate_price(db, calc_request, redis=redis)
+    line = result.line_items[0] if result.line_items else None
+    lv = lambda k: getattr(line, k, 0) if line else 0
+    subtotal = (
+        lv("unit_price_converted") * request.quantity
+        + lv("customs_duty")
+        + lv("clearance_fee")
+        + lv("commission")
+    )
+    return QuickEstimateResponse(
+        unit_price_cny=request.unit_price_cny,
+        quantity=request.quantity,
+        exchange_rate=result.exchange_rate_used,
+        target_currency=request.target_currency,
+        unit_price_converted=lv("unit_price_converted"),
+        customs_duty=lv("customs_duty"),
+        clearance_fee=lv("clearance_fee"),
+        subtotal_excl_shipping=subtotal,
+        vat=result.vat,
+        estimated_total=result.grand_total,
+    )
 
 
 # ═══════════════════════════════════════════════════════════
