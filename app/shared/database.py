@@ -28,6 +28,23 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from app.config import settings
 
 # ---- Async Engine with Connection Pooling ----
+def _build_connect_args() -> dict:
+    args: dict = {
+        "statement_cache_size": 0,
+        "command_timeout": 30,
+    }
+    # Supabase pooler (port 6543) and direct (port 5432) both require SSL.
+    # asyncpg ignores sslmode= in the URL so we pass ssl= via connect_args.
+    db_url = settings.db_url
+    if "supabase.com" in db_url or "supabase.co" in db_url:
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        args["ssl"] = ctx
+    return args
+
+
 engine = create_async_engine(
     settings.db_url,
     pool_size=10,
@@ -35,10 +52,7 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_recycle=3600,
     echo=False,
-    connect_args={
-        "statement_cache_size": 0,  # Disable for asyncpg compatibility
-        "command_timeout": 30,       # Kill queries running longer than 30 seconds
-    },
+    connect_args=_build_connect_args(),
 )
 
 # ---- Session Factory ----
