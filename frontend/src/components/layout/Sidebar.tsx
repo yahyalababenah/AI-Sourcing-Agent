@@ -24,7 +24,7 @@ export function Sidebar() {
   const role = useAuthStore((s) => s.role);
 
   return (
-    <aside className="flex h-full w-64 flex-col bg-[#0f172a]">
+    <aside className="flex h-full w-64 flex-col" style={{ background: "var(--sidebar-bg)" }}>
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-white/5 px-5">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/20">

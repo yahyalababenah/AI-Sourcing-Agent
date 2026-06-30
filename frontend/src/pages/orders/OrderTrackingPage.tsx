@@ -8,9 +8,7 @@ import { TRACKING_PIPELINE } from "@/types/orders";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 
-// ---------------------------------------------------------------------------
-// Arabic labels & helpers
-// ---------------------------------------------------------------------------
+// ── Arabic labels & helpers ──────────────────────────────────────────────────
 
 const TRACKING_LABELS: Record<TrackingStatus, string> = {
   awaiting_payment: "بانتظار الدفع",
@@ -30,25 +28,6 @@ const TRACKING_ICONS: Record<TrackingStatus, string> = {
   delivered: "✅",
 };
 
-/** Map status to a Tailwind colour class for the timeline dot. */
-function statusColor(status: TrackingStatus, achieved: boolean): string {
-  if (!achieved) return "border-gray-300 bg-white";
-  switch (status) {
-    case "awaiting_payment":
-      return "border-amber-500 bg-amber-100";
-    case "production":
-      return "border-blue-500 bg-blue-100";
-    case "inland_freight":
-      return "border-indigo-500 bg-indigo-100";
-    case "sea_freight":
-      return "border-cyan-500 bg-cyan-100";
-    case "customs":
-      return "border-purple-500 bg-purple-100";
-    case "delivered":
-      return "border-emerald-500 bg-emerald-100";
-  }
-}
-
 function getPipelineIndex(status: string | null): number {
   if (!status) return -1;
   return TRACKING_PIPELINE.indexOf(status as TrackingStatus);
@@ -57,17 +36,12 @@ function getPipelineIndex(status: string | null): number {
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString("ar-SA-u-ca-gregory", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
   });
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+// ── Component ────────────────────────────────────────────────────────────────
 
 export function OrderTrackingPage() {
   const { id } = useParams<{ id: string }>();
@@ -76,7 +50,6 @@ export function OrderTrackingPage() {
   const { user } = useAuth();
   const [statusNotes, setStatusNotes] = useState("");
 
-  // Fetch quotation details
   const {
     data: quote,
     isLoading: quoteLoading,
@@ -87,7 +60,6 @@ export function OrderTrackingPage() {
     enabled: !!id,
   });
 
-  // Fetch tracking status
   const {
     data: tracking,
     isLoading: trackingLoading,
@@ -96,72 +68,54 @@ export function OrderTrackingPage() {
     queryKey: ["tracking", id],
     queryFn: () => orderTrackingService.getTracking(id!),
     enabled: !!id,
-    refetchInterval: 30_000, // Leaf 4: auto-refresh every 30s
+    refetchInterval: 30_000,
   });
 
-  // Mutation: update tracking status
   const updateMutation = useMutation({
     mutationFn: (status: string) =>
-      orderTrackingService.updateTracking(id!, {
-        status,
-        notes: statusNotes || undefined,
-      }),
+      orderTrackingService.updateTracking(id!, { status, notes: statusNotes || undefined }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tracking", id] });
       setStatusNotes("");
     },
   });
 
-  // ── Determine what's accessible to the current user ──
   const currentIndex = getPipelineIndex(tracking?.current_status ?? null);
-  const isAgentOrAdmin =
-    user?.role === "agent" || user?.role === "admin";
-
-  // Compute the next available status (first incomplete step after current)
+  const isAgentOrAdmin = user?.role === "agent" || user?.role === "admin";
   const nextStatus: TrackingStatus | null =
     currentIndex >= 0 && currentIndex < TRACKING_PIPELINE.length - 1
       ? TRACKING_PIPELINE[currentIndex + 1]
       : null;
 
-  // ── Loading state ──
+  const panelStyle = { background: "var(--surface)", border: "1px solid var(--border)" } as React.CSSProperties;
+
+  // ── Loading ──
   if (quoteLoading || trackingLoading) {
     return (
-      <div className="card p-12 text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
-        <p className="mt-4 text-sm text-gray-500">
-          جاري تحميل معلومات التتبع...
-        </p>
+      <div className="rounded-xl p-12 text-center" style={panelStyle}>
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-[#059669]/20 border-t-[#059669]" />
+        <p className="mt-4 text-sm" style={{ color: "var(--text-2)" }}>جاري تحميل معلومات التتبع...</p>
       </div>
     );
   }
 
-  // ── Error state ──
+  // ── Error ──
   if (quoteError || trackingError || !quote) {
     return (
-      <div className="card p-12 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 text-red-600"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
+      <div className="rounded-xl p-12 text-center" style={panelStyle}>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "var(--error-surface)" }}>
+          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth={2}>
             <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-600">
-          خطأ في تحميل التتبع
-        </h3>
-        <p className="mt-2 text-sm text-red-500">
-          {(trackingError as Error)?.message ||
-            (quoteError as Error)?.message ||
-            "لم يتم العثور على الطلب"}
+        <h3 className="mt-4 text-lg font-medium" style={{ color: "var(--text-1)" }}>خطأ في تحميل التتبع</h3>
+        <p className="mt-2 text-sm" style={{ color: "#dc2626" }}>
+          {(trackingError as Error)?.message || (quoteError as Error)?.message || "لم يتم العثور على الطلب"}
         </p>
         <button
           onClick={() => navigate(ROUTES.QUOTES.LIST)}
-          className="mt-4 text-sm text-primary-600 hover:text-primary-700"
+          className="mt-4 text-sm"
+          style={{ color: "#059669" }}
         >
           العودة إلى عروض الأسعار
         </button>
@@ -170,155 +124,207 @@ export function OrderTrackingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 max-w-2xl" dir="rtl" style={{ color: "var(--text-1)" }}>
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div
+        className="flex items-center justify-between px-5 py-3.5 rounded-lg"
+        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(ROUTES.QUOTES.DETAIL(id!))}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+            className="p-1 rounded transition-colors"
+            style={{ color: "var(--text-1)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--hover-bg)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; }}
           >
-            → العودة
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ color: "var(--text-1)" }}>
+              <path d="M13 6l-5 5 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">تتبع الشحنة</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {tracking?.quotation_number || "—"}
-            </p>
+            <div className="text-[14px] font-bold" style={{ color: "var(--text-1)" }}>تتبع الطلب</div>
+            <div className="text-[10px] font-mono" style={{ color: "var(--text-2)" }} dir="ltr">
+              #{tracking?.quotation_number || id?.slice(0, 8)}
+            </div>
           </div>
         </div>
         {tracking?.current_status && (
-          <span className="inline-block rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700">
-            {TRACKING_LABELS[tracking.current_status as TrackingStatus] ||
-              tracking.current_status}
-          </span>
+          <div
+            className="text-[10px] font-bold px-3 py-1 rounded"
+            style={{ background: "var(--accent-surface)", border: "1px solid var(--accent-border)", color: "#10b981" }}
+          >
+            {TRACKING_LABELS[tracking.current_status as TrackingStatus] || tracking.current_status}
+          </div>
         )}
       </div>
 
+      {/* ── Order summary ── */}
+      <div className="rounded-lg p-4" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }} dir="rtl">
+        <div className="text-[13px] font-bold mb-1" style={{ color: "var(--text-1)" }}>
+          {(quote as any).product_name || quote.quotation_number || "الشحنة"}
+        </div>
+        <div className="text-[11px] mb-4" style={{ color: "var(--text-2)" }}>الصين → الأردن</div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "القيمة",           value: `$${quote.grand_total?.toLocaleString() ?? "—"}` },
+            { label: "التسليم المتوقع",  value: "10 أغسطس" },
+            { label: "المرحلة",          value: `${currentIndex + 1} / ${TRACKING_PIPELINE.length}` },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-md p-2 text-center" style={{ background: "var(--surface-3)" }}>
+              <div className="text-[10px] mb-1" style={{ color: "var(--text-2)" }}>{label}</div>
+              <div className="text-[12px] font-bold" style={{ color: "var(--text-1)" }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── Timeline ── */}
-      <div className="card p-6">
-        <h2 className="mb-6 text-lg font-semibold text-gray-900">
-          حالة الشحنة
-        </h2>
-        <div className="relative">
-          {/* Vertical timeline line */}
-          <div className="absolute right-4 top-0 h-full w-0.5 bg-gray-200" />
+      <div className="rounded-lg px-4 pb-6 pt-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="text-[11px] font-bold mb-4 tracking-wide" style={{ color: "var(--text-2)" }}>
+          مراحل الشحنة
+        </div>
+        <div className="flex flex-col gap-0">
+          {TRACKING_PIPELINE.map((status, idx) => {
+            const achieved  = currentIndex >= idx;
+            const isCurrent = currentIndex === idx;
+            const isPending = idx > currentIndex;
+            const isLast    = idx === TRACKING_PIPELINE.length - 1;
 
-          <div className="space-y-0">
-            {TRACKING_PIPELINE.map((status, idx) => {
-              const achieved = currentIndex >= idx;
-              const isCurrent = currentIndex === idx;
+            return (
+              <div key={status} className="flex gap-3 items-start">
+                {/* Dot + Line */}
+                <div className="flex flex-col items-center shrink-0 w-5">
+                  {achieved && !isCurrent ? (
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: "#059669" }}>
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                        <path d="M2 5l2.5 2.5 3.5-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  ) : isCurrent ? (
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: "var(--accent-surface)", border: "2px solid #10b981" }}
+                    >
+                      <div className="w-2 h-2 rounded-full" style={{ background: "#10b981", animation: "dotPulse 1.5s ease infinite" }} />
+                    </div>
+                  ) : (
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: "var(--surface-2)", border: "2px solid var(--border)" }}
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--border)" }} />
+                    </div>
+                  )}
+                  {!isLast && (
+                    <div
+                      className="w-0.5 flex-1 min-h-[16px] my-1"
+                      style={{ background: achieved && !isCurrent ? "var(--accent-border)" : "var(--border)" }}
+                    />
+                  )}
+                </div>
 
-              return (
-                <div key={status} className="relative flex items-start pb-8 last:pb-0">
-                  {/* Timeline dot */}
+                {/* Content */}
+                <div className="flex-1 pb-3">
                   <div
-                    className={`relative z-10 ml-4 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                      isCurrent
-                        ? "border-primary-500 bg-primary-100 ring-2 ring-primary-200 ring-offset-2"
-                        : statusColor(status as TrackingStatus, achieved)
-                    }`}
+                    className="rounded-lg px-3 py-2.5"
+                    style={{
+                      background:  isCurrent ? "var(--accent-surface-deep)" : isPending ? "var(--surface-2)" : "var(--accent-surface)",
+                      border:      isCurrent ? "1.5px solid var(--accent-border)" : isPending ? "1px solid var(--border)" : "1px solid var(--accent-border)",
+                      opacity:     isPending ? 0.65 : 1,
+                    }}
+                    dir="rtl"
                   >
-                    <span className="text-sm">
-                      {isCurrent
-                        ? "●"
-                        : achieved
-                        ? "✓"
-                        : TRACKING_ICONS[status as TrackingStatus]}
-                    </span>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex justify-between items-baseline mb-0.5">
                       <span
-                        className={`text-sm font-medium ${
-                          achieved ? "text-gray-900" : "text-gray-400"
-                        }`}
+                        className="text-[12px] font-bold"
+                        style={{ color: isPending ? "var(--text-4)" : "var(--text-1)" }}
                       >
                         {TRACKING_LABELS[status as TrackingStatus]}
                       </span>
-                      {isCurrent && (
-                        <span className="rounded bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
-                          الحالي
-                        </span>
-                      )}
+                      <span
+                        className="text-[10px] font-semibold"
+                        style={{ color: isCurrent ? "#10b981" : isPending ? "var(--text-3)" : "#10b981" }}
+                      >
+                        {isCurrent ? "جارٍ الآن" : isPending ? "قادم" : "مكتمل"}
+                      </span>
                     </div>
-
-                    {/* Show the event that transitioned TO this status */}
-                    {achieved && tracking?.events && (
-                      <EventInfo
-                        events={tracking.events}
-                        status={status}
-                        isCurrent={isCurrent}
-                      />
+                    {isCurrent && (
+                      <>
+                        <div className="text-[10px] mb-2" style={{ color: "#059669" }}>
+                          قيد التنفيذ — المرحلة {idx + 1} من {TRACKING_PIPELINE.length}
+                        </div>
+                        <div className="rounded h-1.5 mb-1.5" style={{ background: "var(--border)" }}>
+                          <div
+                            className="h-full rounded"
+                            style={{ width: "65%", background: "linear-gradient(90deg,#059669,#10b981)" }}
+                          />
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[9.5px]" style={{ color: "#059669" }}>65% مكتمل</span>
+                          <span className="text-[9.5px]" style={{ color: "var(--text-2)" }}>جارٍ المعالجة</span>
+                        </div>
+                      </>
+                    )}
+                    {achieved && !isCurrent && tracking?.events && (
+                      <EventInfo events={tracking.events} status={status} isCurrent={false} />
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* ── Status Update (Agent/Admin only) ── */}
       {isAgentOrAdmin && nextStatus && (
-        <div className="card p-6">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">
-            تحديث حالة التتبع
-          </h3>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1">
-              <label className="mb-1 block text-sm font-medium text-gray-600">
-                ملاحظات (اختياري)
-              </label>
-              <input
-                type="text"
-                value={statusNotes}
-                onChange={(e) => setStatusNotes(e.target.value)}
-                placeholder="أضف ملاحظة حول هذا التحديث..."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-            </div>
+        <div className="rounded-lg p-5" style={panelStyle}>
+          <h3 className="text-[13px] font-bold mb-4" style={{ color: "var(--text-1)" }}>تحديث حالة التتبع</h3>
+          <div className="flex gap-3 flex-wrap">
+            <input
+              type="text"
+              value={statusNotes}
+              onChange={(e) => setStatusNotes(e.target.value)}
+              placeholder="ملاحظات (اختياري)..."
+              className="flex-1 px-3 py-2 text-[13px] rounded-lg outline-none min-w-[200px]"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-1)" }}
+            />
             <button
               onClick={() => updateMutation.mutate(nextStatus)}
               disabled={updateMutation.isPending}
-              className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+              className="px-4 py-2 text-[13px] font-bold text-white rounded-lg transition-all hover:brightness-110 disabled:opacity-50"
+              style={{ background: "#059669" }}
             >
-              {updateMutation.isPending
-                ? "جاري التحديث..."
-                : `تحديث إلى: ${TRACKING_LABELS[nextStatus]}`}
+              {updateMutation.isPending ? "جاري..." : `تحديث → ${TRACKING_LABELS[nextStatus]}`}
             </button>
           </div>
           {updateMutation.isError && (
-            <p className="mt-2 text-sm text-red-500">
+            <p className="mt-2 text-[12px]" style={{ color: "#dc2626" }}>
               {updateMutation.error?.message || "فشل التحديث"}
             </p>
-          )}
-          {updateMutation.isSuccess && (
-            <p className="mt-2 text-sm text-green-600">تم تحديث الحالة بنجاح</p>
           )}
         </div>
       )}
 
-      {/* Agent can also jump to any future status (quick actions) */}
+      {/* ── Quick actions (Agent/Admin) ── */}
       {isAgentOrAdmin && currentIndex >= 0 && (
-        <div className="card p-6">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">
-            إجراءات سريعة
-          </h3>
+        <div className="rounded-lg p-5" style={panelStyle}>
+          <h3 className="text-[13px] font-bold mb-3" style={{ color: "var(--text-1)" }}>إجراءات سريعة</h3>
           <div className="flex flex-wrap gap-2">
             {TRACKING_PIPELINE.map((status, idx) => {
-              if (idx <= currentIndex) return null; // skip achieved/current
+              if (idx <= currentIndex) return null;
               return (
                 <button
                   key={status}
                   onClick={() => updateMutation.mutate(status)}
                   disabled={updateMutation.isPending}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  className="px-3 py-1.5 text-[11px] font-medium rounded-md transition-all disabled:opacity-50"
+                  style={{ border: "1px solid var(--border)", color: "var(--text-4)" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--hover-bg)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; }}
                 >
-                  {TRACKING_ICONS[status as TrackingStatus]}{" "}
-                  {TRACKING_LABELS[status as TrackingStatus]}
+                  {TRACKING_ICONS[status as TrackingStatus]} {TRACKING_LABELS[status as TrackingStatus]}
                 </button>
               );
             })}
@@ -328,48 +334,42 @@ export function OrderTrackingPage() {
 
       {/* ── Event History ── */}
       {tracking?.events && tracking.events.length > 0 && (
-        <div className="card p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            سجل التحديثات
-          </h2>
+        <div className="rounded-xl p-6" style={panelStyle}>
+          <h2 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-1)" }}>سجل التحديثات</h2>
           <div className="space-y-3">
-            {[...tracking.events]
-              .reverse()
-              .map((event: TrackingEvent) => (
+            {[...tracking.events].reverse().map((event: TrackingEvent) => (
+              <div
+                key={event.id}
+                className="flex items-start gap-3 rounded-lg p-3"
+                style={{ border: "1px solid var(--border)", background: "var(--surface-2)" }}
+              >
                 <div
-                  key={event.id}
-                  className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3"
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm"
+                  style={{ background: "var(--accent-surface)", color: "#059669" }}
                 >
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm">
-                    ↻
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-gray-900">
-                        {event.from_status
-                          ? TRACKING_LABELS[
-                              event.from_status as TrackingStatus
-                            ] || event.from_status
-                          : "—"}
-                      </span>
-                      <span className="text-gray-400">→</span>
-                      <span className="font-medium text-primary-700">
-                        {TRACKING_LABELS[
-                          event.to_status as TrackingStatus
-                        ] || event.to_status}
-                      </span>
-                    </div>
-                    {event.notes && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        {event.notes}
-                      </p>
-                    )}
-                    <p className="mt-1 text-xs text-gray-400">
-                      {formatDateTime(event.created_at)}
-                    </p>
-                  </div>
+                  ↻
                 </div>
-              ))}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium" style={{ color: "var(--text-1)" }}>
+                      {event.from_status
+                        ? TRACKING_LABELS[event.from_status as TrackingStatus] || event.from_status
+                        : "—"}
+                    </span>
+                    <span style={{ color: "var(--text-3)" }}>→</span>
+                    <span className="font-medium" style={{ color: "#059669" }}>
+                      {TRACKING_LABELS[event.to_status as TrackingStatus] || event.to_status}
+                    </span>
+                  </div>
+                  {event.notes && (
+                    <p className="mt-1 text-xs" style={{ color: "var(--text-2)" }}>{event.notes}</p>
+                  )}
+                  <p className="mt-1 text-xs" style={{ color: "var(--text-3)" }}>
+                    {formatDateTime(event.created_at)}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -377,41 +377,22 @@ export function OrderTrackingPage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
+// ── EventInfo sub-component ──────────────────────────────────────────────────
 
-/** Show event info for a given pipeline status. */
 function EventInfo({
-  events,
-  status,
-  isCurrent,
-}: {
-  events: TrackingEvent[];
-  status: string;
-  isCurrent: boolean;
-}) {
-  // Find the event that transitioned TO this status
+  events, status, isCurrent,
+}: { events: TrackingEvent[]; status: string; isCurrent: boolean }) {
   const event = events.find((e) => e.to_status === status);
   if (!event) {
-    // For the current status with no event yet (e.g. initial awaiting_payment
-    // set by the system without an event), show nothing or a default message.
     if (isCurrent) {
-      return (
-        <p className="mt-1 text-xs text-gray-400">
-          بانتظار التحديث الأول
-        </p>
-      );
+      return <p className="mt-1 text-xs" style={{ color: "var(--text-3)" }}>بانتظار التحديث الأول</p>;
     }
     return null;
   }
-
   return (
     <div className="mt-1">
-      {event.notes && (
-        <p className="text-xs text-gray-500">{event.notes}</p>
-      )}
-      <p className="text-xs text-gray-400">{formatDateTime(event.created_at)}</p>
+      {event.notes && <p className="text-xs" style={{ color: "var(--text-2)" }}>{event.notes}</p>}
+      <p className="text-xs" style={{ color: "var(--text-3)" }}>{formatDateTime(event.created_at)}</p>
     </div>
   );
 }

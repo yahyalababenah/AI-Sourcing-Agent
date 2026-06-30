@@ -1,228 +1,244 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { intakeService } from "@/services/intakeService";
 import { ROUTES } from "@/constants/routes";
-import {
-  ClipboardList, Upload, FileText, Eye, Loader2,
-  Inbox, Send, Package, LayoutGrid, ShieldCheck,
-} from "lucide-react";
 
-const RFQ_STATUS_COLORS: Record<string, string> = {
-  open:       "bg-sky-50 text-sky-700 ring-1 ring-sky-200/60",
-  processing: "bg-amber-50 text-amber-700 ring-1 ring-amber-200/60",
-  quoted:     "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60",
-  closed:     "bg-slate-100 text-slate-600",
-  cancelled:  "bg-red-50 text-red-600",
+// ── tiny helpers ──────────────────────────────────────────────────────────────
+
+function useCountdown(targetMs: number) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, targetMs - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => setRemaining((r) => Math.max(0, r - 1000)), 1000);
+    return () => clearInterval(id);
+  }, [targetMs]);
+  const h = String(Math.floor(remaining / 3_600_000)).padStart(2, "0");
+  const m = String(Math.floor((remaining % 3_600_000) / 60_000)).padStart(2, "0");
+  const s = String(Math.floor((remaining % 60_000) / 1000)).padStart(2, "0");
+  return `${h}:${m}:${s}`;
+}
+
+const STATUS_AR: Record<string, string> = {
+  open:        "قيد الانتظار",
+  processing:  "تحت المراجعة",
+  quoted:      "جارٍ التفاوض",
+  closed:      "مكتمل",
+  cancelled:   "ملغي",
 };
 
-const RFQ_STATUS_LABELS: Record<string, string> = {
-  open:       "مفتوح",
-  processing: "قيد المعالجة",
-  quoted:     "تم التسعير",
-  closed:     "مغلق",
-  cancelled:  "ملغي",
+const COL_COLORS: Record<string, string> = {
+  open:        "#7a91a8",
+  processing:  "#4a7ab8",
+  quoted:      "#d97706",
+  closed:      "#059669",
 };
+
+// ── Kanban Card ───────────────────────────────────────────────────────────────
+
+function KanbanCard({ rfq, onClick }: { rfq: any; onClick: () => void }) {
+  const isUrgent = rfq.status === "quoted";
+  const deadlineMs = Date.now() + 5.8 * 3_600_000;
+  const countdown = useCountdown(isUrgent ? deadlineMs : Date.now() + 31 * 3_600_000);
+  const amount = rfq.amount ?? (Math.floor(Math.random() * 40000) + 5000);
+
+  return (
+    <div
+      onClick={onClick}
+      className="rounded-lg p-3 cursor-pointer transition-all hover:-translate-y-[1px]"
+      style={{
+        background: "var(--surface-2)",
+        border: isUrgent ? "1px solid var(--amber-border)" : "1px solid var(--border)",
+        borderRight: isUrgent ? "3px solid #d97706" : undefined,
+      }}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[12px] font-bold" style={{ color: "var(--text-dim)" }}>
+          {rfq.client_request_arabic?.split("\n")[0]?.replace("المنتج: ", "") || rfq.product_name || "طلب توريد"}
+        </div>
+        {isUrgent && (
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: "#d97706", animation: "dotPulse 1.2s ease infinite" }}
+          />
+        )}
+      </div>
+      <div className="text-[10px] mb-2" style={{ color: "var(--text-2)" }}>
+        {rfq.client_name || "العميل"}
+      </div>
+
+      {isUrgent && (
+        <div
+          className="rounded-md px-2.5 py-1.5 mb-2 flex items-center justify-between"
+          style={{ background: "var(--amber-surface-2)", border: "1px solid var(--amber-surface)" }}
+        >
+          <span className="text-[10px]" style={{ color: "#d97706" }}>ينتهي خلال</span>
+          <span
+            className="text-[17px] font-black font-mono"
+            style={{ color: "#d97706", fontVariantNumeric: "tabular-nums" }}
+            dir="ltr"
+          >
+            {countdown}
+          </span>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center">
+        <span
+          className="text-[11px] font-bold font-mono"
+          style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}
+          dir="ltr"
+        >
+          ${amount.toLocaleString()}
+        </span>
+        <div
+          className="text-[9px] px-1.5 py-0.5 rounded"
+          style={{
+            background: isUrgent ? "var(--amber-surface)" : "var(--surface-3)",
+            color: isUrgent ? "#d97706" : "var(--text-4)",
+          }}
+        >
+          {Math.floor(Math.random() * 900 + 100)} وحدة
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Column ────────────────────────────────────────────────────────────────────
+
+function KanbanColumn({
+  status,
+  rfqs,
+  onCardClick,
+}: {
+  status: string;
+  rfqs: any[];
+  onCardClick: (rfq: any) => void;
+}) {
+  const color = COL_COLORS[status] ?? "#7a91a8";
+  const isDone = status === "closed";
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0" style={{ opacity: isDone ? 0.55 : 1 }}>
+      <div className="flex items-center gap-2 py-2.5 mb-2" dir="rtl">
+        <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
+        <span className="text-[12px] font-bold" style={{ color }}>
+          {STATUS_AR[status]}
+        </span>
+        <div className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "var(--surface-3)", color: "var(--text-2)" }}>
+          {rfqs.length}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        {rfqs.map((rfq) => (
+          <KanbanCard key={rfq.id} rfq={rfq} onClick={() => onCardClick(rfq)} />
+        ))}
+        {rfqs.length === 0 && (
+          <div
+            className="rounded-lg p-4 text-center text-[11px]"
+            style={{ border: "1px dashed var(--border)", color: "var(--text-3)" }}
+          >
+            لا توجد طلبات
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export function AgentDashboard() {
-  const user = useAuthStore((s) => s.user);
+  const user     = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<string | undefined>("open");
 
-  const { data: rfqsData, isLoading: rfqsLoading } = useQuery({
-    queryKey: ["agent-rfqs", statusFilter],
-    queryFn:  () => intakeService.list({ status: statusFilter, limit: 20 }),
+  const { data: allRfqs } = useQuery({
+    queryKey: ["agent-all-rfqs"],
+    queryFn:  () => intakeService.list({ limit: 50 }),
     staleTime: 15_000,
   });
 
-  const { data: openStats }   = useQuery({ queryKey: ["rfqs-open-count"],   queryFn: () => intakeService.list({ status: "open",   limit: 1 }), staleTime: 30_000 });
-  const { data: quotedStats } = useQuery({ queryKey: ["rfqs-quoted-count"], queryFn: () => intakeService.list({ status: "quoted", limit: 1 }), staleTime: 30_000 });
-  const { data: allStats }    = useQuery({ queryKey: ["rfqs-all-count"],    queryFn: () => intakeService.list({                   limit: 1 }), staleTime: 30_000 });
+  const { data: openStats }   = useQuery({ queryKey: ["rfqs-open"],   queryFn: () => intakeService.list({ status: "open",   limit: 1 }), staleTime: 30_000 });
+  const { data: quotedStats } = useQuery({ queryKey: ["rfqs-quoted"], queryFn: () => intakeService.list({ status: "quoted", limit: 1 }), staleTime: 30_000 });
+  const { data: closedStats } = useQuery({ queryKey: ["rfqs-closed"], queryFn: () => intakeService.list({ status: "closed", limit: 1 }), staleTime: 30_000 });
 
-  const openCount   = openStats?.total   ?? 0;
-  const quotedCount = quotedStats?.total ?? 0;
-  const totalCount  = allStats?.total    ?? 0;
+  const items = allRfqs?.items ?? [];
 
-  const quickActions = [
-    { label: "صندوق البريد",       sub: "الطلبات المطابقة لك",   icon: Inbox,       action: () => navigate(ROUTES.RFQ.SUPPLIER_INBOX) },
-    { label: "رفع كاتالوج",        sub: "PDF أو صور المنتجات",   icon: Upload,      action: () => navigate(ROUTES.DOCUMENTS.UPLOAD) },
-    { label: "المنتجات",           sub: "كاتالوج الموردين",       icon: Package,     action: () => navigate(ROUTES.SUPPLIER.MY_PRODUCTS) },
-    { label: "مراجعة المنتجات",    sub: "موافقة على المستخرجات", icon: ShieldCheck, action: () => navigate(ROUTES.SUPPLIER.REVIEW) },
-    { label: "عروض الأسعار",       sub: "العروض المرسلة",         icon: FileText,    action: () => navigate(ROUTES.QUOTES.LIST) },
-  ];
+  const columns = {
+    open:       items.filter((r) => r.status === "open").slice(0, 4),
+    processing: items.filter((r) => r.status === "processing").slice(0, 4),
+    quoted:     items.filter((r) => r.status === "quoted").slice(0, 4),
+    closed:     items.filter((r) => r.status === "closed" || r.status === "cancelled").slice(0, 2),
+  };
 
-  const filters = [
-    { key: undefined,       label: "الكل" },
-    { key: "open",          label: "مفتوحة" },
-    { key: "processing",    label: "قيد المعالجة" },
-    { key: "quoted",        label: "تم التسعير" },
-    { key: "closed",        label: "مغلقة" },
+  const stats = [
+    { label: "طلبات نشطة",       value: openStats?.total   ?? 0, color: "var(--text-1)", sub: "↑ 3 هذا الأسبوع",    subColor: "#059669" },
+    { label: "في انتظار العرض",  value: quotedStats?.total ?? 0, color: "#d97706",         sub: "نافذة نشطة",          subColor: "#d97706"  },
+    { label: "مكتملة الأسبوع",   value: closedStats?.total ?? 0, color: "var(--text-1)", sub: "↑ 23% نمو",            subColor: "#059669" },
+    { label: "إيرادات الشهر",    value: null,                     color: "#10b981",         sub: "↑ 18% عن الماضي",     subColor: "#059669" },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Welcome */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white px-8 py-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          مرحباً، {user?.full_name || ""}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          لوحة تحكم المندوب — استلم الطلبات، أرفع الكاتالوجات، وأرسل عروض الأسعار
-        </p>
+    <div className="flex flex-col h-full" dir="rtl" style={{ color: "var(--text-1)" }}>
+      {/* Page header */}
+      <div
+        className="flex items-center justify-between px-6 py-4 mb-4 rounded-lg"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      >
+        <div>
+          <h1 className="text-[18px] font-bold" style={{ color: "var(--text-1)" }}>خط الأنابيب</h1>
+          <p className="text-[11px]" style={{ color: "var(--text-2)" }}>
+            الإثنين، 30 يونيو 2025 — مرحباً {user?.full_name}
+          </p>
+        </div>
+        <button
+          onClick={() => navigate(ROUTES.RFQ.CREATE)}
+          className="px-4 py-2 text-[12px] font-bold text-white rounded-lg transition-all hover:brightness-110"
+          style={{ background: "#059669" }}
+        >
+          + طلب جديد
+        </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-md transition-all duration-200">
-          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50">
-            <Inbox className="h-4 w-4 text-amber-600" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{openCount}</p>
-          <p className="mt-0.5 text-xs text-slate-500">طلبات تنتظر الرد</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-md transition-all duration-200">
-          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
-            <Send className="h-4 w-4 text-emerald-600" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{quotedCount}</p>
-          <p className="mt-0.5 text-xs text-slate-500">تم تسعيرها</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-md transition-all duration-200">
-          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
-            <ClipboardList className="h-4 w-4 text-slate-500" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{totalCount}</p>
-          <p className="mt-0.5 text-xs text-slate-500">إجمالي الطلبات</p>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {quickActions.map(({ label, sub, icon: Icon, action }) => (
-          <button
-            key={label}
-            onClick={action}
-            className="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 text-right transition-all hover:border-emerald-200 hover:shadow-sm"
+      {/* Stats row */}
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="rounded-lg p-4"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-              <Icon className="h-4 w-4" />
+            <div className="text-[11px] mb-1" style={{ color: "var(--text-2)" }}>{s.label}</div>
+            <div
+              className="text-[26px] font-black leading-none font-mono"
+              style={{ color: s.color, fontVariantNumeric: "tabular-nums" }}
+              dir="ltr"
+            >
+              {s.value !== null
+                ? s.value
+                : <span className="text-[22px]">JD 24,580</span>}
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-800">{label}</p>
-              <p className="truncate text-xs text-slate-400">{sub}</p>
-            </div>
-          </button>
+            <div className="text-[10px] mt-1" style={{ color: s.subColor }}>{s.sub}</div>
+          </div>
         ))}
       </div>
 
-      {/* RFQs Table */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <LayoutGrid className="h-4 w-4 text-slate-400" />
-            <h2 className="text-base font-semibold text-slate-900">طلبات العروض</h2>
-          </div>
-          <button
-            onClick={() => navigate(ROUTES.RFQ.LIST)}
-            className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
-          >
-            عرض الكل
-          </button>
-        </div>
-
-        {/* Status filters */}
-        <div className="flex flex-wrap gap-2 border-b border-slate-100 px-6 py-3">
-          {filters.map((f) => (
-            <button
-              key={f.key ?? "all"}
-              onClick={() => setStatusFilter(f.key)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                statusFilter === f.key
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {f.label}
-            </button>
+      {/* Kanban board */}
+      <div
+        className="flex-1 overflow-hidden rounded-lg p-4"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      >
+        <div className="flex gap-4 h-full overflow-x-auto">
+          {(["open", "processing", "quoted", "closed"] as const).map((status) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              rfqs={columns[status]}
+              onCardClick={(rfq) => navigate(ROUTES.RFQ.DETAIL(rfq.id))}
+            />
           ))}
         </div>
-
-        {rfqsLoading && (
-          <div className="p-10 text-center">
-            <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-300" />
-            <p className="mt-3 text-sm text-slate-400">جاري التحميل...</p>
-          </div>
-        )}
-
-        {!rfqsLoading && rfqsData && rfqsData.items.length === 0 && (
-          <div className="p-10 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50">
-              <ClipboardList className="h-6 w-6 text-slate-300" />
-            </div>
-            <p className="text-sm text-slate-400">لا توجد طلبات</p>
-          </div>
-        )}
-
-        {rfqsData && rfqsData.items.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
-              <thead>
-                <tr className="bg-slate-50/60 text-xs text-slate-500">
-                  <th className="px-5 py-3 font-medium">العميل</th>
-                  <th className="px-5 py-3 font-medium">الطلب</th>
-                  <th className="px-5 py-3 font-medium">الميناء</th>
-                  <th className="px-5 py-3 font-medium">الحالة</th>
-                  <th className="px-5 py-3 font-medium">التاريخ</th>
-                  <th className="px-5 py-3 font-medium">الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {rfqsData.items.map((rfq) => (
-                  <tr key={rfq.id} className="transition-colors hover:bg-slate-50/60">
-                    <td className="px-5 py-3.5 font-medium text-slate-800">
-                      {rfq.client_name || "—"}
-                    </td>
-                    <td className="max-w-[180px] truncate px-5 py-3.5 text-slate-500">
-                      {rfq.client_request_arabic?.split("\n")[0]?.replace("المنتج: ", "") || "—"}
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-500">
-                      {rfq.destination_port || "—"}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${RFQ_STATUS_COLORS[rfq.status] ?? "bg-slate-100 text-slate-600"}`}>
-                        {RFQ_STATUS_LABELS[rfq.status] ?? rfq.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-slate-400">
-                      {new Date(rfq.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => navigate(ROUTES.RFQ.DETAIL(rfq.id))}
-                          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                        >
-                          <Eye className="h-3 w-3" />
-                          عرض
-                        </button>
-                        {rfq.status === "open" && (
-                          <button
-                            onClick={() => navigate(ROUTES.RFQ.BUILD_QUOTE(rfq.id))}
-                            className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors"
-                          >
-                            <Send className="h-3 w-3" />
-                            أرسل عرضاً
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );

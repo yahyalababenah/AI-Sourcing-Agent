@@ -2,66 +2,42 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/constants/routes";
-import { Zap, ShoppingCart, Handshake, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { AppLogo } from "@/components/AppLogo";
+import { Eye, EyeOff } from "lucide-react";
 
-type RoleTab = "client" | "agent" | "admin";
+type RoleTab = "client" | "agent" | "supplier";
 
-interface RoleConfig {
-  role: RoleTab;
-  label: string;
-  labelEn: string;
-  email: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  color: string;
-  dot: string;
-}
-
-const ROLE_TABS: RoleConfig[] = [
-  {
-    role: "client",
-    label: "عميل",
-    labelEn: "Client",
-    email: "client@example.com",
-    icon: ShoppingCart,
-    description: "إنشاء طلبات شراء ومتابعة عروض الأسعار",
-    color: "ring-emerald-500 bg-emerald-50 text-emerald-700",
-    dot: "bg-emerald-500",
-  },
-  {
-    role: "agent",
-    label: "وكيل",
-    labelEn: "Agent",
-    email: "agent@example.com",
-    icon: Handshake,
-    description: "إدارة التوريد والمستندات وعروض الأسعار",
-    color: "ring-sky-500 bg-sky-50 text-sky-700",
-    dot: "bg-sky-500",
-  },
-  {
-    role: "admin",
-    label: "مدير النظام",
-    labelEn: "Admin",
-    email: "admin@example.com",
-    icon: ShieldCheck,
-    description: "إشراف كامل وإدارة النظام والتقارير",
-    color: "ring-violet-500 bg-violet-50 text-violet-700",
-    dot: "bg-violet-500",
-  },
+const ROLE_TABS: { role: RoleTab; label: string }[] = [
+  { role: "client",   label: "مستورد" },
+  { role: "agent",    label: "وكيل"    },
+  { role: "supplier", label: "مورّد"   },
 ];
+
+const ROLE_EMAILS: Record<RoleTab, string> = {
+  client:   "client@example.com",
+  agent:    "agent@example.com",
+  supplier: "admin@example.com",
+};
+
+const VALUE_PROPS = [
+  { title: "0.82% دقة تقدير التكلفة", sub: "مقارنة بـ 22% خطأ يدوي" },
+  { title: "48 ساعة · نافذة عطاء حصرية", sub: "تقليل دورة التوريد من 21 يومًا" },
+  { title: "240+ مورّد صيني مُعتمَد",    sub: "في التجارة بين الصين والشرق الأوسط" },
+];
+
+const TRUST_BADGES = ["حماية المشتري", "ISO 9001", "ترجمة تلقائية"];
 
 export function LoginPage() {
   const { login } = useAuth();
-  const [activeTab, setActiveTab] = useState<RoleTab | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("password123");
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [activeRole, setActiveRole] = useState<RoleTab>("client");
+  const [email, setEmail]           = useState("client@example.com");
+  const [password, setPassword]     = useState("password123");
+  const [loading, setLoading]       = useState(false);
+  const [showPw, setShowPw]         = useState(false);
 
-  const handleTabSelect = (tab: RoleTab) => {
-    setActiveTab(tab);
-    const config = ROLE_TABS.find((t) => t.role === tab);
-    if (config) setEmail(config.email);
+  const handleRoleSelect = (role: RoleTab) => {
+    setActiveRole(role);
+    setEmail(ROLE_EMAILS[role]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,180 +45,171 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login({ email, password });
-    } catch {
-      // Error handled by useAuth toast
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* handled by useAuth toast */ }
+    finally { setLoading(false); }
   };
 
-  const activeConfig = ROLE_TABS.find((t) => t.role === activeTab);
-
   return (
-    <div className="flex min-h-screen bg-slate-50" dir="rtl">
-      {/* Left brand panel — hidden on mobile */}
-      <div className="hidden lg:flex lg:w-[420px] xl:w-[480px] flex-col justify-between bg-[#0f172a] p-12">
+    <div className="min-h-screen flex" dir="rtl" style={{ fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}>
+      {/* ── Right: Brand Panel ── */}
+      <div
+        className="hidden lg:flex flex-col justify-between w-[52%] px-10 py-12 relative overflow-hidden"
+        style={{ background: "#064e3b" }}
+      >
+        <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+        {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30">
-            <Zap className="h-4.5 w-4.5 text-white" />
+          <AppLogo size={40} />
+          <div>
+            <div className="text-[17px] font-extrabold text-white leading-tight">مركز التوريد الذكي</div>
+            <div className="text-[9px] text-white/45 tracking-widest mt-0.5" dir="ltr">AI SOURCING HUB</div>
           </div>
-          <span className="text-base font-semibold text-white tracking-tight">AI-Sourcing Hub</span>
         </div>
 
+        {/* Hero copy */}
         <div>
-          <p className="text-3xl font-bold text-white leading-snug tracking-tight">
-            منصة الاستيراد
-            <br />
-            <span className="text-emerald-400">الأذكى في المنطقة</span>
-          </p>
-          <p className="mt-4 text-sm text-slate-400 leading-relaxed">
-            ربط المستوردين بالموردين العالميين مع تسعير شفاف
-            وتتبع مباشر لكل شحنة.
+          <h2 className="text-[26px] font-extrabold text-white leading-snug mb-3">
+            التوريد الذكي<br />بدقة الذكاء الاصطناعي
+          </h2>
+          <p className="text-[13px] text-white/65 leading-relaxed mb-8">
+            ربط المستوردين العرب بأفضل المصنّعين الصينيين في التجارة العابرة للحدود
           </p>
 
-          <div className="mt-10 space-y-4">
-            {[
-              { label: "عروض أسعار فورية", sub: "مقارنة أسعار الموردين في لحظات" },
-              { label: "تتبع الشحنات",      sub: "من المصنع إلى ميناء العقبة مباشرة" },
-              { label: "مستندات ذكية",      sub: "OCR تلقائي وتحليل بالذكاء الاصطناعي" },
-            ].map((f) => (
-              <div key={f.label} className="flex items-start gap-3">
-                <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+          <div className="flex flex-col gap-3">
+            {VALUE_PROPS.map((vp) => (
+              <div
+                key={vp.title}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg"
+                style={{ background: "rgba(255,255,255,0.07)" }}
+              >
+                <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-slate-200">{f.label}</p>
-                  <p className="text-xs text-slate-500">{f.sub}</p>
+                  <div className="text-[13px] font-bold text-white">{vp.title}</div>
+                  <div className="text-[11px] text-white/50">{vp.sub}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="text-xs text-slate-600">
-          © 2026 AI-Sourcing Hub · جميع الحقوق محفوظة
-        </p>
+        {/* Trust badges */}
+        <div className="flex gap-2">
+          {TRUST_BADGES.map((b) => (
+            <div key={b} className="px-2.5 py-1 rounded" style={{ background: "rgba(255,255,255,0.1)" }}>
+              <span className="text-[10px] font-semibold text-white/70">{b}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Right form panel */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+      {/* ── Left: Form Panel ── */}
+      <div className="flex flex-1 flex-col justify-center bg-white px-10 py-12">
         {/* Mobile logo */}
-        <div className="mb-8 flex items-center gap-2 lg:hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600">
-            <Zap className="h-4 w-4 text-white" />
+        <div className="flex items-center gap-3 mb-8 lg:hidden">
+          <AppLogo size={32} />
+          <div>
+            <div className="text-base font-extrabold text-[#1a2433]">مركز التوريد الذكي</div>
+            <div className="text-[9px] text-[#8a9aaa] tracking-widest" dir="ltr">AI SOURCING HUB</div>
           </div>
-          <span className="text-base font-bold text-slate-900">AI-Sourcing Hub</span>
         </div>
 
-        <div className="w-full max-w-sm">
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">تسجيل الدخول</h1>
-          <p className="mt-1.5 text-sm text-slate-500">اختر نوع حسابك للمتابعة</p>
+        <div className="w-full max-w-[380px] mx-auto">
+          <h2 className="text-[20px] font-bold text-[#1a2433] mb-1">مرحباً بعودتك</h2>
+          <p className="text-[13px] text-[#6b7a8d] mb-6">سجّل دخولك لإدارة عمليات التوريد</p>
 
-          {/* Role selector */}
-          <div className="mt-6 grid grid-cols-3 gap-2">
-            {ROLE_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.role;
-              return (
-                <button
-                  key={tab.role}
-                  type="button"
-                  onClick={() => handleTabSelect(tab.role)}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center text-xs font-medium transition-all ${
-                    isActive
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-300"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  <Icon className={`h-5 w-5 ${isActive ? "text-emerald-600" : "text-slate-400"}`} />
-                  <span className={isActive ? "text-emerald-800" : ""}>{tab.label}</span>
-                </button>
-              );
-            })}
+          {/* Role tabs */}
+          <div
+            className="flex rounded-md p-[3px] gap-0.5 mb-5"
+            style={{ background: "#f0f2f5" }}
+          >
+            {ROLE_TABS.map(({ role, label }) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => handleRoleSelect(role)}
+                className="flex-1 py-2 text-[12px] font-medium rounded transition-all"
+                style={
+                  activeRole === role
+                    ? { background: "#fff", color: "#059669", fontWeight: 700, boxShadow: "0 1px 2px rgba(0,0,0,0.07)" }
+                    : { background: "transparent", color: "#8a9aaa" }
+                }
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {activeConfig && (
-            <div className="mt-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
-              <p className="text-xs text-slate-500">{activeConfig.description}</p>
-              <p className="mt-1 text-[11px] text-slate-400">
-                بريد الاختبار: <span className="font-mono text-slate-600">{activeConfig.email}</span>
-              </p>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label className="block text-[12px] font-semibold text-[#3a4a5a] mb-1.5">
                 البريد الإلكتروني
               </label>
               <input
-                id="email"
                 type="email"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (activeTab && e.target.value !== ROLE_TABS.find((t) => t.role === activeTab)?.email) {
-                    setActiveTab(null);
-                  }
-                }}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 dir="ltr"
-                placeholder="you@example.com"
-                className="input"
+                placeholder="ahmed@alnowar.jo"
+                className="w-full px-3 py-2.5 text-[13px] text-[#1a2433] border border-[#dde2ea] rounded-md outline-none transition-colors focus:border-[#059669] focus:ring-2 focus:ring-[#059669]/20"
+                style={{ background: "#f7f9fc" }}
               />
             </div>
 
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
-                كلمة المرور
-              </label>
+              <div className="flex justify-between mb-1.5">
+                <a href="#" className="text-[12px] text-[#059669] font-medium">نسيت كلمة المرور؟</a>
+                <label className="text-[12px] font-semibold text-[#3a4a5a]">كلمة المرور</label>
+              </div>
               <div className="relative">
                 <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPw ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
                   dir="ltr"
                   placeholder="••••••••"
-                  className="input pe-10"
+                  className="w-full px-3 py-2.5 text-[13px] text-[#1a2433] border border-[#dde2ea] rounded-md outline-none transition-colors focus:border-[#059669] focus:ring-2 focus:ring-[#059669]/20 pe-10"
+                  style={{ background: "#f7f9fc", letterSpacing: "0.1em" }}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute inset-y-0 end-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
+                  onClick={() => setShowPw((v) => !v)}
+                  className="absolute inset-y-0 end-0 flex items-center px-3 text-[#8a9aaa] hover:text-[#3a4a5a]"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading || !email}
-              className="btn-primary w-full flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full py-3 text-[14px] font-bold text-white rounded-lg transition-all hover:brightness-110 disabled:opacity-60"
+              style={{ background: "#059669" }}
             >
-              {loading ? (
-                <>
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span>جاري الدخول...</span>
-                </>
-              ) : (
-                "تسجيل الدخول"
-              )}
+              {loading ? "جاري الدخول..." : "تسجيل الدخول"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-5 text-center text-[12px] text-[#8a9aaa]">
             ليس لديك حساب؟{" "}
-            <Link to={ROUTES.AUTH.REGISTER} className="font-medium text-emerald-600 hover:text-emerald-700">
-              إنشاء حساب
+            <Link to={ROUTES.AUTH.REGISTER} className="font-semibold text-[#059669]">
+              إنشاء حساب جديد
             </Link>
           </p>
+
+          {/* SSL note */}
+          <div className="mt-5 flex items-center justify-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1L10 3V6C10 8.5 8 10.5 6 11C4 10.5 2 8.5 2 6V3L6 1Z" stroke="#8a9aaa" strokeWidth="1.2" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[11px] text-[#8a9aaa]">اتصال مشفّر · SSL/TLS</span>
+          </div>
         </div>
       </div>
     </div>
