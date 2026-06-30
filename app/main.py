@@ -201,6 +201,19 @@ def create_app() -> FastAPI:
         tags=["Notifications"],
     )
 
+    # ---- DB Debug (temporary) ----
+    @app.get("/debug/db", tags=["System"])
+    async def debug_db() -> JSONResponse:
+        import traceback
+        from sqlalchemy import text
+        from app.shared.database import async_session_factory
+        try:
+            async with async_session_factory() as session:
+                await session.execute(text("SELECT 1"))
+            return JSONResponse({"status": "ok"})
+        except Exception as e:
+            return JSONResponse({"status": "error", "error": str(e), "trace": traceback.format_exc()}, status_code=500)
+
     # ---- Health Check ----
     @app.get(
         "/health",
