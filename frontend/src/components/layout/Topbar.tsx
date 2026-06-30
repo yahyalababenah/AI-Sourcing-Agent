@@ -1,10 +1,11 @@
-import { LogOut, ChevronDown, Sun, Moon, Menu } from "lucide-react";
+import { LogOut, Sun, Moon, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthStore } from "@/stores/authStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { stringToColor } from "@/lib/utils";
 import { NotificationBell } from "@/components/NotificationBell";
+import { AppLogo } from "@/components/AppLogo";
 import { ROUTES } from "@/constants/routes";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -13,11 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
   agent: "وكيل",
 };
 
-interface TopbarProps {
-  onMenuOpen?: () => void;
-}
-
-export function Topbar({ onMenuOpen }: TopbarProps) {
+export function Topbar() {
   const user = useAuthStore((s) => s.user);
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -25,23 +22,27 @@ export function Topbar({ onMenuOpen }: TopbarProps) {
 
   return (
     <header
-      className="flex h-14 items-center justify-between px-4 lg:px-6"
+      className="flex h-14 items-center justify-between px-4"
       style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}
     >
-      {/* Mobile hamburger button */}
-      <button
-        onClick={onMenuOpen}
-        className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors lg:hidden"
-        style={{ color: "var(--text-2)" }}
-        aria-label="فتح القائمة"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      {/* Mobile: App logo + name (right side in RTL) */}
+      <div className="flex items-center gap-2.5 lg:hidden">
+        <AppLogo size={26} />
+        <div>
+          <p className="text-[13px] font-bold leading-tight" style={{ color: "var(--text-1)" }}>
+            مركز التوريد الذكي
+          </p>
+          <p className="text-[8px] tracking-widest" style={{ color: "var(--text-3)" }} dir="ltr">
+            AI SOURCING HUB
+          </p>
+        </div>
+      </div>
 
-      {/* Spacer on desktop */}
+      {/* Desktop: empty spacer on right */}
       <div className="hidden lg:block" />
 
-      <div className="flex items-center gap-2">
+      {/* Right side actions (visually left in RTL) */}
+      <div className="flex items-center gap-1.5">
         <NotificationBell />
 
         {/* Theme toggle */}
@@ -58,9 +59,10 @@ export function Topbar({ onMenuOpen }: TopbarProps) {
 
         <div className="mx-1 h-5 w-px" style={{ background: "var(--border)" }} />
 
+        {/* User button */}
         <button
           onClick={() => navigate(ROUTES.PROFILE)}
-          className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 transition-colors"
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
           style={{ color: "var(--text-1)" }}
           title="الملف الشخصي"
         >
@@ -70,7 +72,7 @@ export function Topbar({ onMenuOpen }: TopbarProps) {
           >
             {user?.full_name?.charAt(0)?.toUpperCase() ?? "U"}
           </div>
-          <div className="hidden text-right md:block">
+          <div className="hidden text-right lg:block">
             <p className="text-sm font-medium leading-tight" style={{ color: "var(--text-1)" }}>
               {user?.full_name}
             </p>
@@ -78,7 +80,7 @@ export function Topbar({ onMenuOpen }: TopbarProps) {
               {ROLE_LABELS[user?.role ?? ""] ?? "مستخدم"}
             </p>
           </div>
-          <ChevronDown className="hidden h-3.5 w-3.5 md:block" style={{ color: "var(--text-2)" }} />
+          <ChevronDown className="hidden h-3.5 w-3.5 lg:block" style={{ color: "var(--text-2)" }} />
         </button>
 
         <button
