@@ -469,7 +469,7 @@ export function MarketplacePage() {
     <div className="space-y-4" dir="rtl">
       {/* Page Header */}
       <div
-        className="flex items-center justify-between px-5 py-3.5 rounded-lg"
+        className="flex flex-col gap-3 px-4 py-3.5 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:px-5"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div>
@@ -478,10 +478,10 @@ export function MarketplacePage() {
             240+ مورّد صيني مُعتمَد في التجارة العابرة للحدود
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Search */}
           <div
-            className="flex items-center gap-2 rounded-md px-3 py-2 w-56"
+            className="flex flex-1 items-center gap-2 rounded-md px-3 py-2 sm:w-56 sm:flex-none"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
           >
             <Search className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--text-2)" }} />
@@ -489,7 +489,7 @@ export function MarketplacePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن منتج أو مورّد..."
+              placeholder="ابحث..."
               className="flex-1 bg-transparent text-[12px] outline-none"
               style={{ color: "var(--text-1)" }}
               dir="rtl"
@@ -497,7 +497,7 @@ export function MarketplacePage() {
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium transition-colors"
+            className="flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium transition-colors"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-dim)" }}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />

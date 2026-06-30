@@ -72,6 +72,18 @@ html.dark {
     color: var(--text-1);
     font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
     transition: background-color 0.15s ease, color 0.15s ease;
+    /* Prevent horizontal overflow on mobile */
+    overflow-x: hidden;
+  }
+
+  /* Ensure all content stays within viewport width */
+  *, *::before, *::after {
+    max-width: 100%;
+  }
+
+  /* Allow tables and pre blocks to overflow horizontally within scroll container */
+  table, pre, img, svg, canvas, video {
+    max-width: none;
   }
 
   @keyframes fadeUp {

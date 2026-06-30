@@ -183,7 +183,7 @@ export function AgentDashboard() {
     <div className="flex flex-col h-full" dir="rtl" style={{ color: "var(--text-1)" }}>
       {/* Page header */}
       <div
-        className="flex items-center justify-between px-6 py-4 mb-4 rounded-lg"
+        className="flex flex-col gap-3 px-4 py-4 mb-4 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:px-6"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div>
@@ -194,7 +194,7 @@ export function AgentDashboard() {
         </div>
         <button
           onClick={() => navigate(ROUTES.RFQ.CREATE)}
-          className="px-4 py-2 text-[12px] font-bold text-white rounded-lg transition-all hover:brightness-110"
+          className="w-full px-4 py-2.5 text-[13px] font-bold text-white rounded-lg transition-all hover:brightness-110 sm:w-auto sm:text-[12px] sm:py-2"
           style={{ background: "#059669" }}
         >
           + طلب جديد
@@ -202,7 +202,7 @@ export function AgentDashboard() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-4">
         {stats.map((s) => (
           <div
             key={s.label}
