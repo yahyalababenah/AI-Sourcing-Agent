@@ -1,4 +1,4 @@
-import { LogOut, ChevronDown, Sun, Moon } from "lucide-react";
+import { LogOut, ChevronDown, Sun, Moon, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthStore } from "@/stores/authStore";
@@ -13,7 +13,11 @@ const ROLE_LABELS: Record<string, string> = {
   agent: "وكيل",
 };
 
-export function Topbar() {
+interface TopbarProps {
+  onMenuOpen?: () => void;
+}
+
+export function Topbar({ onMenuOpen }: TopbarProps) {
   const user = useAuthStore((s) => s.user);
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -21,10 +25,21 @@ export function Topbar() {
 
   return (
     <header
-      className="flex h-14 items-center justify-between px-6"
+      className="flex h-14 items-center justify-between px-4 lg:px-6"
       style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}
     >
-      <div />
+      {/* Mobile hamburger button */}
+      <button
+        onClick={onMenuOpen}
+        className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors lg:hidden"
+        style={{ color: "var(--text-2)" }}
+        aria-label="فتح القائمة"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Spacer on desktop */}
+      <div className="hidden lg:block" />
 
       <div className="flex items-center gap-2">
         <NotificationBell />
