@@ -207,12 +207,14 @@ def create_app() -> FastAPI:
         import traceback
         from sqlalchemy import text
         from app.shared.database import async_session_factory
+        from app.config import settings
+        db_url_safe = str(settings.db_url).split("@")[-1]  # hide credentials
         try:
             async with async_session_factory() as session:
                 await session.execute(text("SELECT 1"))
-            return JSONResponse({"status": "ok"})
+            return JSONResponse({"status": "ok", "host": db_url_safe})
         except Exception as e:
-            return JSONResponse({"status": "error", "error": str(e), "trace": traceback.format_exc()}, status_code=500)
+            return JSONResponse({"status": "error", "host": db_url_safe, "error": str(e), "trace": traceback.format_exc()}, status_code=500)
 
     # ---- Health Check ----
     @app.get(
