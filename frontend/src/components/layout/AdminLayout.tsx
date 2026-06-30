@@ -1,33 +1,33 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AdminSidebar } from "./AdminSidebar";
 import { Topbar } from "./Topbar";
+import { MobileDrawer } from "./MobileDrawer";
 import { Toaster } from "react-hot-toast";
 
-/**
- * Admin Dashboard Layout — monitoring, analytics, and system control.
- *
- * Features:
- * - Admin-specific sidebar (monitoring, pricing rules, user management)
- * - Topbar with user profile and notifications
- * - Content area for admin-facing pages
- */
 export function AdminLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      {/* Sidebar */}
+      {/* Sidebar — desktop only */}
       <div className="hidden lg:block">
         <AdminSidebar />
       </div>
 
+      {/* Sidebar — mobile drawer */}
+      <MobileDrawer isOpen={mobileOpen} onClose={() => setMobileOpen(false)}>
+        <AdminSidebar />
+      </MobileDrawer>
+
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-6">
+        <Topbar onMenuOpen={() => setMobileOpen(true)} />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
       </div>
 
-      {/* Global toast notifications */}
       <Toaster
         position="top-left"
         toastOptions={{

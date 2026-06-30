@@ -84,17 +84,17 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between">
+      <div className="card p-5 lg:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
               لوحة التحكم — المشرف {user?.full_name ? `(${user.full_name})` : ""} 🛡️
             </h1>
-            <p className="mt-1 text-gray-600">
+            <p className="mt-1 text-sm text-gray-600 lg:text-base">
               إدارة شاملة للنظام: إحصائيات، تكاليف الذكاء الاصطناعي، المستخدمين، وقواعد التسعير.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-full bg-purple-100 px-4 py-2 text-sm font-medium text-purple-700">
+          <div className="flex w-fit items-center gap-2 rounded-full bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-700 sm:px-4 sm:py-2 sm:text-sm">
             <Shield className="h-4 w-4" />
             صلاحية كاملة (God Mode)
           </div>

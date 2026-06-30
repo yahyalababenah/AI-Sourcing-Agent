@@ -1,18 +1,28 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { ClientSidebar } from "./ClientSidebar";
 import { Topbar } from "./Topbar";
+import { MobileDrawer } from "./MobileDrawer";
 import { Toaster } from "react-hot-toast";
 
 export function ClientLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--app-bg)" }}>
+      {/* Sidebar — desktop only */}
       <div className="hidden lg:block">
         <ClientSidebar />
       </div>
 
+      {/* Sidebar — mobile drawer */}
+      <MobileDrawer isOpen={mobileOpen} onClose={() => setMobileOpen(false)}>
+        <ClientSidebar />
+      </MobileDrawer>
+
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-6">
+        <Topbar onMenuOpen={() => setMobileOpen(true)} />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
       </div>
