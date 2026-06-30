@@ -83,13 +83,39 @@ class Settings(BaseSettings):
     # ---- Exchange Rate API ----
     EXCHANGE_RATE_API_KEY: str = ""
 
-    # ---- Object Storage (MinIO/S3) ----
+    # ---- Object Storage (S3-compatible: MinIO local / Supabase / Backblaze in production) ----
+    # Generic S3 vars (preferred — works with any S3-compatible provider)
+    S3_ENDPOINT: str | None = None          # e.g. https://<project>.supabase.co/storage/v1/s3
+    S3_ACCESS_KEY: str | None = None
+    S3_SECRET_KEY: str | None = None
+    S3_REGION: str = Field(default="auto")  # "auto" works for Supabase/Backblaze
+    # Legacy MinIO vars (Docker Compose local dev — kept for backwards compat)
     MINIO_ACCESS_KEY: str = Field(default="minioadmin")
     MINIO_SECRET_KEY: str = Field(default="minioadmin")
     MINIO_ENDPOINT: str = Field(default="minio:9000")
     MINIO_SECURE: bool = Field(default=False)
+
     STORAGE_BUCKET_DOCUMENTS: str = Field(default="aisourcing-documents")
     STORAGE_BUCKET_QUOTES: str = Field(default="aisourcing-quotes")
+
+    @computed_field
+    @cached_property
+    def s3_endpoint_url(self) -> str:
+        """Resolved S3 endpoint URL — prefers S3_ENDPOINT over MINIO_ENDPOINT."""
+        if self.S3_ENDPOINT:
+            return self.S3_ENDPOINT
+        scheme = "https" if self.MINIO_SECURE else "http"
+        return f"{scheme}://{self.MINIO_ENDPOINT}"
+
+    @computed_field
+    @cached_property
+    def s3_access_key(self) -> str:
+        return self.S3_ACCESS_KEY or self.MINIO_ACCESS_KEY
+
+    @computed_field
+    @cached_property
+    def s3_secret_key(self) -> str:
+        return self.S3_SECRET_KEY or self.MINIO_SECRET_KEY
 
     # ---- Sentry ----
     SENTRY_DSN: str = ""
