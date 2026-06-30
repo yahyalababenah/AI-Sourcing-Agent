@@ -22,6 +22,9 @@ import {
 import { monitoringService } from "@/services/monitoringService";
 import { cn } from "@/lib/utils";
 
+// Base URL for direct fetch calls (health, pings) — strips /api/v1 suffix.
+const API_BASE = (import.meta.env.VITE_API_URL || "/api/v1").replace(/\/api\/v1\/?$/, "");
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface HealthData {
@@ -58,14 +61,14 @@ const ENDPOINTS_TO_PING: Array<{
   method: "GET" | "POST";
   body?: object;
 }> = [
-  { label: "Health Check", endpoint: "/health", method: "GET" },
-  { label: "Auth / Me", endpoint: "/api/v1/auth/me", method: "GET" },
-  { label: "RFQs List", endpoint: "/api/v1/intake/rfqs", method: "GET" },
-  { label: "Pricing Rules", endpoint: "/api/v1/pricing/rules", method: "GET" },
-  { label: "Quotes List", endpoint: "/api/v1/quotes", method: "GET" },
-  { label: "Chat Rooms", endpoint: "/api/v1/chat/rooms", method: "GET" },
-  { label: "Catalog Products", endpoint: "/api/v1/catalog/products", method: "GET" },
-  { label: "Admin Stats", endpoint: "/api/v1/admin/stats", method: "GET" },
+  { label: "Health Check",      endpoint: `${API_BASE}/health`,                   method: "GET" },
+  { label: "Auth / Me",         endpoint: `${API_BASE}/api/v1/auth/me`,           method: "GET" },
+  { label: "RFQs List",         endpoint: `${API_BASE}/api/v1/intake/rfqs`,       method: "GET" },
+  { label: "Pricing Rules",     endpoint: `${API_BASE}/api/v1/pricing/rules`,     method: "GET" },
+  { label: "Quotes List",       endpoint: `${API_BASE}/api/v1/quotes`,            method: "GET" },
+  { label: "Chat Rooms",        endpoint: `${API_BASE}/api/v1/chat/rooms`,        method: "GET" },
+  { label: "Catalog Products",  endpoint: `${API_BASE}/api/v1/catalog/products`,  method: "GET" },
+  { label: "Admin Stats",       endpoint: `${API_BASE}/api/v1/admin/stats`,       method: "GET" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -139,7 +142,7 @@ export function AdminMonitorPage() {
   } = useQuery<HealthData>({
     queryKey: ["monitor", "health"],
     queryFn: async () => {
-      const r = await fetch("/health");
+      const r = await fetch(`${API_BASE}/health`);
       return r.json();
     },
     refetchInterval: REFRESH_INTERVAL,
