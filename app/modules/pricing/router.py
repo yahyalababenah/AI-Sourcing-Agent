@@ -60,9 +60,17 @@ async def list_rules(
     active_only: bool = Query(False, description="Only active rules"),
     _current_user: User = Depends(require_agent_or_admin),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis_client),
 ):
     """List all pricing rules, optionally filtered by category or active status."""
-    return await list_pricing_rules(db, category=category, active_only=active_only)
+    from app.modules.pricing.cache import get_cached_rules_list, set_cached_rules_list
+    cat_str = category.value if category else None
+    cached = await get_cached_rules_list(redis, cat_str, active_only)
+    if cached is not None:
+        return cached
+    result = await list_pricing_rules(db, category=category, active_only=active_only)
+    await set_cached_rules_list(redis, cat_str, active_only, result)
+    return result
 
 
 @router.post(

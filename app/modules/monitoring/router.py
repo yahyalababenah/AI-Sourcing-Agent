@@ -25,6 +25,7 @@ from app.modules.auth.schemas import (
 )
 from app.shared.database import get_db
 from app.shared.logging import get_logger
+from app.shared.redis_client import get_redis_client
 
 logger = get_logger(__name__)
 
@@ -131,11 +132,17 @@ async def get_ai_costs(
 async def get_system_stats(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_admin),
+    redis=Depends(get_redis_client),
 ):
     """Get system-wide statistics for the admin dashboard.
 
     Returns counts for: users, RFQs, documents, quotations, pricing rules.
     """
+    from app.modules.pricing.cache import get_cached_admin_stats, set_cached_admin_stats
+    cached = await get_cached_admin_stats(redis)
+    if cached is not None:
+        return cached
+
     # Single query fetching all counts at once — avoids 7 round trips to Supabase.
     row = (await db.execute(text("""
         SELECT
@@ -155,7 +162,7 @@ async def get_system_stats(
             )                                                                     AS users_by_role
     """))).fetchone()
 
-    return {
+    result = {
         "total_users":            int(row.total_users),
         "users_by_role":          row.users_by_role or {},
         "total_rfqs":             int(row.total_rfqs),
@@ -164,6 +171,8 @@ async def get_system_stats(
         "total_pricing_rules":    int(row.total_pricing_rules),
         "total_catalog_products": int(row.total_catalog_products),
     }
+    await set_cached_admin_stats(redis, result)
+    return result
 
 
 @router.get(

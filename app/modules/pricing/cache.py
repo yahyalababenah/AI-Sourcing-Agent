@@ -37,6 +37,8 @@ logger = get_logger(__name__)
 # Cache key prefixes
 EXCHANGE_RATE_CACHE_PREFIX = "pricing:exchange_rate:"
 RULES_CACHE_KEY = "pricing:rules:all"
+RULES_LIST_CACHE_PREFIX = "pricing:rules:list:"  # keyed by (category, active_only)
+ADMIN_STATS_CACHE_KEY = "admin:stats"
 
 # Stampede-prevention lock keys and TTLs
 EXCHANGE_RATE_LOCK_PREFIX = "pricing:exchange_rate:lock:"
@@ -45,6 +47,8 @@ REBUILD_LOCK_TTL = 10  # seconds — max time to hold a rebuild lock
 
 # TTL values
 RULES_CACHE_TTL = 3600           # 1 hour
+RULES_LIST_CACHE_TTL = 300       # 5 minutes
+ADMIN_STATS_CACHE_TTL = 60       # 1 minute
 EXCHANGE_RATE_CACHE_TTL = 86400  # 24 hours (per roadmap §3.3)
 EXCHANGE_RATE_API_TIMEOUT = 5.0  # seconds — reduced from 10s to fail fast
 
@@ -336,9 +340,50 @@ async def set_cached_rules(
 
 
 async def invalidate_rules_cache(redis: Redis) -> None:
-    """Invalidate the pricing rules cache.
-
-    Called after a rule is created, updated, or deleted.
-    """
+    """Invalidate the pricing rules cache (calculation dict + all list variants)."""
     await cache_delete(redis, RULES_CACHE_KEY)
+    # Delete all list-cache variants via pattern scan
+    async for key in redis.scan_iter(f"{RULES_LIST_CACHE_PREFIX}*"):
+        await redis.delete(key)
     logger.info("Pricing rules cache invalidated")
+
+
+# ═══════════════════════════════════════════════════════════
+# Pricing Rules List Cache  (full API response objects)
+# ═══════════════════════════════════════════════════════════
+
+def _rules_list_key(category: str | None, active_only: bool) -> str:
+    return f"{RULES_LIST_CACHE_PREFIX}{category or 'all'}:{int(active_only)}"
+
+
+async def get_cached_rules_list(
+    redis: Redis,
+    category: str | None,
+    active_only: bool,
+) -> Optional[dict]:
+    return await cache_get(redis, _rules_list_key(category, active_only))
+
+
+async def set_cached_rules_list(
+    redis: Redis,
+    category: str | None,
+    active_only: bool,
+    data: dict,
+) -> None:
+    await cache_set(redis, _rules_list_key(category, active_only), data, ttl=RULES_LIST_CACHE_TTL)
+
+
+# ═══════════════════════════════════════════════════════════
+# Admin Stats Cache
+# ═══════════════════════════════════════════════════════════
+
+async def get_cached_admin_stats(redis: Redis) -> Optional[dict]:
+    return await cache_get(redis, ADMIN_STATS_CACHE_KEY)
+
+
+async def set_cached_admin_stats(redis: Redis, data: dict) -> None:
+    await cache_set(redis, ADMIN_STATS_CACHE_KEY, data, ttl=ADMIN_STATS_CACHE_TTL)
+
+
+async def invalidate_admin_stats_cache(redis: Redis) -> None:
+    await cache_delete(redis, ADMIN_STATS_CACHE_KEY)
