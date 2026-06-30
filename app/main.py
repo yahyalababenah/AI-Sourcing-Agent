@@ -289,7 +289,7 @@ def create_app() -> FastAPI:
                 from app.shared.storage import _get_s3_client
                 def _ping():
                     _get_s3_client().list_buckets()
-                await asyncio.wait_for(loop.run_in_executor(None, _ping), timeout=3.0)
+                await asyncio.wait_for(loop.run_in_executor(None, _ping), timeout=0.5)
                 return True
             except Exception:
                 return False
