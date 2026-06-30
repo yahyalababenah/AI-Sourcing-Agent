@@ -42,6 +42,7 @@ export function QuoteBuilderPage() {
 
   // ── Agent inputs ─────────────────────────────────────────────────────────
   const [freightInput, setFreightInput]     = useState("");
+  const [manualUnitPrice, setManualUnitPrice] = useState("");
   const [notes, setNotes]                   = useState("");
   const [paymentTerms, setPaymentTerms]     = useState("T/T — 30% مقدماً، 70% عند الشحن");
   const [deliveryTerms, setDeliveryTerms]   = useState("FOB Shenzhen");
@@ -58,9 +59,17 @@ export function QuoteBuilderPage() {
   // ── Derive pricing inputs from RFQ ────────────────────────────────────────
   const pi = useMemo(() => (rfq ? extractPricingInput(rfq) : null), [rfq]);
 
+  // Effective unit price: manual input wins, else extracted from RFQ
+  const effectiveUnitPrice = useMemo(() => {
+    const manual = manualUnitPrice !== "" ? parseFloat(manualUnitPrice) || 0 : 0;
+    return manual > 0 ? manual : (pi?.unitPrice ?? 0);
+  }, [manualUnitPrice, pi]);
+
+  const hasEffectivePrice = effectiveUnitPrice > 0;
+
   // ── Auto-calculate pricing ────────────────────────────────────────────────
   const { data: calc, isLoading: calcLoading, isError: calcError } = useQuery<CalculatePriceResponse>({
-    queryKey: ["pricing-calc", rfqId, pi?.unitPrice, pi?.quantity],
+    queryKey: ["pricing-calc", rfqId, effectiveUnitPrice, pi?.quantity],
     queryFn: () =>
       pricingService.calculate({
         rfq_id: rfqId!,
@@ -71,11 +80,11 @@ export function QuoteBuilderPage() {
             product_id: rfqId!,
             name: pi!.productName,
             quantity: pi!.quantity,
-            unit_price_cny: pi!.unitPrice,
+            unit_price_cny: effectiveUnitPrice,
           },
         ],
       }),
-    enabled: !!pi && pi.unitPrice > 0,
+    enabled: !!pi && effectiveUnitPrice > 0,
     retry: false,
   });
 
@@ -159,7 +168,6 @@ export function QuoteBuilderPage() {
   }
 
   const currency = rfq.target_currency ?? "JOD";
-  const hasPriceData = !!pi && pi.unitPrice > 0;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -212,22 +220,21 @@ export function QuoteBuilderPage() {
 
       {/* ── Pricing Breakdown ── */}
       <Section title="تفاصيل التكلفة">
-        {!hasPriceData && (
-          <div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-700">
+        {!hasEffectivePrice && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
             <AlertCircle className="inline h-4 w-4 ml-1" />
-            لم يتضمّن الطلب سعراً للوحدة — لا يمكن حساب التكلفة تلقائياً.
-            يمكنك إدخال تكلفة الشحن اليدوية أدناه وإرسال العرض.
+            لم يستخرج النظام سعر الوحدة من هذا الطلب. أدخل <strong>سعر الوحدة بالريال الصيني (CNY)</strong> في حقل "السعر اليدوي" أدناه لتمكين حساب التكلفة.
           </div>
         )}
 
-        {hasPriceData && calcLoading && (
+        {hasEffectivePrice && calcLoading && (
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Loader2 className="h-4 w-4 animate-spin" />
             جاري حساب التكلفة...
           </div>
         )}
 
-        {hasPriceData && calcError && (
+        {hasEffectivePrice && calcError && (
           <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
             <AlertCircle className="inline h-4 w-4 ml-1" />
             تعذّر حساب التكلفة تلقائياً. تحقق من قواعد التسعير أو أدخل القيم يدوياً.
@@ -305,6 +312,28 @@ export function QuoteBuilderPage() {
       {/* ── Agent Inputs ── */}
       <Section title="تفاصيل العرض">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Manual unit price — shown when no extracted price */}
+          {!(pi && pi.unitPrice > 0) && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-semibold text-amber-700">
+                سعر الوحدة (CNY) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={manualUnitPrice}
+                onChange={(e) => setManualUnitPrice(e.target.value)}
+                placeholder="مثال: 45.00"
+                className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                dir="ltr"
+              />
+              <p className="mt-1 text-xs text-amber-600">
+                سعر الوحدة الأصلي بالريال الصيني — مطلوب لحساب التكلفة الإجمالية
+              </p>
+            </div>
+          )}
+
           {/* Freight override */}
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -411,7 +440,7 @@ export function QuoteBuilderPage() {
 
         <button
           onClick={() => { setSubmitError(null); sendMutation.mutate(); }}
-          disabled={sendMutation.isPending || sendMutation.isSuccess || (!calc && hasPriceData)}
+          disabled={sendMutation.isPending || sendMutation.isSuccess || !hasEffectivePrice || (hasEffectivePrice && !calc)}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
         >
           {sendMutation.isPending ? (
