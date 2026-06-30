@@ -39,7 +39,9 @@ class Settings(BaseSettings):
         # asyncpg rejects sslmode= in query string — strip it entirely.
         # SSL is handled via connect_args ssl= in database.py.
         query = {k: v for k, v in parsed.query.items() if k != "sslmode"}
-        return str(parsed.set(query=query))
+        # render_as_string(hide_password=False) preserves the real password.
+        # str() would replace it with "***", causing auth failures.
+        return parsed.set(query=query).render_as_string(hide_password=False)
 
     # ---- Redis ----
     REDIS_PASSWORD: str = Field(min_length=8)
