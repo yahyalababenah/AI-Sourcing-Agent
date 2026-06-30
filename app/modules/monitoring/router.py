@@ -136,50 +136,33 @@ async def get_system_stats(
 
     Returns counts for: users, RFQs, documents, quotations, pricing rules.
     """
-    # Count users by role
-    users_result = await db.execute(
-        select(User.role, func.count(User.id)).group_by(User.role)
-    )
-    users_by_role = {row[0].value if hasattr(row[0], "value") else row[0]: row[1] for row in users_result.fetchall()}
-
-    # Total users
-    total_users_result = await db.execute(select(func.count(User.id)))
-    total_users = total_users_result.scalar() or 0
-
-    # Count RFQs
-    rfqs_result = await db.execute(text("SELECT COUNT(*) FROM rfqs"))
-    total_rfqs = rfqs_result.scalar() or 0
-
-    # Count documents
-    docs_result = await db.execute(text("SELECT COUNT(*) FROM documents"))
-    total_documents = docs_result.scalar() or 0
-
-    # Count quotations
-    quotes_result = await db.execute(text("SELECT COUNT(*) FROM quotations"))
-    total_quotations = quotes_result.scalar() or 0
-
-    # Count pricing rules
-    rules_result = await db.execute(text("SELECT COUNT(*) FROM pricing_rules"))
-    total_pricing_rules = rules_result.scalar() or 0
-
-    # Count catalog products (products inside extracted_entities->'products' across all EXTRACTED documents)
-    catalog_result = await db.execute(
-        text(
-            "SELECT COALESCE(SUM(jsonb_array_length(extracted_entities->'products')), 0) "
-            "FROM documents "
-            "WHERE status = 'extracted' AND extracted_entities IS NOT NULL"
-        )
-    )
-    total_catalog_products = catalog_result.scalar() or 0
+    # Single query fetching all counts at once — avoids 7 round trips to Supabase.
+    row = (await db.execute(text("""
+        SELECT
+            (SELECT COUNT(*) FROM users)                                          AS total_users,
+            (SELECT COUNT(*) FROM rfqs)                                           AS total_rfqs,
+            (SELECT COUNT(*) FROM documents)                                      AS total_documents,
+            (SELECT COUNT(*) FROM quotations)                                     AS total_quotations,
+            (SELECT COUNT(*) FROM pricing_rules)                                  AS total_pricing_rules,
+            COALESCE((
+                SELECT SUM(jsonb_array_length(extracted_entities->'products'))
+                FROM documents
+                WHERE status = 'extracted' AND extracted_entities IS NOT NULL
+            ), 0)                                                                 AS total_catalog_products,
+            (
+                SELECT json_object_agg(role, cnt)
+                FROM (SELECT role::text, COUNT(*) AS cnt FROM users GROUP BY role) t
+            )                                                                     AS users_by_role
+    """))).fetchone()
 
     return {
-        "total_users": total_users,
-        "users_by_role": users_by_role,
-        "total_rfqs": total_rfqs,
-        "total_documents": total_documents,
-        "total_quotations": total_quotations,
-        "total_pricing_rules": total_pricing_rules,
-        "total_catalog_products": total_catalog_products,
+        "total_users":            int(row.total_users),
+        "users_by_role":          row.users_by_role or {},
+        "total_rfqs":             int(row.total_rfqs),
+        "total_documents":        int(row.total_documents),
+        "total_quotations":       int(row.total_quotations),
+        "total_pricing_rules":    int(row.total_pricing_rules),
+        "total_catalog_products": int(row.total_catalog_products),
     }
 
 
