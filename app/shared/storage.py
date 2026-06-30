@@ -30,16 +30,14 @@ _s3_client_config = Config(
 
 
 def _get_s3_client():
-    """Create and return a boto3 S3 client configured for MinIO or S3."""
+    """Create and return a boto3 S3 client configured for MinIO, Supabase Storage, or any S3-compatible provider."""
     return boto3.client(
         "s3",
-        endpoint_url=f"http://{settings.MINIO_ENDPOINT}"
-        if not settings.MINIO_SECURE
-        else f"https://{settings.MINIO_ENDPOINT}",
-        aws_access_key_id=settings.MINIO_ACCESS_KEY,
-        aws_secret_access_key=settings.MINIO_SECRET_KEY,
+        endpoint_url=settings.s3_endpoint_url,
+        aws_access_key_id=settings.s3_access_key,
+        aws_secret_access_key=settings.s3_secret_key,
         config=_s3_client_config,
-        region_name="us-east-1",  # MinIO ignores this
+        region_name=settings.S3_REGION,
     )
 
 
