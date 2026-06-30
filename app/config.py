@@ -30,11 +30,12 @@ class Settings(BaseSettings):
     @computed_field
     @cached_property
     def db_url(self) -> str:
-        if self.DATABASE_URL:
-            return self.DATABASE_URL
-        return (
-            f"postgresql+asyncpg://app_user:{self.DB_PASSWORD}@postgres:5432/aisourcing"
-        )
+        url = self.DATABASE_URL or f"postgresql+asyncpg://app_user:{self.DB_PASSWORD}@postgres:5432/aisourcing"
+        # asyncpg does not accept sslmode= in the query string — strip it.
+        # SSL is handled via connect_args in database.py instead.
+        import re
+        url = re.sub(r'[?&]sslmode=[^&]*', '', url).rstrip('?')
+        return url
 
     # ---- Redis ----
     REDIS_PASSWORD: str = Field(min_length=8)
