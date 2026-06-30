@@ -187,7 +187,7 @@ export function AgentDashboard() {
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div>
-          <h1 className="text-[18px] font-bold" style={{ color: "var(--text-1)" }}>خط الأنابيب</h1>
+          <h1 className="text-[18px] font-bold" style={{ color: "var(--text-1)" }}>إدارة الطلبات</h1>
           <p className="text-[11px]" style={{ color: "var(--text-2)" }}>
             الإثنين، 30 يونيو 2025 — مرحباً {user?.full_name}
           </p>

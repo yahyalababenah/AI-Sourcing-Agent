@@ -9,7 +9,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 const navItems = [
   { to: ROUTES.DASHBOARD,            label: "الرئيسية",       icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,             label: "خط الأنابيب",    icon: BarChart2      },
+  { to: ROUTES.RFQ.LIST,             label: "الطلبات",        icon: BarChart2      },
   { to: ROUTES.RFQ.SUPPLIER_INBOX,   label: "العملاء",         icon: Users,         badge: "14" },
   { to: ROUTES.CATALOG.MARKETPLACE,  label: "الموردون",        icon: Package        },
   { to: ROUTES.DOCUMENTS.UPLOAD,     label: "الكتالوجات",      icon: FileText,      badgeAmber: "3" },

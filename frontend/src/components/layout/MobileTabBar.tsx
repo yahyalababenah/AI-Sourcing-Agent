@@ -18,7 +18,7 @@ const CLIENT_TABS = [
 
 const AGENT_TABS = [
   { to: ROUTES.DASHBOARD,           label: "الرئيسية",   icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,            label: "الأنابيب",   icon: BarChart2       },
+  { to: ROUTES.RFQ.LIST,            label: "الطلبات",    icon: BarChart2       },
   { to: ROUTES.RFQ.SUPPLIER_INBOX,  label: "العملاء",    icon: Users           },
   { to: ROUTES.CATALOG.MARKETPLACE, label: "الموردون",   icon: Package         },
   { to: ROUTES.DOCUMENTS.UPLOAD,    label: "الكتالوج",   icon: FileText        },
