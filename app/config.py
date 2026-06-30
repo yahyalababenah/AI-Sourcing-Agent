@@ -30,12 +30,16 @@ class Settings(BaseSettings):
     @computed_field
     @cached_property
     def db_url(self) -> str:
-        url = self.DATABASE_URL or f"postgresql+asyncpg://app_user:{self.DB_PASSWORD}@postgres:5432/aisourcing"
-        # asyncpg does not accept sslmode= in the query string — strip it.
-        # SSL is handled via connect_args in database.py instead.
-        import re
-        url = re.sub(r'[?&]sslmode=[^&]*', '', url).rstrip('?')
-        return url
+        from sqlalchemy.engine import make_url
+        raw = self.DATABASE_URL or f"postgresql+asyncpg://app_user:{self.DB_PASSWORD}@postgres:5432/aisourcing"
+        # Ensure driver is asyncpg
+        parsed = make_url(raw)
+        if parsed.drivername in ("postgresql", "postgres"):
+            parsed = parsed.set(drivername="postgresql+asyncpg")
+        # asyncpg rejects sslmode= in query string — strip it entirely.
+        # SSL is handled via connect_args ssl= in database.py.
+        query = {k: v for k, v in parsed.query.items() if k != "sslmode"}
+        return str(parsed.set(query=query))
 
     # ---- Redis ----
     REDIS_PASSWORD: str = Field(min_length=8)
