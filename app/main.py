@@ -204,45 +204,47 @@ def create_app() -> FastAPI:
     # ---- DB Debug (temporary) ----
     @app.get("/debug/db", tags=["System"])
     async def debug_db() -> JSONResponse:
-        import os, ssl, asyncpg
+        import os, ssl, asyncpg, sys
         from app.config import settings
+        from sqlalchemy.engine import make_url
 
         raw_url = os.getenv("DATABASE_URL", "NOT_SET")
         pw_hint = raw_url.split(":")[2].split("@")[0][:4] + "****" if raw_url.count(":") >= 2 else "?"
-
-        # Parse credentials from db_url
-        from sqlalchemy.engine import make_url
         u = make_url(settings.db_url)
 
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        info = {
+            "asyncpg_version": asyncpg.__version__,
+            "python": sys.version,
+            "host": u.host,
+            "port": u.port,
+            "user": u.username,
+            "pw_hint": pw_hint,
+        }
 
-        # Test port reachability first
-        import asyncio, socket
-        port_ok = False
-        try:
-            loop = asyncio.get_event_loop()
-            await asyncio.wait_for(
-                loop.run_in_executor(None, lambda: socket.create_connection((u.host, u.port or 5432), timeout=5)),
-                timeout=6
-            )
-            port_ok = True
-        except Exception as pe:
-            return JSONResponse({"status": "port_blocked", "host": u.host, "port": u.port, "pw_hint": pw_hint, "error": str(pe)}, status_code=503)
+        # Try SSL=require (strict)
+        for ssl_mode in ["require", "disable"]:
+            try:
+                if ssl_mode == "require":
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    ssl_arg = ctx
+                else:
+                    ssl_arg = False
 
-        # Direct asyncpg connection test
-        try:
-            conn = await asyncpg.connect(
-                host=u.host, port=u.port or 5432,
-                user=u.username, password=u.password,
-                database=u.database, ssl=ctx
-            )
-            await conn.fetchval("SELECT 1")
-            await conn.close()
-            return JSONResponse({"status": "ok", "host": u.host, "port": u.port, "user": u.username, "pw_hint": pw_hint})
-        except Exception as e:
-            return JSONResponse({"status": "error", "host": u.host, "port": u.port, "user": u.username, "pw_hint": pw_hint, "error": str(e)}, status_code=500)
+                conn = await asyncpg.connect(
+                    host=u.host, port=u.port or 5432,
+                    user=u.username, password=u.password,
+                    database=u.database, ssl=ssl_arg,
+                    timeout=10,
+                )
+                await conn.fetchval("SELECT 1")
+                await conn.close()
+                return JSONResponse({"status": "ok", "ssl_mode": ssl_mode, **info})
+            except Exception as e:
+                info[f"error_{ssl_mode}"] = str(e)
+
+        return JSONResponse({"status": "error", **info}, status_code=500)
 
     # ---- Health Check ----
     @app.get(
