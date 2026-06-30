@@ -25,21 +25,21 @@ from app.shared.database import async_session_factory
 DEMO_USERS = [
     {
         "email": "admin@example.com",
-        "password": "password123",
+        "password": "Demo@123456!",
         "full_name": "إدارة النظام",
         "role": UserRole.ADMIN,
         "phone": "+962791111111",
     },
     {
         "email": "agent@example.com",
-        "password": "password123",
+        "password": "Demo@123456!",
         "full_name": "أحمد الوكيل",
         "role": UserRole.AGENT,
         "phone": "+962792222222",
     },
     {
         "email": "client@example.com",
-        "password": "password123",
+        "password": "Demo@123456!",
         "full_name": "محمد العميل",
         "role": UserRole.CLIENT,
         "phone": "+962793333333",

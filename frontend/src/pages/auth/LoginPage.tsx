@@ -31,7 +31,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const [activeRole, setActiveRole] = useState<RoleTab>("client");
   const [email, setEmail]           = useState("client@example.com");
-  const [password, setPassword]     = useState("password123");
+  const [password, setPassword]     = useState("Demo@123456!");
   const [loading, setLoading]       = useState(false);
   const [showPw, setShowPw]         = useState(false);
 
