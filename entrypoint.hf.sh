@@ -16,34 +16,44 @@ fi
 DB_HOST="${DB_HOST:-postgres}"
 DB_PORT="${DB_PORT:-5432}"
 
-echo "[entrypoint] Waiting for PostgreSQL at ${DB_HOST}:${DB_PORT}..."
-MAX_TRIES=30
+echo "[entrypoint] Checking PostgreSQL at ${DB_HOST}:${DB_PORT}..."
+MAX_TRIES=20
 TRIES=0
-until python -c "
-import socket, os, sys
+
+# Supabase requires SSL — use openssl for handshake check, fallback to raw socket
+until python3 -c "
+import socket, ssl, os, sys
 host = os.getenv('DB_HOST', 'postgres')
 port = int(os.getenv('DB_PORT', 5432))
 try:
-    socket.setdefaulttimeout(5)
-    s = socket.socket()
-    s.connect((host, port))
-    s.close()
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    sock = socket.create_connection((host, port), timeout=10)
+    ssock = context.wrap_socket(sock, server_hostname=host)
+    ssock.close()
     sys.exit(0)
 except Exception:
-    sys.exit(1)
+    try:
+        # Fallback: raw socket (for non-SSL Postgres like local dev)
+        sock = socket.create_connection((host, port), timeout=10)
+        sock.close()
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)
 " 2>/dev/null; do
     TRIES=$((TRIES + 1))
     if [ "$TRIES" -ge "$MAX_TRIES" ]; then
-        echo "[entrypoint] ERROR: PostgreSQL not reachable after ${MAX_TRIES} attempts."
-        exit 1
+        echo "[entrypoint] WARNING: PostgreSQL not reachable after ${MAX_TRIES} attempts."
+        echo "[entrypoint] Attempting migrations anyway — may fail if DB is down."
+        break
     fi
-    echo "[entrypoint] Attempt ${TRIES}/${MAX_TRIES} — retrying in 2s..."
-    sleep 2
+    echo "[entrypoint] Attempt ${TRIES}/${MAX_TRIES} — retrying in 3s..."
+    sleep 3
 done
 
-echo "[entrypoint] PostgreSQL is ready."
 echo "[entrypoint] Running migrations..."
-alembic upgrade head
-echo "[entrypoint] Done."
+alembic upgrade head 2>&1 || echo "[entrypoint] WARNING: Migrations failed — will retry on startup."
+echo "[entrypoint] Starting application..."
 
 exec "$@"
