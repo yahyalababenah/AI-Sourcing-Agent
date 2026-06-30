@@ -158,7 +158,7 @@ export function ProfilePage() {
               label="التخصص"
               value={val("specialty")}
               onChange={(v) => changed("specialty", v)}
-              placeholder="الإلكترونيات، الإضاءة..."
+              placeholder="الإلكترونيات، المعدات الصناعية..."
             />
             <Field
               label="عنوان المصنع"

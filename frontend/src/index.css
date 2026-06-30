@@ -2,14 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens ─────────────────────────────────────────────────────────── */
+:root {
+  /* Light mode */
+  --app-bg:             #f0f4f8;
+  --surface:            #ffffff;
+  --surface-2:          #f4f7fa;
+  --surface-3:          #edf1f6;
+  --border:             #dde4ed;
+  --text-1:             #1a2433;
+  --text-2:             #5a7088;
+  --text-3:             #8a9aaa;
+  --text-dim:           #2a3a4a;
+  --text-4:             #6a7a8a;
+  --hover-bg:           rgba(0, 0, 0, 0.04);
+  --accent-surface:     #ecfdf5;
+  --accent-border:      #a7f3d0;
+  --accent-surface-deep:#d1fae5;
+  --amber-surface:      #fef3c7;
+  --amber-border:       #fde68a;
+  --amber-surface-2:    #fffbeb;
+  --error-surface:      #fee2e2;
+  --error-border:       #fca5a5;
+  --avatar-bg:          #dbeafe;
+  --avatar-text:        #1e40af;
+  --sidebar-bg:         #1e293b;
+  --sidebar-text:       #f1f5f9;
+  --sidebar-muted:      #94a3b8;
+  --sidebar-border:     rgba(255,255,255,0.06);
+}
+
+html.dark {
+  /* Dark mode */
+  --app-bg:             #111518;
+  --surface:            #161b21;
+  --surface-2:          #1a1f26;
+  --surface-3:          #252c34;
+  --border:             #252c34;
+  --text-1:             #dde8f5;
+  --text-2:             #5a7088;
+  --text-3:             #3d5570;
+  --text-dim:           #c8d8e8;
+  --text-4:             #7a91a8;
+  --hover-bg:           rgba(255, 255, 255, 0.05);
+  --accent-surface:     #0d2a1f;
+  --accent-border:      #1a4030;
+  --accent-surface-deep:#0a1910;
+  --amber-surface:      #2a1f08;
+  --amber-border:       #3a2810;
+  --amber-surface-2:    #1a1508;
+  --error-surface:      #1e0f0f;
+  --error-border:       #3a1818;
+  --avatar-bg:          #1e3a5f;
+  --avatar-text:        #7aabdd;
+  --sidebar-bg:         #0f172a;
+  --sidebar-text:       #f1f5f9;
+  --sidebar-muted:      #64748b;
+  --sidebar-border:     rgba(255,255,255,0.05);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
-    font-family: "Cairo", system-ui, sans-serif;
+    @apply antialiased;
+    background: var(--app-bg);
+    color: var(--text-1);
+    font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes costIn {
+    from { opacity: 0; transform: translateX(8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes totalReveal {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+  @keyframes dotPulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); }
+  }
+  @keyframes headerShimmer {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
   }
 
   .dir-rtl {
@@ -28,11 +113,24 @@
   }
 
   .sidebar-link-active {
-    @apply bg-emerald-500/10 text-emerald-400 border-emerald-400;
+    background: var(--accent-surface);
+    color: #059669;
+    border-color: #059669;
+  }
+
+  html.dark .sidebar-link-active {
+    color: #34d399;
+    border-color: #34d399;
   }
 
   .sidebar-link-inactive {
-    @apply text-slate-400 hover:bg-white/5 hover:text-slate-200 border-transparent;
+    color: var(--sidebar-muted);
+    border-color: transparent;
+  }
+
+  .sidebar-link-inactive:hover {
+    background: var(--hover-bg);
+    color: var(--sidebar-text);
   }
 
   /* ── Page typography ── */
