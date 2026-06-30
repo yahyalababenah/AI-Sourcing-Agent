@@ -129,7 +129,13 @@ class Settings(BaseSettings):
         default=["localhost", "127.0.0.1", "api", "*.aisourcing.example.com"]
     )
     CORS_ORIGINS: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000", "http://localhost:5173"]
+        default=[
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://localhost:5173",
+            "https://ai-sourcing-agent-rbv5zt8nv-yahia-s-projects05.vercel.app",
+            "https://yahyoha-ai-sourcing-hub.hf.space",
+        ]
     )
 
     @computed_field
