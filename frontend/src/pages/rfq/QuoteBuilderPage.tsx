@@ -1,12 +1,23 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { ArrowRight, Calculator, Send, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { isAxiosError } from "axios";
+import { ArrowRight, Calculator, Send, AlertCircle, CheckCircle, Loader2, Package, X, Search } from "lucide-react";
 import { intakeService } from "@/services/intakeService";
 import { pricingService } from "@/services/pricingService";
 import { quotationService } from "@/services/quotationService";
+import { catalogService } from "@/services/catalogService";
 import { ROUTES } from "@/constants/routes";
 import type { CalculatePriceResponse } from "@/types/pricing";
+import type { CatalogProduct } from "@/types/catalog";
+
+function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err)) {
+    const backendMessage = err.response?.data?.error?.message;
+    if (typeof backendMessage === "string") return backendMessage;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -48,6 +59,8 @@ export function QuoteBuilderPage() {
   const [deliveryTerms, setDeliveryTerms]   = useState("FOB Shenzhen");
   const [validityDays, setValidityDays]     = useState(30);
   const [submitError, setSubmitError]       = useState<string | null>(null);
+  const [catalogQuery, setCatalogQuery]     = useState("");
+  const [selectedCatalogProduct, setSelectedCatalogProduct] = useState<CatalogProduct | null>(null);
 
   // ── Load RFQ ─────────────────────────────────────────────────────────────
   const { data: rfq, isLoading: rfqLoading } = useQuery({
@@ -58,6 +71,21 @@ export function QuoteBuilderPage() {
 
   // ── Derive pricing inputs from RFQ ────────────────────────────────────────
   const pi = useMemo(() => (rfq ? extractPricingInput(rfq) : null), [rfq]);
+
+  // ── Catalog product search (optional link for MOQ enforcement) ───────────
+  const { data: catalogResults, isFetching: catalogSearching } = useQuery({
+    queryKey: ["catalog-search", catalogQuery],
+    queryFn: () => catalogService.search({ q: catalogQuery, page_size: 8 }),
+    enabled: catalogQuery.trim().length >= 2,
+  });
+
+  const moqViolation = useMemo(() => {
+    if (!selectedCatalogProduct?.moq || !pi) return null;
+    if (pi.quantity < selectedCatalogProduct.moq) {
+      return `الكمية المطلوبة (${pi.quantity.toLocaleString()}) أقل من الحد الأدنى للطلب لدى المورد (MOQ: ${selectedCatalogProduct.moq.toLocaleString()})`;
+    }
+    return null;
+  }, [selectedCatalogProduct, pi]);
 
   // Effective unit price: manual input wins, else extracted from RFQ
   const effectiveUnitPrice = useMemo(() => {
@@ -105,6 +133,7 @@ export function QuoteBuilderPage() {
 
     const lineItems = calc.line_items.map((l) => ({
       product_id:         l.product_id,
+      catalog_product_id: selectedCatalogProduct?.id,
       product_name:       l.product_name,
       quantity:           l.quantity,
       unit_price_cny:     l.unit_price_cny,
@@ -143,7 +172,7 @@ export function QuoteBuilderPage() {
     onSuccess: (res) => {
       navigate(ROUTES.QUOTES.DETAIL(res.quotation_id ?? res.task_id));
     },
-    onError: (err: Error) => setSubmitError(err.message),
+    onError: (err: Error) => setSubmitError(extractApiErrorMessage(err, "تعذّر إرسال عرض السعر")),
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -214,6 +243,74 @@ export function QuoteBuilderPage() {
                 السعر الأساسي: {pi.unitPrice} CNY
               </span>
             )}
+          </div>
+        )}
+      </Section>
+
+      {/* ── Catalog Product Link (optional, enforces supplier MOQ) ── */}
+      <Section title="ربط بمنتج من كتالوج المورد (اختياري)">
+        {selectedCatalogProduct ? (
+          <div className="flex items-center justify-between rounded-lg border border-primary-200 bg-primary-50 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Package className="h-4 w-4 text-primary-600" />
+              <span className="font-medium text-gray-800">{selectedCatalogProduct.product_name}</span>
+              {selectedCatalogProduct.moq && (
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs text-gray-600">
+                  MOQ: {selectedCatalogProduct.moq.toLocaleString()}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedCatalogProduct(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="relative">
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={catalogQuery}
+                onChange={(e) => setCatalogQuery(e.target.value)}
+                placeholder="ابحث باسم المنتج لربطه بمنتج مورد محدد..."
+                className="w-full rounded-lg border border-gray-300 py-2.5 pr-9 pl-4 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+            {catalogSearching && (
+              <p className="mt-2 text-xs text-gray-400">جاري البحث...</p>
+            )}
+            {catalogResults && catalogResults.items.length > 0 && (
+              <div className="mt-2 max-h-56 divide-y divide-gray-50 overflow-y-auto rounded-lg border border-gray-100">
+                {catalogResults.items.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setSelectedCatalogProduct(p); setCatalogQuery(""); }}
+                    className="flex w-full items-center justify-between px-4 py-2.5 text-right text-sm hover:bg-gray-50"
+                  >
+                    <span className="font-medium text-gray-800">{p.product_name}</span>
+                    <span className="flex items-center gap-2 text-xs text-gray-500">
+                      {p.supplier_name && <span>{p.supplier_name}</span>}
+                      {p.moq && <span className="rounded-full bg-gray-100 px-2 py-0.5">MOQ: {p.moq.toLocaleString()}</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {catalogResults && catalogQuery.trim().length >= 2 && catalogResults.items.length === 0 && !catalogSearching && (
+              <p className="mt-2 text-xs text-gray-400">لا توجد نتائج مطابقة</p>
+            )}
+            <p className="mt-1.5 text-xs text-gray-400">
+              اربط هذا العرض بمنتج محدد من كتالوج المورد ليتحقق النظام تلقائياً من الحد الأدنى للطلب (MOQ)
+            </p>
+          </div>
+        )}
+        {moqViolation && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-600">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {moqViolation}
           </div>
         )}
       </Section>
@@ -440,7 +537,7 @@ export function QuoteBuilderPage() {
 
         <button
           onClick={() => { setSubmitError(null); sendMutation.mutate(); }}
-          disabled={sendMutation.isPending || sendMutation.isSuccess || !hasEffectivePrice || (hasEffectivePrice && !calc)}
+          disabled={sendMutation.isPending || sendMutation.isSuccess || !hasEffectivePrice || (hasEffectivePrice && !calc) || !!moqViolation}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
         >
           {sendMutation.isPending ? (

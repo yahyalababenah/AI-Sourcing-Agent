@@ -1,5 +1,6 @@
 export interface QuotationLineItem {
   product_id: string;
+  catalog_product_id?: string;
   product_name: string;
   quantity: number;
   unit_price_cny: number;
