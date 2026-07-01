@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.config import settings
+from app.modules.catalog.models import CatalogProduct
 from app.modules.intake.models import RFQ, RFQStatus
 from app.modules.output.models import Quotation, QuotationStatus
 from app.modules.output.schemas import (
@@ -28,7 +29,7 @@ from app.modules.output.schemas import (
     QuotationResponse,
 )
 from app.modules.pricing.models import QuotationLineItem
-from app.shared.exceptions import NotFoundException, QuoteGenerationError
+from app.shared.exceptions import NotFoundException, QuoteGenerationError, ValidationError
 from app.shared.logging import get_logger
 from app.shared.storage import storage_client
 
@@ -38,6 +39,43 @@ logger = get_logger(__name__)
 # ═══════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════
+
+async def _validate_moq(db: AsyncSession, line_items: list) -> None:
+    """Reject line items whose quantity is below the catalog product's MOQ.
+
+    Only applies to line items that reference a specific ``catalog_product_id``;
+    manually-entered line items with no catalog link are not checked.
+    """
+    catalog_ids = {
+        uuid.UUID(item.catalog_product_id)
+        for item in line_items
+        if item.catalog_product_id
+    }
+    if not catalog_ids:
+        return
+
+    result = await db.execute(
+        select(CatalogProduct).where(CatalogProduct.id.in_(catalog_ids))
+    )
+    products_by_id = {p.id: p for p in result.scalars().all()}
+
+    violations = []
+    for item in line_items:
+        if not item.catalog_product_id:
+            continue
+        product = products_by_id.get(uuid.UUID(item.catalog_product_id))
+        if product and product.moq and item.quantity < product.moq:
+            violations.append(
+                f"{item.product_name}: quantity {item.quantity} is below "
+                f"supplier MOQ of {product.moq}"
+            )
+
+    if violations:
+        raise ValidationError(
+            message="One or more line items are below the supplier's minimum order quantity",
+            details={"moq_violations": violations},
+        )
+
 
 def _generate_quotation_number() -> str:
     """Generate a unique quotation number.
@@ -82,6 +120,8 @@ async def create_quotation(
             resource_id=data.rfq_id,
         )
 
+    await _validate_moq(db, data.line_items)
+
     # Create quotation
     quotation = Quotation(
         rfq_id=uuid.UUID(data.rfq_id),
@@ -108,6 +148,9 @@ async def create_quotation(
     # Create line items
     for item in data.line_items:
         product_uuid = uuid.UUID(item.product_id) if item.product_id else None
+        catalog_product_uuid = (
+            uuid.UUID(item.catalog_product_id) if item.catalog_product_id else None
+        )
         exchange_rate = item.exchange_rate if item.exchange_rate is not None else data.exchange_rate_used
         computed_subtotal = item.subtotal if item.subtotal is not None else (
             item.unit_price_converted * item.quantity
@@ -116,6 +159,7 @@ async def create_quotation(
         line_item = QuotationLineItem(
             quotation_id=quotation.id,
             product_id=product_uuid,
+            catalog_product_id=catalog_product_uuid,
             product_name=item.product_name,
             quantity=item.quantity,
             unit_price_cny=item.unit_price_cny,

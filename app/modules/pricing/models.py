@@ -96,6 +96,10 @@ class QuotationLineItem(Base):
     product_id = Column(
         UUID(as_uuid=True), ForeignKey("products.id"), nullable=True
     )
+    catalog_product_id = Column(
+        UUID(as_uuid=True), ForeignKey("catalog_products.id"), nullable=True,
+        doc="Supplier catalog product this line item was quoted from, if any",
+    )
     product_name = Column(String(255), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price_cny = Column(Float, nullable=False)  # Price in CNY
