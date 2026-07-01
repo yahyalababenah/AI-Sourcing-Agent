@@ -11,6 +11,7 @@ class QuotationLineItemSchema(BaseModel):
     """A single line item in a quotation."""
 
     product_id: Optional[str] = None
+    catalog_product_id: Optional[str] = None
     product_name: str
     quantity: int
     unit_price_cny: float
@@ -30,6 +31,7 @@ class QuotationLineItemResponse(BaseModel):
     id: UUID
     quotation_id: UUID
     product_id: Optional[UUID] = None
+    catalog_product_id: Optional[UUID] = None
     product_name: str
     quantity: int
     unit_price_cny: float
