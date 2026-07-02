@@ -74,6 +74,8 @@ class LineItemInput:
     quantity: int
     unit_price_cny: float
     weight_kg: float = 0.0  # Per-unit weight for CBM estimation
+    hs_entry: Optional[dict] = None  # HSCodeFeeSchedule fields, pre-loaded by service.py
+    has_license: bool = False  # Whether the importer has confirmed the required license/certificate
 
 
 @dataclass
@@ -87,12 +89,18 @@ class LineItemResult:
     exchange_rate: float
     unit_price_converted: float
     freight_cost: float
+    insurance_cost: float
+    cif_value: float
     customs_duty: float
     clearance_fee: float
     commission: float
     subtotal: float
     discount: float
     total: float
+    service_flat_301: float = 0.0
+    service_percent_070: float = 0.0
+    penalty_018: float = 0.0
+    hs_code_matched: bool = False
 
 
 # ═══════════════════════════════════════════════════════════
@@ -103,20 +111,25 @@ class PricingEngine:
     """Core pricing engine applying the landed cost algorithm."""
 
     # ── Default rule values (overridden by DB rules) ──
+    # NOTE (corrected): exchange rate and customs/VAT base logic were verified
+    # against a real Jordan Customs (JCAP) tax-simulation result and fixed
+    # accordingly — see calculate_landed_cost() docstring for the change log.
     DEFAULTS = {
-        # Exchange rates
-        "exchange_rate_cny_jod": 0.077,  # 1 CNY ≈ 0.077 JOD
-        "exchange_rate_cny_usd": 0.14,   # 1 CNY ≈ 0.14 USD
+        # Exchange rates — was stale at 0.077, updated to current market rate
+        "exchange_rate_cny_jod": 0.1047,  # 1 CNY ≈ 0.1047 JOD (live refresh preferred; see /exchange-rates/refresh)
+        "exchange_rate_cny_usd": 0.14,    # 1 CNY ≈ 0.14 USD
         # Sea freight per CBM (roadmap §2.4.1)
-        "sea_freight_aqaba": 75.0,       # $75 / CBM to Aqaba
+        "sea_freight_aqaba": 75.0,       # $75 / CBM to Aqaba (within researched 30-90 USD/CBM LCL range)
         "sea_freight_jeddah": 60.0,      # $60 / CBM to Jeddah
         "sea_freight_default": 80.0,     # $80 / CBM fallback
-        # Customs duty rate (Jordan)
-        "customs_duty_rate_general": 0.05,  # 5% general
+        # Insurance — CIF = Cost + Insurance + Freight; this was missing entirely before
+        "insurance_rate": 0.01,          # 1% of (goods value + freight), typical marine cargo insurance
+        # Customs duty rate (Jordan) — ad valorem, applied on CIF, NOT goods price alone
+        "customs_duty_rate_general": 0.05,  # 5% general — ⚠️ VERIFY per actual HS-Code via JCAP; varies 0-30% by category
         "customs_duty_rate_reduced": 0.0,   # 0% for certain goods
-        # Clearance fee (flat, USD)
+        # Clearance fee (flat, USD) — private broker/port fee, kept separate from the government VAT base
         "clearance_fee": 150.0,          # $150 flat clearance fee
-        # Commission
+        # Commission — platform/agent fee, NOT part of the government tax (VAT) base
         "commission_rate_standard": 0.03,   # 3%
         "commission_rate_premium": 0.05,    # 5%
         # MOQ Discounts
@@ -124,7 +137,7 @@ class PricingEngine:
         "moq_discount_5000_plus": 0.05,     # 5% off for ≥5000 units
         "moq_discount_10000_plus": 0.08,    # 8% off for ≥10000 units
         # Other
-        "vat_rate": 0.16,                   # 16% VAT (Jordan)
+        "vat_rate": 0.16,                   # 16% GST — confirmed against real JCAP result: base = (CIF + customs duty)
         "target_margin": 0.15,              # 15% target margin
         "early_payment_discount": 0.02,     # 2% for early payment
     }
@@ -186,21 +199,31 @@ class PricingEngine:
         destination_port: str,
         currency: str,
         agent_commission_pct: float = 3.0,
+        hs_entry: Optional[dict] = None,
+        has_license: bool = False,
     ) -> dict:
-        """Calculate landed cost for a single product (9-step algorithm).
+        """Calculate landed cost for a single product (10-step algorithm).
 
-        Implements the roadmap §2.4.1 algorithm:
+        CORRECTED ALGORITHM (verified against a real Jordan Customs JCAP
+        tax-simulation result — see PROJECT_STATUS_REPORT / pricing chat log):
+        the previous version computed customs duty on goods price alone and
+        VAT on the full post-commission total. Both diverged from the real
+        JCAP result, where: customs duty is levied on CIF (goods + freight +
+        insurance), and GST/VAT = (CIF + duty) × 16% — NOT on freight,
+        clearance, or commission.
 
           1. ``price_usd = price_rmb * exchange_rate_cny_usd``
           2. ``price_local = price_usd × (USD → currency)``
           3. ``volume_cbm = estimate_volume_cbm(weight_kg)``
           4. ``freight_per_unit = (sea_freight_{port} × volume_cbm) / quantity``
-          5. ``customs_per_unit = price_local × (customs_rate / 100)``
-          6. ``clearance_per_unit = clearance_fee / quantity``
-          7. ``commission_per_unit = (price_local + freight + customs + clearance)
-                                   × (agent_commission_pct / 100)``
-          8. ``total_per_unit = price_local + freight + customs + clearance + commission``
-          9. Return full breakdown dict
+          5. ``insurance_per_unit = (price_local + freight_per_unit) × insurance_rate``
+          6. ``cif_per_unit = price_local + freight_per_unit + insurance_per_unit``
+          7. ``customs_per_unit = cif_per_unit × (customs_rate / 100)``  ← base is CIF, not goods price alone
+          8. ``clearance_per_unit = clearance_fee / quantity``  (private broker/port fee, excluded from VAT base)
+          9. ``commission_per_unit = (price_local + freight + customs + clearance)
+                                   × (agent_commission_pct / 100)``  (platform fee, excluded from VAT base)
+          10. ``total_per_unit = price_local + freight + customs + clearance + commission``
+              (VAT is computed separately by the caller on CIF+duty and added on top — see calculate())
 
         Args:
             price_rmb: Unit price in RMB/CNY.
@@ -209,6 +232,14 @@ class PricingEngine:
             destination_port: Destination port name (e.g. "Aqaba", "Jeddah").
             currency: Target currency code (e.g. "JOD", "USD").
             agent_commission_pct: Commission percentage (default 3.0%).
+            hs_entry: Optional pre-loaded HSCodeFeeSchedule fields (dict) for
+                this product's HS code. When present, duty (001), the flat
+                (301) and percent (070) service fees, and the conditional
+                import penalty (018) are computed from it instead of the
+                general customs_duty_rate_general fallback.
+            has_license: Whether the importer has confirmed the required
+                license/conformity certificate for hs_entry.requires_license.
+                Only relevant when hs_entry is provided.
 
         Returns:
             Dict with all intermediate and final values.
@@ -261,17 +292,60 @@ class PricingEngine:
         total_freight = sea_freight_cbm * volume_cbm
         freight_per_unit = total_freight / max(quantity, 1)
 
-        # ── Step 5: Customs duty ──
-        customs_rate = self._get_rule_value("customs_duty_rate_general", 0.05)
-        customs_per_unit = price_local * customs_rate
+        # ── Step 5: Insurance (was missing entirely — CIF requires it) ──
+        insurance_rate = self._get_rule_value("insurance_rate", 0.01)
+        insurance_per_unit = (price_local + freight_per_unit) * insurance_rate
 
-        # ── Step 6: Clearance fee ──
+        # ── Step 6: CIF value (Cost + Insurance + Freight) — the official customs valuation base ──
+        cif_per_unit = price_local + freight_per_unit + insurance_per_unit
+
+        # ── Step 7: Customs duty (001) — levied on CIF, not on goods price alone ──
+        # If an HS-Code fee schedule is available, it replaces the general fallback
+        # rate for 001, and additionally supplies 301 (flat service fee), 070
+        # (percent service fee), and 018 (conditional import penalty). All four
+        # are real JCAP tax-simulation line items; only 001 feeds into the VAT
+        # (020) base — see calculate() for vat_base_total, which stays CIF+001 only.
+        service_flat_per_unit = 0.0
+        service_percent_per_unit = 0.0
+        penalty_per_unit = 0.0
+        hs_code_matched = False
+        hs_rules_applied: list[str] = []
+
+        if hs_entry is not None:
+            hs_code_matched = True
+            customs_rate = hs_entry["duty_rate_001"] / 100.0
+            customs_per_unit = cif_per_unit * customs_rate
+            service_percent_per_unit = cif_per_unit * (hs_entry["service_percent_070"] / 100.0)
+            service_flat_per_unit = hs_entry["service_flat_fee_301"] / max(quantity, 1)
+            if hs_entry.get("requires_license") and not has_license:
+                penalty_per_unit = cif_per_unit * (hs_entry["penalty_rate_018"] / 100.0)
+                hs_rules_applied.append(
+                    "penalty_018:conditional=license/conformity certificate not confirmed"
+                )
+            hs_rules_applied.append(f"customs_rate={customs_rate}(base=CIF,hs_code_matched)")
+            hs_rules_applied.append(f"service_percent_070={hs_entry['service_percent_070']}%")
+            hs_rules_applied.append(f"service_flat_301={hs_entry['service_flat_fee_301']}")
+        else:
+            customs_rate = self._get_rule_value("customs_duty_rate_general", 0.05)
+            customs_per_unit = cif_per_unit * customs_rate
+            hs_rules_applied.append(f"customs_rate={customs_rate}(base=CIF)")
+            hs_rules_applied.append("hs_code_not_found:fallback_to_general_rate")
+
+        # ── Step 8: Clearance fee (private broker/port fee — excluded from VAT base) ──
         clearance_fee_total = self._get_rule_value("clearance_fee", 150.0)
         clearance_per_unit = clearance_fee_total / max(quantity, 1)
 
-        # ── Step 7: Commission ──
+        # ── Step 9: Commission (platform/agent fee — excluded from VAT base) ──
+        # 301/070/018 are real importer costs like clearance, so they're added to
+        # the commercial total the same way — but excluded from the VAT base.
         total_before_commission = (
-            price_local + freight_per_unit + customs_per_unit + clearance_per_unit
+            price_local
+            + freight_per_unit
+            + customs_per_unit
+            + clearance_per_unit
+            + service_percent_per_unit
+            + service_flat_per_unit
+            + penalty_per_unit
         )
         commission_pct = agent_commission_pct / 100.0
         commission_per_unit = total_before_commission * commission_pct
@@ -286,9 +360,10 @@ class PricingEngine:
             f"exchange_rate:usd_{currency_upper}={usd_rate}",
             f"sea_freight:{port_rule_name}={sea_freight_cbm}",
             f"volume_cbm={volume_cbm:.4f}",
-            f"customs_rate={customs_rate}",
+            f"insurance_rate={insurance_rate}",
             f"clearance_fee={clearance_fee_total}",
             f"commission_pct={agent_commission_pct}%",
+            *hs_rules_applied,
         ]
 
         return {
@@ -298,8 +373,14 @@ class PricingEngine:
             "volume_cbm": round(volume_cbm, 4),
             "sea_freight_cbm": sea_freight_cbm,
             "freight_per_unit": round(freight_per_unit, 2),
+            "insurance_per_unit": round(insurance_per_unit, 2),
+            "cif_per_unit": round(cif_per_unit, 2),
             "customs_per_unit": round(customs_per_unit, 2),
             "clearance_per_unit": round(clearance_per_unit, 2),
+            "service_flat_per_unit": round(service_flat_per_unit, 2),
+            "service_percent_per_unit": round(service_percent_per_unit, 2),
+            "penalty_per_unit": round(penalty_per_unit, 2),
+            "hs_code_matched": hs_code_matched,
             "commission_per_unit": round(commission_per_unit, 2),
             "total_per_unit": round(total_per_unit, 2),
             "grand_total": round(grand_total, 2),
@@ -347,9 +428,11 @@ class PricingEngine:
         grand_total = 0.0
         discount_total = 0.0
         total_freight = 0.0
+        total_insurance = 0.0
         total_customs = 0.0
         total_clearance = 0.0
         total_commission = 0.0
+        vat_base_total = 0.0  # sum of (CIF + duty) per line — the correct GST base per JCAP
 
         for product in products:
             # Run landed cost for this product
@@ -360,6 +443,8 @@ class PricingEngine:
                 destination_port=destination_port,
                 currency=target_currency,
                 agent_commission_pct=agent_commission_pct,
+                hs_entry=product.hs_entry,
+                has_license=product.has_license,
             )
 
             # MOQ discount
@@ -376,32 +461,46 @@ class PricingEngine:
                 exchange_rate=lc["exchange_rate_used"],
                 unit_price_converted=lc["price_local"],
                 freight_cost=lc["freight_per_unit"] * product.quantity,
+                insurance_cost=lc["insurance_per_unit"] * product.quantity,
+                cif_value=lc["cif_per_unit"] * product.quantity,
                 customs_duty=lc["customs_per_unit"] * product.quantity,
                 clearance_fee=lc["clearance_per_unit"] * product.quantity,
                 commission=lc["commission_per_unit"] * product.quantity,
                 subtotal=lc["price_local"] * product.quantity,
                 discount=round(discount, 2),
                 total=round(line_total, 2),
+                service_flat_301=round(lc["service_flat_per_unit"] * product.quantity, 2),
+                service_percent_070=round(lc["service_percent_per_unit"] * product.quantity, 2),
+                penalty_018=round(lc["penalty_per_unit"] * product.quantity, 2),
+                hs_code_matched=lc["hs_code_matched"],
             )
             line_items.append(line_item)
 
             grand_total += line_total
             discount_total += discount
             total_freight += lc["freight_per_unit"] * product.quantity
+            total_insurance += lc["insurance_per_unit"] * product.quantity
             total_customs += lc["customs_per_unit"] * product.quantity
             total_clearance += lc["clearance_per_unit"] * product.quantity
             total_commission += lc["commission_per_unit"] * product.quantity
+            # CORRECTED: VAT base is (CIF + duty) per JCAP, not the full commercial total
+            vat_base_total += (lc["cif_per_unit"] + lc["customs_per_unit"]) * product.quantity
             ctx.rules_applied.extend(lc["rules_applied"])
 
-        # Early payment discount
+        # Early payment discount — applied against the commercial subtotal (business rule, not government tax)
         early_discount_rate = self._early_payment_discount(ctx)
         early_discount = grand_total * early_discount_rate
         discount_total += early_discount
 
-        # VAT on grand total
-        vat = self._calculate_vat(ctx, grand_total)
+        # VAT — CORRECTED: computed on (CIF + customs duty) only, per verified JCAP
+        # result, NOT on the full commercial total (which also includes freight,
+        # clearance fee, and platform commission — none of which belong in the
+        # government tax base). VAT is still added on top of the commercial total,
+        # since it is a real cost the importer must pay.
+        vat = self._calculate_vat(ctx, vat_base_total)
 
-        # Final total
+        # Final total = commercial total (goods+freight+insurance+duty+clearance+commission)
+        # + VAT (on CIF+duty only) - early payment discount
         final_total = grand_total + vat - early_discount
 
         # Target margin check
@@ -420,12 +519,18 @@ class PricingEngine:
                     "exchange_rate": li.exchange_rate,
                     "unit_price_converted": li.unit_price_converted,
                     "freight_cost": li.freight_cost,
+                    "insurance_cost": li.insurance_cost,
+                    "cif_value": li.cif_value,
                     "customs_duty": li.customs_duty,
                     "clearance_fee": li.clearance_fee,
                     "commission": li.commission,
                     "subtotal": li.subtotal,
                     "discount": li.discount,
                     "total": li.total,
+                    "service_flat_301": li.service_flat_301,
+                    "service_percent_070": li.service_percent_070,
+                    "penalty_018": li.penalty_018,
+                    "hs_code_matched": li.hs_code_matched,
                 }
                 for li in line_items
             ],
