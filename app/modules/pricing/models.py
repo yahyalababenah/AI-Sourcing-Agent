@@ -84,6 +84,41 @@ class PricingRule(Base):
         return f"<PricingRule(id={self.id}, name={self.name}, category={self.category})>"
 
 
+class HSCodeFeeSchedule(Base):
+    """Multi-item customs fee schedule for a specific Harmonized System code.
+
+    Real Jordan Customs (JCAP) tax simulations return multiple separate line
+    items per HS code (001 duty, 020 VAT, 301 flat service fee, 070 percent
+    service fee, 018 conditional import penalty) rather than a single general
+    rate. This table stores the per-HS-code values for those items, verified
+    against real JCAP simulation results where available.
+    """
+
+    __tablename__ = "hs_code_fee_schedules"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    hs_code = Column(String(50), nullable=False, unique=True, index=True)
+    description = Column(String(500), nullable=True)
+    duty_rate_001 = Column(Float, nullable=False)  # % on CIF
+    service_flat_fee_301 = Column(Float, nullable=False, default=0.0)  # flat JOD
+    service_percent_070 = Column(Float, nullable=False, default=0.0)  # % on CIF
+    requires_license = Column(Boolean, nullable=False, default=False)
+    penalty_rate_018 = Column(Float, nullable=False, default=0.0)  # % on CIF, conditional
+    is_verified = Column(Boolean, nullable=False, default=False)
+    source_note = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<HSCodeFeeSchedule(hs_code={self.hs_code}, verified={self.is_verified})>"
+
+
 class QuotationLineItem(Base):
     """An individual line item within a calculated quotation."""
 
