@@ -54,6 +54,8 @@ export interface Product {
   quantity: number;
   specifications?: string;
   target_price?: number;
+  /** Per-unit weight in kg, if known — the intake pipeline doesn't currently populate this. */
+  weight_kg?: number;
   extracted_metadata?: Record<string, unknown>;
   status: string;
   created_at: string;
