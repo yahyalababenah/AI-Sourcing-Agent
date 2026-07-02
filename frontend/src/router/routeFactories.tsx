@@ -22,6 +22,7 @@ import { OrderTrackingPage } from "@/pages/orders/OrderTrackingPage";
 import { OrdersListPage } from "@/pages/orders/OrdersListPage";
 import { AdminVerificationPage } from "@/pages/admin/AdminVerificationPage";
 import { AdminMonitorPage } from "@/pages/admin/AdminMonitorPage";
+import { AdminHSCodeSchedulesPage } from "@/pages/admin/AdminHSCodeSchedulesPage";
 import { ChatRoomListPage } from "@/pages/chat/ChatRoomListPage";
 import { ChatRoomDetailPage } from "@/pages/chat/ChatRoomDetailPage";
 import type { RouteObject } from "react-router-dom";
@@ -211,6 +212,16 @@ export const sharedRoutes: RouteObject[] = [
     element: (
       <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
         <AdminMonitorPage />
+      </RoleGuard>
+    ),
+  },
+
+  // ── Admin: HS-Code Fee Schedules (admin only) ──
+  {
+    path: ROUTES.ADMIN.HS_CODES,
+    element: (
+      <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <AdminHSCodeSchedulesPage />
       </RoleGuard>
     ),
   },
