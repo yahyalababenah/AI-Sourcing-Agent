@@ -171,21 +171,24 @@ class TestRegister:
         assert data["profile"]["preferred_port"] == "Aqaba"
         assert data["profile"]["contact_number"] == "+962700000001"
 
-    async def test_register_admin_success(self, client: AsyncClient):
-        """Should register an admin (no profile needed)."""
+    async def test_register_admin_rejected(self, client: AsyncClient):
+        """Should reject self-registration as admin (TESTING_FINDINGS.md #0e).
+
+        Admin accounts must never be creatable by an unauthenticated caller
+        through the public registration endpoint — only client/agent are
+        self-registerable roles.
+        """
         response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": "admin@test.com",
-                "password": "securepass123",
+                "password": "Secure@123",
                 "full_name": "Admin User",
                 "role": "admin",
             },
         )
-        assert response.status_code == 201
-        data = response.json()
-        assert data["role"] == "admin"
-        assert data["profile"] is None  # Admin has no profile
+        assert response.status_code == 422
+        assert "admin" not in response.json()["error"]["details"]["valid_roles"]
 
     # ── Validation Cases ──
 

@@ -10,6 +10,7 @@ import { catalogService } from "@/services/catalogService";
 import { ROUTES } from "@/constants/routes";
 import type { CalculatePriceResponse } from "@/types/pricing";
 import type { CatalogProduct } from "@/types/catalog";
+import type { Product } from "@/types/intake";
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
@@ -25,11 +26,27 @@ function fmt(n: number, currency = "JOD") {
   return `${n.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
-function extractPricingInput(rfq: { extracted_entities?: Record<string, unknown>; target_currency?: string; destination_port?: string }) {
+function extractPricingInput(
+  rfq: { extracted_entities?: Record<string, unknown>; target_currency?: string; destination_port?: string },
+  products?: Product[]
+) {
   const ent = rfq.extracted_entities ?? {};
+  // Quantity and product name have a real, structured source of truth — the
+  // RFQ's Product row(s) (same data RFQDetailPage/RFQListPage/the dashboard
+  // show) — which must win over the AI-extraction JSONB blob whenever it
+  // exists. Previously this always read from `extracted_entities` alone, so
+  // any RFQ whose product was added via the normal "add product" flow
+  // (never ran through AI translation) silently priced quantity=1 with a
+  // generic "منتج" name instead of the real quantity/name — a demo-visible
+  // and production-real bug (e.g. an 8-unit order priced as 1 unit).
+  // Unit price has no such structured source (Product.target_price is the
+  // client's budget guess in the target currency, not a CNY supplier price),
+  // so it still only comes from extraction, with the existing manual-entry
+  // fallback UI handling the common case where it's missing.
+  const firstProduct = products?.[0];
   const unitPrice = parseFloat(String(ent.unit_price_rmb ?? ent.unit_price ?? ent.price ?? 0));
-  const quantity  = parseInt(String(ent.quantity ?? 1), 10);
-  const productName = String(ent.product_name ?? ent.name ?? "منتج");
+  const quantity = firstProduct?.quantity ?? parseInt(String(ent.quantity ?? 1), 10);
+  const productName = firstProduct?.name ?? String(ent.product_name ?? ent.name ?? "منتج");
   const modelNumber = ent.model_number ? String(ent.model_number) : undefined;
   return { unitPrice, quantity, productName, modelNumber };
 }
@@ -69,8 +86,16 @@ export function QuoteBuilderPage() {
     enabled: !!rfqId,
   });
 
+  // ── Load the RFQ's real product(s) — the structured source of truth for
+  //    quantity/name, overriding the AI-extraction-only fallback below ──
+  const { data: products } = useQuery({
+    queryKey: ["rfq-products", rfqId],
+    queryFn: () => intakeService.listProducts(rfqId!),
+    enabled: !!rfqId,
+  });
+
   // ── Derive pricing inputs from RFQ ────────────────────────────────────────
-  const pi = useMemo(() => (rfq ? extractPricingInput(rfq) : null), [rfq]);
+  const pi = useMemo(() => (rfq ? extractPricingInput(rfq, products) : null), [rfq, products]);
 
   // ── Catalog product search (optional link for MOQ enforcement) ───────────
   const { data: catalogResults, isFetching: catalogSearching } = useQuery({
@@ -131,8 +156,20 @@ export function QuoteBuilderPage() {
     const currency = calc.target_currency;
     const rate = calc.exchange_rate_used;
 
+    // `l.product_id` here is whatever was sent to /pricing/calculate as a
+    // passthrough identifier — this page always sends the RFQ's own id
+    // (harmless there, since /pricing/calculate never validates it against
+    // anything). Using that same value as the quotation line item's
+    // product_id is NOT harmless: it's a real FK to `products`, and an RFQ's
+    // id is never a valid Product id, so every "send quote" submission
+    // crashed the backend with a FK violation (verified via direct repro:
+    // POST /quotes/generate → 500, ForeignKeyViolationError on
+    // quotation_line_items_product_id_fkey). Use the RFQ's real Product row
+    // when one exists (the same one whose quantity/name already power this
+    // page after the F9 fix); otherwise omit it — the column is nullable.
+    const realProductId = products?.[0]?.id;
     const lineItems = calc.line_items.map((l) => ({
-      product_id:         l.product_id,
+      product_id:         realProductId,
       catalog_product_id: selectedCatalogProduct?.id,
       product_name:       l.product_name,
       quantity:           l.quantity,
@@ -373,11 +410,25 @@ export function QuoteBuilderPage() {
               </tbody>
             </table>
 
-            {/* Totals */}
+            {/* Totals — each row below must sum exactly to "الإجمالي الكلي".
+                Previously: "بدون شحن" (without shipping) showed
+                calc.subtotal_before_vat, which the backend actually computes
+                WITH the auto-freight already folded in (see
+                engine.py's total_per_unit) — so the label lied. VAT was also
+                inflated by `freightDiff * 0.16` to "explain" the total, even
+                though the pricing engine explicitly excludes freight from
+                the VAT base (see the F6 fix) — meaning the number shown here
+                during editing didn't match `vat_total` actually saved on the
+                quotation via buildPayload() below (which correctly uses the
+                unmodified calc.vat). The discount line was missing entirely,
+                so the three visible rows never added up to the grand total
+                on-screen even before an override. Fixed: subtract autoFreight
+                from the subtotal so the label is literally true, keep VAT as
+                the real backend value, and show the discount explicitly. */}
             <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-1.5 text-sm">
               <div className="flex justify-between text-gray-600">
                 <span>المجموع (بدون شحن وضريبة)</span>
-                <span dir="ltr">{fmt(calc.subtotal_before_vat, currency)}</span>
+                <span dir="ltr">{fmt(calc.subtotal_before_vat - autoFreight, currency)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>
@@ -388,10 +439,16 @@ export function QuoteBuilderPage() {
                 </span>
                 <span dir="ltr">{fmt(agentFreight, currency)}</span>
               </div>
+              {calc.discount_total > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>الخصم (دفع مبكر / كمية)</span>
+                  <span dir="ltr">-{fmt(calc.discount_total, currency)}</span>
+                </div>
+              )}
               {calc.vat > 0 && (
                 <div className="flex justify-between text-gray-600">
                   <span>ضريبة القيمة المضافة</span>
-                  <span dir="ltr">{fmt(calc.vat + (freightDiff * 0.16), currency)}</span>
+                  <span dir="ltr">{fmt(calc.vat, currency)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900">

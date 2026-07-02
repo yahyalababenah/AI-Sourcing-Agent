@@ -42,6 +42,9 @@ export function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [factoryName, setFactoryName] = useState("");
+  const [locationInChina, setLocationInChina] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -49,8 +52,32 @@ export function RegisterPage() {
     e.preventDefault();
     setError("");
 
+    if (!fullName.trim()) {
+      setError("يرجى إدخال الاسم الكامل");
+      return;
+    }
+    if (!email.trim()) {
+      setError("يرجى إدخال البريد الإلكتروني");
+      return;
+    }
+    if (password.length < 8) {
+      setError("كلمة المرور يجب أن تتكون من 8 أحرف على الأقل");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("كلمة المرور وتأكيدها غير متطابقين");
+      return;
+    }
+    if (activeTab === "client" && !companyName.trim()) {
+      setError("يرجى إدخال اسم الشركة");
+      return;
+    }
+    if (activeTab === "agent" && !factoryName.trim()) {
+      setError("يرجى إدخال اسم المصنع");
+      return;
+    }
+    if (activeTab === "agent" && !locationInChina.trim()) {
+      setError("يرجى إدخال موقع المصنع في الصين");
       return;
     }
 
@@ -62,6 +89,9 @@ export function RegisterPage() {
         full_name: fullName,
         phone: phone || undefined,
         role: activeTab,
+        ...(activeTab === "client"
+          ? { company_name: companyName }
+          : { factory_name: factoryName, location_in_china: locationInChina }),
       });
       navigate(ROUTES.DASHBOARD);
     } catch (err: unknown) {
@@ -136,7 +166,13 @@ export function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* noValidate: this form has its own Arabic-language validation
+              messages in handleSubmit — native browser constraint validation
+              (triggered by the `required` attributes below) would otherwise
+              intercept the submit event first and show a generic, non-Arabic
+              validation bubble instead, silently preventing our messages from
+              ever being seen. */}
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <div>
               <label htmlFor="fullName" className="mb-1.5 block text-sm font-medium text-gray-700">
                 الاسم الكامل
@@ -182,6 +218,57 @@ export function RegisterPage() {
                 dir="ltr"
               />
             </div>
+
+            {activeTab === "client" && (
+              <div>
+                <label htmlFor="companyName" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  اسم الشركة
+                </label>
+                <input
+                  id="companyName"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  placeholder="شركة الاستيراد المتحدة"
+                />
+              </div>
+            )}
+
+            {activeTab === "agent" && (
+              <>
+                <div>
+                  <label htmlFor="factoryName" className="mb-1.5 block text-sm font-medium text-gray-700">
+                    اسم المصنع
+                  </label>
+                  <input
+                    id="factoryName"
+                    type="text"
+                    value={factoryName}
+                    onChange={(e) => setFactoryName(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    placeholder="Future Factory Ltd"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="locationInChina" className="mb-1.5 block text-sm font-medium text-gray-700">
+                    موقع المصنع في الصين
+                  </label>
+                  <input
+                    id="locationInChina"
+                    type="text"
+                    value={locationInChina}
+                    onChange={(e) => setLocationInChina(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    placeholder="Guangzhou, Guangdong"
+                  />
+                </div>
+              </>
+            )}
 
             <div>
               <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">

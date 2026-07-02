@@ -66,14 +66,22 @@ class TestCalculateLandedCost:
     def test_basic_calculation(self):
         """Verify the corrected 10-step algorithm produces reasonable results.
 
-        NOTE: expected values updated after fixing two verified bugs:
+        NOTE: expected values updated after fixing three verified bugs:
           - exchange_rate_cny_jod default corrected from stale 0.077 to 0.1047
           - customs duty base corrected from goods-price-only to CIF
             (goods + freight + insurance), matching a real JCAP result.
+          - freight/volume now scales off the TOTAL shipment weight
+            (weight_kg * quantity), not a single unit's weight — previously
+            volume_cbm was computed from weight_kg alone and then divided by
+            quantity a second time when deriving freight_per_unit, so freight
+            silently shrank toward zero as quantity grew instead of staying
+            roughly constant per unit. ``weight_kg`` is the PER-UNIT weight,
+            matching ``CatalogProduct.weight_kg`` and what the frontend sends
+            (see test_freight_scales_with_quantity_not_inversely below).
         """
         result = self.engine.calculate_landed_cost(
             price_rmb=100.0,
-            weight_kg=500.0,   # 1 CBM
+            weight_kg=500.0,   # per-unit weight; 100 units => 50,000 kg total => 100 CBM
             quantity=100,
             destination_port="Aqaba",
             currency="JOD",
@@ -83,16 +91,16 @@ class TestCalculateLandedCost:
         assert result["price_usd"] == 14.0
         # Step 2: price_local = 100 * 0.1047 = 10.47
         assert result["price_local"] == pytest.approx(10.47, rel=0.01)
-        # Step 3: volume_cbm = 500/500 = 1.0
-        assert result["volume_cbm"] == 1.0
-        # Step 4: freight = 75 * 1.0 / 100 = 0.75
-        assert result["freight_per_unit"] == 0.75
-        # Step 5: insurance = (10.47 + 0.75) * 0.01 ≈ 0.1122
-        assert result["insurance_per_unit"] == pytest.approx(0.1122, abs=0.01)
-        # Step 6: CIF = price_local + freight + insurance ≈ 11.3322
-        assert result["cif_per_unit"] == pytest.approx(11.3322, abs=0.01)
-        # Step 7: customs = CIF * 0.05 ≈ 0.5666 (base is CIF, not goods price alone)
-        assert result["customs_per_unit"] == pytest.approx(0.5666, abs=0.01)
+        # Step 3: volume_cbm = (500 * 100)/500 = 100.0 (total shipment volume)
+        assert result["volume_cbm"] == 100.0
+        # Step 4: freight = 75 * 100.0 / 100 = 75.0
+        assert result["freight_per_unit"] == 75.0
+        # Step 5: insurance = (10.47 + 75.0) * 0.01 ≈ 0.8547
+        assert result["insurance_per_unit"] == pytest.approx(0.85, abs=0.01)
+        # Step 6: CIF = price_local + freight + insurance ≈ 86.3247
+        assert result["cif_per_unit"] == pytest.approx(86.32, abs=0.01)
+        # Step 7: customs = CIF * 0.05 ≈ 4.316 (base is CIF, not goods price alone)
+        assert result["customs_per_unit"] == pytest.approx(4.32, abs=0.01)
         # Step 8: clearance = 150 / 100 = 1.5
         assert result["clearance_per_unit"] == 1.5
         # Step 9: commission = (price_local + freight + customs + clearance) * 0.03
@@ -147,15 +155,45 @@ class TestCalculateLandedCost:
         """Jeddah port uses sea_freight_jeddah rule (60/CBM)."""
         result = self.engine.calculate_landed_cost(
             price_rmb=100.0,
-            weight_kg=500.0,  # 1 CBM
+            weight_kg=500.0,  # per-unit weight; 10 units => 5,000 kg total => 10 CBM
             quantity=10,
             destination_port="Jeddah",
             currency="JOD",
             agent_commission_pct=3.0,
         )
         assert result["sea_freight_cbm"] == 60.0
-        # freight_per_unit = 60 * 1.0 / 10 = 6.0
-        assert result["freight_per_unit"] == 6.0
+        # freight_per_unit = 60 * 10.0 / 10 = 60.0
+        assert result["freight_per_unit"] == 60.0
+
+    def test_freight_scales_with_quantity_not_inversely(self):
+        """Regression test for the fixed freight/quantity bug.
+
+        Before the fix, volume_cbm was derived from a single unit's weight
+        and then freight_per_unit divided by quantity a second time, so
+        freight_per_unit shrank toward zero as quantity grew even though the
+        per-unit weight never changed. It must now stay constant per unit
+        when only quantity changes (same per-unit weight), and scale up when
+        the per-unit weight increases (same quantity).
+        """
+        low_qty = self.engine.calculate_landed_cost(
+            price_rmb=100.0, weight_kg=50.0, quantity=10,
+            destination_port="Aqaba", currency="JOD",
+        )
+        high_qty = self.engine.calculate_landed_cost(
+            price_rmb=100.0, weight_kg=50.0, quantity=1000,
+            destination_port="Aqaba", currency="JOD",
+        )
+        # Same per-unit weight, wildly different quantity => freight_per_unit
+        # must be identical (not ~100x smaller as under the old bug).
+        assert low_qty["freight_per_unit"] == pytest.approx(high_qty["freight_per_unit"], rel=1e-9)
+
+        heavier_unit = self.engine.calculate_landed_cost(
+            price_rmb=100.0, weight_kg=500.0, quantity=10,
+            destination_port="Aqaba", currency="JOD",
+        )
+        # Same quantity, 10x heavier per-unit weight => freight_per_unit
+        # must scale up proportionally (10x).
+        assert heavier_unit["freight_per_unit"] == pytest.approx(low_qty["freight_per_unit"] * 10, rel=1e-9)
 
     def test_unknown_port_uses_default_freight(self):
         """Unknown port falls back to sea_freight_default."""
@@ -475,21 +513,32 @@ async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
 
 @pytest.fixture
 async def admin_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
-    """Register an admin and return auth headers."""
-    from app.modules.auth.models import UserRole
+    """Create an admin user directly in the DB and return auth headers.
 
-    register_payload = {
-        "email": "pricing_admin@example.com",
-        "password": "AdminPass123!",
-        "full_name": "Pricing Admin",
-        "role": UserRole.ADMIN.value,
-    }
-    resp = await client.post("/api/v1/auth/register", json=register_payload)
-    assert resp.status_code == 201
-    # Login to get access token (register returns UserResponse, not tokens)
+    Admin accounts can't be self-registered via /auth/register (see
+    TESTING_FINDINGS.md #0e) — matches the direct-insert pattern used by
+    the top-level ``admin_headers`` fixture in tests/conftest.py.
+    """
+    import uuid
+    from app.modules.auth.models import User, UserRole
+    from app.modules.auth.service import _hash_password
+
+    email = "pricing_admin@example.com"
+    password = "AdminPass123!"
+    admin = User(
+        id=uuid.uuid4(),
+        email=email,
+        password_hash=_hash_password(password),
+        full_name="Pricing Admin",
+        role=UserRole.ADMIN,
+        is_active=True,
+    )
+    db_session.add(admin)
+    await db_session.flush()
+
     login_resp = await client.post("/api/v1/auth/login", json={
-        "email": register_payload["email"],
-        "password": register_payload["password"],
+        "email": email,
+        "password": password,
     })
     assert login_resp.status_code == 200
     token = login_resp.json()["access_token"]

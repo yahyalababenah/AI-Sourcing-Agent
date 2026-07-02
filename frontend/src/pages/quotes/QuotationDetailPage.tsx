@@ -73,10 +73,32 @@ export function QuotationDetailPage() {
     },
   });
 
+  // Agent/admin: send the quote to the client. Quotations created via the
+  // quote builder land in "draft" and previously had no way to progress
+  // further — nothing in the app ever called finalize or set status=sent
+  // automatically, so a quote an agent had just "sent" from their
+  // perspective silently sat in draft forever and the client never saw it
+  // as sent. This mirrors the finalize → status=sent sequence already used
+  // (and proven) by scripts/seed_demo_agent.py.
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      if (quote!.status === "draft") {
+        await quotationService.finalize(id!);
+      }
+      return quotationService.updateStatus(id!, "sent");
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotation", id] }),
+  });
+
   const canRespond =
     role === "client" &&
     quote &&
     (quote.status === "sent" || quote.status === "finalized");
+
+  const canSend =
+    role !== "client" &&
+    quote &&
+    (quote.status === "draft" || quote.status === "finalized");
 
   if (isLoading) {
     return (
@@ -293,6 +315,16 @@ export function QuotationDetailPage() {
 
       {/* Actions */}
       <div className="flex flex-wrap gap-3">
+        {canSend && (
+          <button
+            onClick={() => sendMutation.mutate()}
+            disabled={sendMutation.isPending}
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+          >
+            {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+            إرسال العرض للعميل
+          </button>
+        )}
         <button
           onClick={async () => {
             try {

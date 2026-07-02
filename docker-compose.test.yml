@@ -1,0 +1,140 @@
+# ===================================================================
+# AI-Sourcing Hub — Isolated Test Environment
+#
+# Spins up backend + dependencies on non-default ports/volumes so this
+# can run alongside docker-compose.yml (dev) without colliding. Used by
+# Playwright E2E specs (against real services, no mocks) and by any
+# integration test that needs real Postgres/Redis/MinIO/Celery.
+#
+# There is no frontend service here: the repo has no frontend Dockerfile
+# (frontend deploys to Vercel, see frontend/vercel.json) — Playwright's
+# `webServer` config starts `vite preview`/`vite dev` directly instead.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up -d --build
+#   docker compose -f docker-compose.test.yml down -v
+# ===================================================================
+
+services:
+  postgres_test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aisourcing_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password_123
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d aisourcing_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis_test:
+    image: redis:7-alpine
+    command: redis-server --requirepass test_redis_123
+    ports:
+      - "6380:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "test_redis_123", "--raw", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio_test:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: test_minio_access
+      MINIO_ROOT_PASSWORD: test_minio_secret_123
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api_test:
+    build:
+      context: .
+      dockerfile: Dockerfile.hf
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info
+    ports:
+      - "8001:8000"
+    environment:
+      ENVIRONMENT: testing
+      DATABASE_URL: postgresql+asyncpg://test_user:test_password_123@postgres_test:5432/aisourcing_test
+      DB_PASSWORD: test_password_123
+      REDIS_PASSWORD: test_redis_123
+      REDIS_URL: redis://:test_redis_123@redis_test:6379/0
+      CELERY_BROKER_URL: redis://:test_redis_123@redis_test:6379/1
+      CELERY_RESULT_BACKEND: redis://:test_redis_123@redis_test:6379/2
+      JWT_SECRET: test_jwt_secret_key_32_chars_long!!
+      MINIO_ENDPOINT: minio_test:9000
+      MINIO_ACCESS_KEY: test_minio_access
+      MINIO_SECRET_KEY: test_minio_secret_123
+      STORAGE_BACKEND: s3://test_minio_access:test_minio_secret_123@minio_test:9000/aisourcing-test
+      ALLOWED_HOSTS: '["*"]'
+      CORS_ORIGINS: '["*"]'
+    depends_on:
+      postgres_test:
+        condition: service_healthy
+      redis_test:
+        condition: service_healthy
+      minio_test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  celery_worker_test:
+    build:
+      context: .
+      dockerfile: Dockerfile.hf
+    command: celery -A app.shared.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      ENVIRONMENT: testing
+      DATABASE_URL: postgresql+asyncpg://test_user:test_password_123@postgres_test:5432/aisourcing_test
+      DB_PASSWORD: test_password_123
+      REDIS_PASSWORD: test_redis_123
+      REDIS_URL: redis://:test_redis_123@redis_test:6379/0
+      CELERY_BROKER_URL: redis://:test_redis_123@redis_test:6379/1
+      CELERY_RESULT_BACKEND: redis://:test_redis_123@redis_test:6379/2
+      JWT_SECRET: test_jwt_secret_key_32_chars_long!!
+      MINIO_ENDPOINT: minio_test:9000
+      MINIO_ACCESS_KEY: test_minio_access
+      MINIO_SECRET_KEY: test_minio_secret_123
+      STORAGE_BACKEND: s3://test_minio_access:test_minio_secret_123@minio_test:9000/aisourcing-test
+    depends_on:
+      api_test:
+        condition: service_healthy
+
+  celery_beat_test:
+    build:
+      context: .
+      dockerfile: Dockerfile.hf
+    command: celery -A app.shared.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
+    environment:
+      ENVIRONMENT: testing
+      DATABASE_URL: postgresql+asyncpg://test_user:test_password_123@postgres_test:5432/aisourcing_test
+      DB_PASSWORD: test_password_123
+      REDIS_PASSWORD: test_redis_123
+      REDIS_URL: redis://:test_redis_123@redis_test:6379/0
+      CELERY_BROKER_URL: redis://:test_redis_123@redis_test:6379/1
+      CELERY_RESULT_BACKEND: redis://:test_redis_123@redis_test:6379/2
+      JWT_SECRET: test_jwt_secret_key_32_chars_long!!
+    depends_on:
+      api_test:
+        condition: service_healthy

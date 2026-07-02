@@ -86,6 +86,20 @@ html.dark {
     max-width: none;
   }
 
+  /* Absolutely/fixed-positioned overlays (dropdowns, popovers, modals) size
+     against their nearest positioned ancestor, not the viewport — which is
+     often just a small inline trigger (e.g. a 36px icon button wrapped in
+     `relative`). The blanket max-width:100% rule above then silently clamps
+     an intentionally-wide overlay (e.g. `w-80`) down to that tiny ancestor's
+     width instead of the viewport, discovered via the notification bell
+     dropdown rendering as an unreadable ~36px sliver. These utility classes
+     are how every such overlay in this codebase is actually positioned, so
+     excluding them here keeps the original mobile-overflow intent intact
+     for normal in-flow content while letting overlays size themselves. */
+  .absolute, .fixed {
+    max-width: none;
+  }
+
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }

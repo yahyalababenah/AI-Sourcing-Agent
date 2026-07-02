@@ -1,18 +1,22 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, BarChart2, Users, Package, FileText, TrendingUp, Settings, UserCircle,
+  LayoutDashboard, BarChart2, Users, Package, FileText, TrendingUp, Settings, UserCircle, ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { AppLogo } from "@/components/AppLogo";
 import { useAuthStore } from "@/stores/authStore";
 
+// `/supplier/review` (ProductReviewPage) had no entry point anywhere in the
+// UI — reachable only if you already knew the direct URL. Added here so an
+// agent can actually discover and reach it.
 const navItems = [
   { to: ROUTES.DASHBOARD,            label: "الرئيسية",       icon: LayoutDashboard },
   { to: ROUTES.RFQ.LIST,             label: "الطلبات",        icon: BarChart2      },
   { to: ROUTES.RFQ.SUPPLIER_INBOX,   label: "العملاء",         icon: Users,         badge: "14" },
   { to: ROUTES.CATALOG.MARKETPLACE,  label: "الموردون",        icon: Package        },
   { to: ROUTES.DOCUMENTS.UPLOAD,     label: "الكتالوجات",      icon: FileText,      badgeAmber: "3" },
+  { to: ROUTES.SUPPLIER.REVIEW,      label: "مراجعة المنتجات", icon: ClipboardCheck },
   { to: ROUTES.PRICING.CALCULATE,    label: "التقارير",        icon: TrendingUp     },
 ];
 

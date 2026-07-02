@@ -214,7 +214,7 @@ class PricingEngine:
 
           1. ``price_usd = price_rmb * exchange_rate_cny_usd``
           2. ``price_local = price_usd × (USD → currency)``
-          3. ``volume_cbm = estimate_volume_cbm(weight_kg)``
+          3. ``volume_cbm = estimate_volume_cbm(weight_kg * quantity)``  ← total shipment weight, not per-unit
           4. ``freight_per_unit = (sea_freight_{port} × volume_cbm) / quantity``
           5. ``insurance_per_unit = (price_local + freight_per_unit) × insurance_rate``
           6. ``cif_per_unit = price_local + freight_per_unit + insurance_per_unit``
@@ -259,28 +259,46 @@ class PricingEngine:
         price_usd = price_rmb * cny_to_usd
 
         # ── Step 2: Convert USD → local currency ──
+        # ``cny_to_target`` is the true CNY→target_currency rate — this is what
+        # gets reported as ``exchange_rate_used`` and re-cached under the
+        # "CNY:{target_currency}" Redis key for the next calculation. It must
+        # never be the intermediate USD→JOD ratio: caching that under the
+        # CNY:JOD key and then feeding it back in as ``cny_to_jod`` on the next
+        # call divides by cny_to_usd a second time, compounding the error on
+        # every single call (verified: 0.1047 → 0.748 → 5.34 → 38.16 → ...).
         if currency_upper == "USD":
             price_local = price_usd
             usd_rate = 1.0
+            cny_to_target = cny_to_usd
         elif currency_upper == "JOD":
             # Derive USD→JOD from CNY→JOD and CNY→USD
             cny_to_jod = self._get_rule_value("exchange_rate_cny_jod", 0.077)
             usd_to_jod = cny_to_jod / cny_to_usd if cny_to_usd else 0.55
             price_local = price_usd * usd_to_jod
             usd_rate = usd_to_jod
+            cny_to_target = cny_to_jod
         else:
             # Unknown currency — fallback to JOD
             cny_to_jod = self._get_rule_value("exchange_rate_cny_jod", 0.077)
             usd_to_jod = cny_to_jod / cny_to_usd if cny_to_usd else 0.55
             price_local = price_usd * usd_to_jod
             usd_rate = usd_to_jod
+            cny_to_target = cny_to_jod
             logger.warning(
                 "Unknown target currency, falling back to JOD",
                 extra={"currency": currency_upper},
             )
 
         # ── Step 3: Estimate volume ──
-        volume_cbm = self.estimate_volume_cbm(weight_kg)
+        # ``weight_kg`` is the PER-UNIT weight (matches CatalogProduct.weight_kg
+        # and what the frontend sends). Volume/freight must be estimated from
+        # the TOTAL shipment weight, not a single unit's weight — otherwise
+        # freight_per_unit below divides by quantity twice (once implicitly,
+        # via a volume that never scaled with quantity, and once explicitly),
+        # making freight shrink toward zero as quantity grows instead of
+        # staying roughly constant per unit.
+        total_weight_kg = weight_kg * quantity
+        volume_cbm = self.estimate_volume_cbm(total_weight_kg)
 
         # ── Step 4: Sea freight ──
         port_lower = destination_port.lower().replace(" ", "_")
@@ -387,7 +405,7 @@ class PricingEngine:
             "quantity": quantity,
             "destination_port": destination_port,
             "currency": currency_upper,
-            "exchange_rate_used": usd_rate if currency_upper != "USD" else 1.0,
+            "exchange_rate_used": cny_to_target,
             "rules_applied": applied_rules,
         }
 

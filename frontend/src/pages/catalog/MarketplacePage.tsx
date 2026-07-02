@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, X, Package, AlertCircle, SlidersHorizontal, CheckCircle } from "lucide-react";
+import { Search, X, Package, AlertCircle, SlidersHorizontal } from "lucide-react";
+import toast from "react-hot-toast";
 import { catalogService } from "@/services/catalogService";
 import { intakeService } from "@/services/intakeService";
 import { pricingService } from "@/services/pricingService";
@@ -67,6 +68,12 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
     mutationFn: (data: RFQCreate) => intakeService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rfqs"] });
+      // A toast (rendered via the <Toaster/> mounted at the layout level —
+      // same pattern as useAuth.ts's login/register/logout confirmations)
+      // rather than an in-modal success message: onClose() below unmounts
+      // the modal in this same tick, so any success state local to it would
+      // never actually be visible to the user.
+      toast.success("تم إرسال طلب عرض السعر بنجاح");
       onClose();
     },
     onError: (err: Error) => {
@@ -252,14 +259,6 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
               ) : (
                 <p className="text-xs" style={{ color: "var(--text-3)" }}>تعذّر حساب التكلفة التقديرية</p>
               )}
-            </div>
-          )}
-
-          {/* Success State */}
-          {isSuccess && (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
-              <CheckCircle className="h-4 w-4 shrink-0" />
-              تم إرسال طلب عرض السعر بنجاح
             </div>
           )}
 

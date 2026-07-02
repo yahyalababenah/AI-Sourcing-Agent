@@ -51,7 +51,10 @@ async def register(
 
     - **client**: Creates a ClientProfile (requires company_name)
     - **agent**: Creates a SupplierProfile (requires factory_name, location_in_china)
-    - **admin**: No profile required
+
+    Admin accounts cannot be self-registered through this public endpoint —
+    requesting role="admin" is rejected. Admin provisioning is an internal
+    operation only.
     """
     user = await register_user(db, user_data)
     return build_user_response(user)

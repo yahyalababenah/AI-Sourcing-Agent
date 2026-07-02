@@ -481,12 +481,18 @@ async def finalize_quotation(
         db, quotation_id, QuotationStatus.FINALIZED
     )
 
-    # Update RFQ status to quoted
+    # Update RFQ status to quoted. Previously only fired when the RFQ was
+    # already PROCESSING, silently leaving it OPEN forever for the (common,
+    # not exceptional) case of an agent building a quote directly from a
+    # brand-new RFQ without an intermediate "mark as processing" step — the
+    # RFQ list/dashboard then permanently showed "open" even after a quote
+    # had been built, finalized, and sent. Any pre-QUOTED status should
+    # advance once a quote is actually finalized.
     rfq_result = await db.execute(
         select(RFQ).where(RFQ.id == quotation.rfq_id)
     )
     rfq = rfq_result.scalar_one_or_none()
-    if rfq and rfq.status == RFQStatus.PROCESSING:
+    if rfq and rfq.status in (RFQStatus.OPEN, RFQStatus.PROCESSING):
         rfq.status = RFQStatus.QUOTED
         await db.flush()
 

@@ -235,19 +235,31 @@ async def auth_headers(client: AsyncClient, db_session) -> dict:
 
 @pytest.fixture
 async def admin_headers(client: AsyncClient, db_session) -> dict:
-    """Register an admin user and return auth headers."""
-    register_payload = {
-        "email": f"doc-admin-{uuid.uuid4().hex[:8]}@example.com",
-        "password": "AdminPass123!",
-        "full_name": "Doc Admin",
-        "role": "admin",
-    }
-    resp = await client.post("/api/v1/auth/register", json=register_payload)
-    assert resp.status_code == 201
-    # Login to get access token (register returns UserResponse, not tokens)
+    """Create an admin user directly in the DB and return auth headers.
+
+    Admin accounts can't be self-registered via /auth/register (see
+    TESTING_FINDINGS.md #0e) — matches the same direct-insert pattern used
+    by the top-level ``admin_headers`` fixture in tests/conftest.py.
+    """
+    from app.modules.auth.models import User, UserRole
+    from app.modules.auth.service import _hash_password
+
+    email = f"doc-admin-{uuid.uuid4().hex[:8]}@example.com"
+    password = "AdminPass123!"
+    admin = User(
+        id=uuid.uuid4(),
+        email=email,
+        password_hash=_hash_password(password),
+        full_name="Doc Admin",
+        role=UserRole.ADMIN,
+        is_active=True,
+    )
+    db_session.add(admin)
+    await db_session.flush()
+
     login_resp = await client.post("/api/v1/auth/login", json={
-        "email": register_payload["email"],
-        "password": register_payload["password"],
+        "email": email,
+        "password": password,
     })
     assert login_resp.status_code == 200
     token = login_resp.json()["access_token"]
@@ -353,19 +365,27 @@ class TestUploadDocument:
         viewer_token = login_resp.json()["access_token"]
         viewer_headers = {"Authorization": f"Bearer {viewer_token}"}
 
-        # Create RFQ as admin
-        admin_payload = {
-            "email": f"admin-{uuid.uuid4().hex[:8]}@example.com",
-            "password": "AdminPass123!",
-            "full_name": "Admin",
-            "role": "admin",
-        }
-        resp = await client.post("/api/v1/auth/register", json=admin_payload)
-        assert resp.status_code == 201
-        # Login to get access token
+        # Create RFQ as admin — admin accounts can't be self-registered via
+        # /auth/register (TESTING_FINDINGS.md #0e), so insert directly.
+        from app.modules.auth.models import User, UserRole
+        from app.modules.auth.service import _hash_password
+
+        admin_email = f"admin-{uuid.uuid4().hex[:8]}@example.com"
+        admin_password = "AdminPass123!"
+        admin_user = User(
+            id=uuid.uuid4(),
+            email=admin_email,
+            password_hash=_hash_password(admin_password),
+            full_name="Admin",
+            role=UserRole.ADMIN,
+            is_active=True,
+        )
+        db_session.add(admin_user)
+        await db_session.flush()
+
         login_resp = await client.post(
             "/api/v1/auth/login",
-            json={"email": admin_payload["email"], "password": admin_payload["password"]},
+            json={"email": admin_email, "password": admin_password},
         )
         assert login_resp.status_code == 200
         admin_token = login_resp.json()["access_token"]

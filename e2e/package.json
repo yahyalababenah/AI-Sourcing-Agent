@@ -1,0 +1,23 @@
+{
+  "name": "ai-sourcing-hub-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/node": "^26.1.0",
+    "@types/pg": "^8.11.0",
+    "ajv": "^8.20.0",
+    "bcryptjs": "^3.0.3",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.13.0",
+    "typescript": "^6.0.3"
+  }
+}

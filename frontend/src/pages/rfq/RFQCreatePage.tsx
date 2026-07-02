@@ -66,7 +66,13 @@ export function RFQCreatePage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-5 p-6">
+      {/* noValidate: this form has its own Arabic-language validation
+          messages in handleSubmit — native browser constraint validation
+          (triggered by the `required` attributes below) would otherwise
+          intercept the submit event first and show a generic, non-Arabic
+          validation bubble instead, silently preventing our messages from
+          ever being seen. */}
+      <form onSubmit={handleSubmit} noValidate className="card space-y-5 p-6">
         {/* Client Name */}
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">

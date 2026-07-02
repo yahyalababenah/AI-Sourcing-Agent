@@ -95,7 +95,10 @@ class UserCreate(BaseModel):
             raise ValueError("Password must contain: " + ", ".join(errors))
         return v
     phone: Optional[str] = Field(None, max_length=50, examples=["+962791234567"])
-    role: str = Field(..., description="User role: client | agent | admin")
+    role: str = Field(
+        ...,
+        description="Self-registerable role: client | agent (admin accounts cannot be self-registered)",
+    )
 
     # Client profile fields
     company_name: Optional[str] = Field(None, max_length=255, examples=["Acme Corp"])
