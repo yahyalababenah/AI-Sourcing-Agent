@@ -7,6 +7,10 @@ AI-Sourcing Hub — Pricing Endpoints
 /api/v1/pricing/rules/{id}         PUT    Update pricing rule
 /api/v1/pricing/rules/{id}         DELETE Delete pricing rule
 /api/v1/pricing/rules/{id}/history GET    Get rule change history
+/api/v1/pricing/hs-codes           GET    List HS-Code fee schedules
+/api/v1/pricing/hs-codes           POST   Create HS-Code fee schedule
+/api/v1/pricing/hs-codes/{code}    PUT    Update HS-Code fee schedule
+/api/v1/pricing/hs-codes/{code}    DELETE Delete HS-Code fee schedule
 /api/v1/pricing/calculate          POST   Run price calculation
 /api/v1/pricing/exchange-rates     POST   Refresh exchange rates
 """
@@ -25,6 +29,9 @@ from app.modules.pricing.models import PricingRuleCategory
 from app.modules.pricing.schemas import (
     CalculatePriceRequest,
     CalculatePriceResponse,
+    HSCodeFeeScheduleCreate,
+    HSCodeFeeScheduleListResponse,
+    HSCodeFeeScheduleResponse,
     PricingRuleCreate,
     PricingRuleListResponse,
     PricingRuleResponse,
@@ -33,11 +40,15 @@ from app.modules.pricing.schemas import (
 )
 from app.modules.pricing.service import (
     calculate_price,
+    create_hs_code_schedule,
     create_pricing_rule,
+    delete_hs_code_schedule,
     delete_pricing_rule,
     get_pricing_rule,
+    list_hs_code_schedules,
     list_pricing_rules,
     refresh_exchange_rates,
+    update_hs_code_schedule,
     update_pricing_rule,
 )
 from app.shared.database import get_db
@@ -171,6 +182,69 @@ async def delete_rule(
 
 
 # ═══════════════════════════════════════════════════════════
+# HS-Code Fee Schedules
+# ═══════════════════════════════════════════════════════════
+
+@router.get(
+    "/hs-codes",
+    response_model=HSCodeFeeScheduleListResponse,
+    summary="List HS-Code fee schedules",
+)
+async def list_hs_codes(
+    _current_user: User = Depends(require_agent_or_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all HS-Code fee schedules."""
+    return await list_hs_code_schedules(db)
+
+
+@router.post(
+    "/hs-codes",
+    response_model=HSCodeFeeScheduleResponse,
+    status_code=201,
+    summary="Create HS-Code fee schedule",
+)
+async def create_hs_code(
+    data: HSCodeFeeScheduleCreate,
+    _current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new HS-Code fee schedule entry (admin only)."""
+    entry = await create_hs_code_schedule(db, data)
+    return HSCodeFeeScheduleResponse.model_validate(entry)
+
+
+@router.put(
+    "/hs-codes/{code}",
+    response_model=HSCodeFeeScheduleResponse,
+    summary="Update HS-Code fee schedule",
+)
+async def update_hs_code(
+    code: str,
+    data: HSCodeFeeScheduleCreate,
+    _current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update an existing HS-Code fee schedule entry (admin only)."""
+    entry = await update_hs_code_schedule(db, code, data.model_dump(exclude_unset=True))
+    return HSCodeFeeScheduleResponse.model_validate(entry)
+
+
+@router.delete(
+    "/hs-codes/{code}",
+    status_code=204,
+    summary="Delete HS-Code fee schedule",
+)
+async def delete_hs_code(
+    code: str,
+    _current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an HS-Code fee schedule entry (admin only)."""
+    await delete_hs_code_schedule(db, code)
+
+
+# ═══════════════════════════════════════════════════════════
 # Price Calculation
 # ═══════════════════════════════════════════════════════════
 
@@ -218,6 +292,9 @@ async def quick_estimate(
             "name": "Estimate",
             "quantity": request.quantity,
             "unit_price_cny": request.unit_price_cny,
+            "weight_kg": request.weight_kg,
+            "hs_code": request.hs_code,
+            "has_license": request.has_license,
         }],
     )
     result = await calculate_price(db, calc_request, redis=redis)
@@ -228,6 +305,9 @@ async def quick_estimate(
         + lv("customs_duty")
         + lv("clearance_fee")
         + lv("commission")
+        + lv("service_flat_301")
+        + lv("service_percent_070")
+        + lv("penalty_018")
     )
     return QuickEstimateResponse(
         unit_price_cny=request.unit_price_cny,
@@ -235,11 +315,17 @@ async def quick_estimate(
         exchange_rate=result.exchange_rate_used,
         target_currency=request.target_currency,
         unit_price_converted=lv("unit_price_converted"),
+        insurance_cost=lv("insurance_cost"),
+        cif_value=lv("cif_value"),
         customs_duty=lv("customs_duty"),
         clearance_fee=lv("clearance_fee"),
         subtotal_excl_shipping=subtotal,
         vat=result.vat,
         estimated_total=result.grand_total,
+        service_flat_301=lv("service_flat_301"),
+        service_percent_070=lv("service_percent_070"),
+        penalty_018=lv("penalty_018"),
+        hs_code_matched=lv("hs_code_matched") or False,
     )
 
 
