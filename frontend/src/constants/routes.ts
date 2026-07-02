@@ -8,6 +8,7 @@ export const ROUTES = {
     LOGIN: "/admin/login",
     VERIFICATION: "/admin/verification",
     MONITOR: "/admin/monitor",
+    HS_CODES: "/admin/hs-codes",
   },
   DASHBOARD: "/dashboard",
   RFQ: {

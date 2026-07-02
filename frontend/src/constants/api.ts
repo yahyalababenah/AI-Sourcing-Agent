@@ -37,6 +37,8 @@ export const API = {
     RULES: "/pricing/rules",
     RULE: (id: string) => `/pricing/rules/${id}`,
     RULE_HISTORY: (id: string) => `/pricing/rules/${id}/history`,
+    HS_CODES: "/pricing/hs-codes",
+    HS_CODE: (code: string) => `/pricing/hs-codes/${code}`,
     CALCULATE: "/pricing/calculate",
     ESTIMATE: "/pricing/estimate",
     REFRESH_RATES: "/pricing/exchange-rates/refresh",
