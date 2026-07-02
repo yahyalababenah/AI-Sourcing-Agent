@@ -27,6 +27,7 @@ from app.modules.pricing.cache import (
 )
 from app.modules.pricing.engine import PricingEngine, LineItemInput
 from app.modules.pricing.models import (
+    HSCodeFeeSchedule,
     PricingRule,
     PricingRuleCategory,
     PricingRuleStatus,
@@ -34,6 +35,9 @@ from app.modules.pricing.models import (
 from app.modules.pricing.schemas import (
     CalculatePriceRequest,
     CalculatePriceResponse,
+    HSCodeFeeScheduleCreate,
+    HSCodeFeeScheduleListResponse,
+    HSCodeFeeScheduleResponse,
     LineItemResult,
     PricingRuleCreate,
     PricingRuleListResponse,
@@ -182,6 +186,164 @@ async def delete_pricing_rule(
 
 
 # ═══════════════════════════════════════════════════════════
+# HS-Code Fee Schedules CRUD
+# ═══════════════════════════════════════════════════════════
+
+async def create_hs_code_schedule(
+    db: AsyncSession,
+    data: HSCodeFeeScheduleCreate,
+) -> HSCodeFeeSchedule:
+    """Create a new HS-Code fee schedule entry.
+
+    Args:
+        db: Database session.
+        data: HS-Code fee schedule creation data.
+
+    Returns:
+        Created HSCodeFeeSchedule instance.
+
+    Raises:
+        ValidationError: If an entry for this HS code already exists.
+    """
+    existing = await db.execute(
+        select(HSCodeFeeSchedule).where(HSCodeFeeSchedule.hs_code == data.hs_code)
+    )
+    if existing.scalar_one_or_none():
+        raise ValidationError(message=f"HS code '{data.hs_code}' already exists")
+
+    entry = HSCodeFeeSchedule(
+        hs_code=data.hs_code,
+        description=data.description,
+        duty_rate_001=data.duty_rate_001,
+        service_flat_fee_301=data.service_flat_fee_301,
+        service_percent_070=data.service_percent_070,
+        requires_license=data.requires_license,
+        penalty_rate_018=data.penalty_rate_018,
+        is_verified=data.is_verified,
+        source_note=data.source_note,
+    )
+    db.add(entry)
+    await db.flush()
+    await db.refresh(entry)
+    return entry
+
+
+async def get_hs_code_schedule(
+    db: AsyncSession,
+    hs_code: str,
+) -> HSCodeFeeSchedule:
+    """Get an HS-Code fee schedule by its HS code.
+
+    Args:
+        db: Database session.
+        hs_code: HS code string.
+
+    Returns:
+        HSCodeFeeSchedule instance.
+
+    Raises:
+        NotFoundException: If no schedule exists for this HS code.
+    """
+    result = await db.execute(
+        select(HSCodeFeeSchedule).where(HSCodeFeeSchedule.hs_code == hs_code)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise NotFoundException(resource="HS-Code fee schedule", resource_id=hs_code)
+    return entry
+
+
+async def list_hs_code_schedules(db: AsyncSession) -> HSCodeFeeScheduleListResponse:
+    """List all HS-Code fee schedules.
+
+    Args:
+        db: Database session.
+
+    Returns:
+        HSCodeFeeScheduleListResponse.
+    """
+    result = await db.execute(select(HSCodeFeeSchedule).order_by(HSCodeFeeSchedule.hs_code.asc()))
+    entries = list(result.scalars().all())
+    return HSCodeFeeScheduleListResponse(
+        items=[HSCodeFeeScheduleResponse.model_validate(e) for e in entries],
+        total=len(entries),
+    )
+
+
+async def update_hs_code_schedule(
+    db: AsyncSession,
+    hs_code: str,
+    update_data: dict,
+) -> HSCodeFeeSchedule:
+    """Update an HS-Code fee schedule.
+
+    Args:
+        db: Database session.
+        hs_code: HS code string.
+        update_data: Fields to update.
+
+    Returns:
+        Updated HSCodeFeeSchedule instance.
+    """
+    entry = await get_hs_code_schedule(db, hs_code)
+
+    # hs_code is the resource's identifying key (part of the URL path) — never
+    # let the request body silently rename it.
+    update_data.pop("hs_code", None)
+
+    for key, value in update_data.items():
+        if hasattr(entry, key) and value is not None:
+            setattr(entry, key, value)
+
+    await db.flush()
+    await db.refresh(entry)
+    return entry
+
+
+async def delete_hs_code_schedule(db: AsyncSession, hs_code: str) -> None:
+    """Delete an HS-Code fee schedule.
+
+    Args:
+        db: Database session.
+        hs_code: HS code string.
+    """
+    entry = await get_hs_code_schedule(db, hs_code)
+    await db.delete(entry)
+    await db.flush()
+
+
+async def _load_hs_code_schedule(
+    db: AsyncSession,
+    hs_code: str,
+) -> Optional[dict]:
+    """Load a single HS-Code fee schedule as a plain dict for the engine.
+
+    Direct DB query — no Redis caching yet (small, infrequently-changed table;
+    can be added later following the ``_load_rules_for_engine`` pattern if needed).
+
+    Args:
+        db: Database session.
+        hs_code: HS code to look up.
+
+    Returns:
+        Dict of fee schedule fields, or None if not found.
+    """
+    result = await db.execute(
+        select(HSCodeFeeSchedule).where(HSCodeFeeSchedule.hs_code == hs_code)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        return None
+    return {
+        "duty_rate_001": entry.duty_rate_001,
+        "service_flat_fee_301": entry.service_flat_fee_301,
+        "service_percent_070": entry.service_percent_070,
+        "requires_license": entry.requires_license,
+        "penalty_rate_018": entry.penalty_rate_018,
+    }
+
+
+# ═══════════════════════════════════════════════════════════
 # Load Rules for Engine
 # ═══════════════════════════════════════════════════════════
 
@@ -287,15 +449,22 @@ async def calculate_price(
     engine = PricingEngine(rules_override=rules_override)
 
     # Build line item inputs
-    products = [
-        LineItemInput(
-            product_id=p.product_id,
-            product_name=p.name,
-            quantity=p.quantity,
-            unit_price_cny=p.unit_price_cny,
+    # FIX: weight_kg was previously never passed through, so freight was always
+    # computed off a phantom 0.1 CBM minimum regardless of actual product weight.
+    products = []
+    for p in request.products:
+        hs_entry = await _load_hs_code_schedule(db, p.hs_code) if p.hs_code else None
+        products.append(
+            LineItemInput(
+                product_id=p.product_id,
+                product_name=p.name,
+                quantity=p.quantity,
+                unit_price_cny=p.unit_price_cny,
+                weight_kg=p.weight_kg,
+                hs_entry=hs_entry,
+                has_license=p.has_license,
+            )
         )
-        for p in request.products
-    ]
 
     # Run calculation
     result = engine.calculate(
