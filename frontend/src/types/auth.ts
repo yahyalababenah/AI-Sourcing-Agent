@@ -3,7 +3,14 @@ export interface UserCreate {
   password: string;
   full_name: string;
   phone?: string;
-  role?: "agent" | "admin" | "client";
+  // Admin accounts cannot be self-registered (see TESTING_FINDINGS.md #0e) —
+  // only client/agent are valid here.
+  role?: "agent" | "client";
+  // Required when role is "client".
+  company_name?: string;
+  // Required when role is "agent".
+  factory_name?: string;
+  location_in_china?: string;
 }
 
 export interface UserLogin {

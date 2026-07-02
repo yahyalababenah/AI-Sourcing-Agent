@@ -152,4 +152,10 @@ async def review_product_endpoint(
         category=product.category,
         supplier_id=product.supplier_id,
         extracted_at=product.updated_at,
+        # Was omitted entirely, so every approve/reject response reported
+        # review_status=null even though the update itself was applied and
+        # persisted correctly (verified directly against the DB) — harmless
+        # today only because the frontend re-fetches the pending list rather
+        # than trusting this response body.
+        review_status=product.review_status.value if product.review_status else None,
     )

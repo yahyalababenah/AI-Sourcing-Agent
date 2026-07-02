@@ -21,13 +21,25 @@ export const quotationService = {
   get: (id: string) =>
     api.get<Quotation>(API.QUOTES.QUOTE(id)).then((r) => r.data),
 
-  /** Update quotation status. */
+  /** Update quotation status.
+   *
+   * The backend (`PUT /quotes/{id}/status`) declares `new_status` as a plain
+   * function parameter with no request-body model, which FastAPI treats as a
+   * query parameter — not a JSON body. This previously sent `status` as the
+   * request body, which the backend would reject (422, missing `new_status`
+   * query param). Fixed to match the real contract. This method had zero
+   * call sites before the "send quote" button below was added, so the bug
+   * was latent rather than already breaking a shipped feature.
+   */
   updateStatus: (id: string, status: string) =>
     api
-      .put<Quotation>(API.QUOTES.STATUS(id), status, {
-        headers: { "Content-Type": "application/json" },
-      })
+      .put<Quotation>(API.QUOTES.STATUS(id), null, { params: { new_status: status } })
       .then((r) => r.data),
+
+  /** Finalize a quotation: generates the PDF synchronously, sets status to
+   * "finalized", and moves the parent RFQ to "quoted". */
+  finalize: (id: string) =>
+    api.post<Quotation>(API.QUOTES.FINALIZE(id)).then((r) => r.data),
 
   /** Generate quotation asynchronously (Celery). */
   generate: (data: QuotationGenerateRequest) =>

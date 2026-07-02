@@ -79,6 +79,9 @@ dev = [
     "ruff>=0.2.0",
     "coverage>=7.4.0",
     "testcontainers[postgres]>=4.0.0",
+    "fakeredis>=2.20.0",
+    "moto[s3]>=5.0.0",
+    "pypdfium2>=5.0.0",
     "ipython>=8.20.0",
     "watchfiles>=0.21.0",
 ]

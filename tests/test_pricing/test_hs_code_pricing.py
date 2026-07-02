@@ -249,20 +249,32 @@ async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
 
 @pytest.fixture
 async def admin_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
-    """Register an admin and return auth headers."""
-    from app.modules.auth.models import UserRole
+    """Create an admin user directly in the DB and return auth headers.
 
-    register_payload = {
-        "email": "hs_code_admin@example.com",
-        "password": "AdminPass123!",
-        "full_name": "HS Code Admin",
-        "role": UserRole.ADMIN.value,
-    }
-    resp = await client.post("/api/v1/auth/register", json=register_payload)
-    assert resp.status_code == 201
+    Admin accounts can't be self-registered via /auth/register (see
+    TESTING_FINDINGS.md #0e) — matches the direct-insert pattern used by
+    the top-level ``admin_headers`` fixture in tests/conftest.py.
+    """
+    import uuid
+    from app.modules.auth.models import User, UserRole
+    from app.modules.auth.service import _hash_password
+
+    email = "hs_code_admin@example.com"
+    password = "AdminPass123!"
+    admin = User(
+        id=uuid.uuid4(),
+        email=email,
+        password_hash=_hash_password(password),
+        full_name="HS Code Admin",
+        role=UserRole.ADMIN,
+        is_active=True,
+    )
+    db_session.add(admin)
+    await db_session.flush()
+
     login_resp = await client.post("/api/v1/auth/login", json={
-        "email": register_payload["email"],
-        "password": register_payload["password"],
+        "email": email,
+        "password": password,
     })
     assert login_resp.status_code == 200
     token = login_resp.json()["access_token"]

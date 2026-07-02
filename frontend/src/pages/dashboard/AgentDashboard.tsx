@@ -3,20 +3,33 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { intakeService } from "@/services/intakeService";
+import { quotationService } from "@/services/quotationService";
 import { ROUTES } from "@/constants/routes";
+import type { Product } from "@/types/intake";
 
 // ── tiny helpers ──────────────────────────────────────────────────────────────
 
-function useCountdown(targetMs: number) {
-  const [remaining, setRemaining] = useState(() => Math.max(0, targetMs - Date.now()));
+function useCountdown(targetMs: number | null) {
+  const [remaining, setRemaining] = useState(() => (targetMs ? Math.max(0, targetMs - Date.now()) : 0));
   useEffect(() => {
+    if (!targetMs) return;
     const id = setInterval(() => setRemaining((r) => Math.max(0, r - 1000)), 1000);
     return () => clearInterval(id);
   }, [targetMs]);
+  if (!targetMs) return null;
   const h = String(Math.floor(remaining / 3_600_000)).padStart(2, "0");
   const m = String(Math.floor((remaining % 3_600_000) / 60_000)).padStart(2, "0");
   const s = String(Math.floor((remaining % 60_000) / 1000)).padStart(2, "0");
   return `${h}:${m}:${s}`;
+}
+
+function todayArabic() {
+  return new Date().toLocaleDateString("ar-JO", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 const STATUS_AR: Record<string, string> = {
@@ -36,11 +49,24 @@ const COL_COLORS: Record<string, string> = {
 
 // ── Kanban Card ───────────────────────────────────────────────────────────────
 
-function KanbanCard({ rfq, onClick }: { rfq: any; onClick: () => void }) {
-  const isUrgent = rfq.status === "quoted";
-  const deadlineMs = Date.now() + 5.8 * 3_600_000;
-  const countdown = useCountdown(isUrgent ? deadlineMs : Date.now() + 31 * 3_600_000);
-  const amount = rfq.amount ?? (Math.floor(Math.random() * 40000) + 5000);
+function KanbanCard({
+  rfq,
+  products,
+  onClick,
+}: {
+  rfq: any;
+  products: Product[];
+  onClick: () => void;
+}) {
+  const deadlineMs = rfq.exclusive_deadline ? new Date(rfq.exclusive_deadline).getTime() : null;
+  const isUrgent = !!deadlineMs && deadlineMs > Date.now();
+  const countdown = useCountdown(isUrgent ? deadlineMs : null);
+
+  const quantity = products.reduce((sum, p) => sum + (p.quantity ?? 0), 0);
+  const estimatedValue = products.reduce(
+    (sum, p) => sum + (p.quantity ?? 0) * (p.target_price ?? 0),
+    0
+  );
 
   return (
     <div
@@ -89,17 +115,21 @@ function KanbanCard({ rfq, onClick }: { rfq: any; onClick: () => void }) {
           style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}
           dir="ltr"
         >
-          ${amount.toLocaleString()}
+          {estimatedValue > 0
+            ? `${rfq.target_currency ?? "JOD"} ${Math.round(estimatedValue).toLocaleString()}`
+            : "—"}
         </span>
-        <div
-          className="text-[9px] px-1.5 py-0.5 rounded"
-          style={{
-            background: isUrgent ? "var(--amber-surface)" : "var(--surface-3)",
-            color: isUrgent ? "#d97706" : "var(--text-4)",
-          }}
-        >
-          {Math.floor(Math.random() * 900 + 100)} وحدة
-        </div>
+        {quantity > 0 && (
+          <div
+            className="text-[9px] px-1.5 py-0.5 rounded"
+            style={{
+              background: isUrgent ? "var(--amber-surface)" : "var(--surface-3)",
+              color: isUrgent ? "#d97706" : "var(--text-4)",
+            }}
+          >
+            {quantity.toLocaleString()} وحدة
+          </div>
+        )}
       </div>
     </div>
   );
@@ -110,10 +140,12 @@ function KanbanCard({ rfq, onClick }: { rfq: any; onClick: () => void }) {
 function KanbanColumn({
   status,
   rfqs,
+  productsMap,
   onCardClick,
 }: {
   status: string;
   rfqs: any[];
+  productsMap: Record<string, Product[]>;
   onCardClick: (rfq: any) => void;
 }) {
   const color = COL_COLORS[status] ?? "#7a91a8";
@@ -132,7 +164,12 @@ function KanbanColumn({
       </div>
       <div className="flex flex-col gap-2">
         {rfqs.map((rfq) => (
-          <KanbanCard key={rfq.id} rfq={rfq} onClick={() => onCardClick(rfq)} />
+          <KanbanCard
+            key={rfq.id}
+            rfq={rfq}
+            products={productsMap[rfq.id] ?? []}
+            onClick={() => onCardClick(rfq)}
+          />
         ))}
         {rfqs.length === 0 && (
           <div
@@ -163,7 +200,24 @@ export function AgentDashboard() {
   const { data: quotedStats } = useQuery({ queryKey: ["rfqs-quoted"], queryFn: () => intakeService.list({ status: "quoted", limit: 1 }), staleTime: 30_000 });
   const { data: closedStats } = useQuery({ queryKey: ["rfqs-closed"], queryFn: () => intakeService.list({ status: "closed", limit: 1 }), staleTime: 30_000 });
 
+  // Accepted quotations feed both the "revenue this month" stat and the
+  // "completed" Kanban column's dollar figures — real data, not a placeholder.
+  const { data: acceptedQuotes } = useQuery({
+    queryKey: ["agent-accepted-quotes"],
+    queryFn: () => quotationService.list({ status: "accepted", limit: 100 }),
+    staleTime: 30_000,
+  });
+
   const items = allRfqs?.items ?? [];
+  const rfqIds = items.map((r) => r.id);
+
+  const { data: productsBatch } = useQuery({
+    queryKey: ["agent-products-batch", rfqIds],
+    queryFn: () => intakeService.listProductsBatch(rfqIds),
+    enabled: rfqIds.length > 0,
+    staleTime: 30_000,
+  });
+  const productsMap = productsBatch?.items ?? {};
 
   const columns = {
     open:       items.filter((r) => r.status === "open").slice(0, 4),
@@ -172,11 +226,23 @@ export function AgentDashboard() {
     closed:     items.filter((r) => r.status === "closed" || r.status === "cancelled").slice(0, 2),
   };
 
+  const now = new Date();
+  const monthlyRevenue = (acceptedQuotes?.items ?? [])
+    .filter((q) => {
+      const d = new Date(q.created_at);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    })
+    .reduce((sum, q) => sum + (q.grand_total ?? 0), 0);
+
   const stats = [
-    { label: "طلبات نشطة",       value: openStats?.total   ?? 0, color: "var(--text-1)", sub: "↑ 3 هذا الأسبوع",    subColor: "#059669" },
-    { label: "في انتظار العرض",  value: quotedStats?.total ?? 0, color: "#d97706",         sub: "نافذة نشطة",          subColor: "#d97706"  },
-    { label: "مكتملة الأسبوع",   value: closedStats?.total ?? 0, color: "var(--text-1)", sub: "↑ 23% نمو",            subColor: "#059669" },
-    { label: "إيرادات الشهر",    value: null,                     color: "#10b981",         sub: "↑ 18% عن الماضي",     subColor: "#059669" },
+    { label: "طلبات نشطة",       value: openStats?.total   ?? 0, color: "var(--text-1)" },
+    { label: "في انتظار العرض",  value: quotedStats?.total ?? 0, color: "#d97706" },
+    { label: "مكتملة الأسبوع",   value: closedStats?.total ?? 0, color: "var(--text-1)" },
+    {
+      label: "إيرادات الشهر",
+      value: monthlyRevenue > 0 ? `JOD ${Math.round(monthlyRevenue).toLocaleString()}` : "—",
+      color: "#10b981",
+    },
   ];
 
   return (
@@ -189,7 +255,7 @@ export function AgentDashboard() {
         <div>
           <h1 className="text-[18px] font-bold" style={{ color: "var(--text-1)" }}>إدارة الطلبات</h1>
           <p className="text-[11px]" style={{ color: "var(--text-2)" }}>
-            الإثنين، 30 يونيو 2025 — مرحباً {user?.full_name}
+            {todayArabic()} — مرحباً {user?.full_name}
           </p>
         </div>
         <button
@@ -215,11 +281,8 @@ export function AgentDashboard() {
               style={{ color: s.color, fontVariantNumeric: "tabular-nums" }}
               dir="ltr"
             >
-              {s.value !== null
-                ? s.value
-                : <span className="text-[22px]">JD 24,580</span>}
+              {typeof s.value === "string" ? <span className="text-[22px]">{s.value}</span> : s.value}
             </div>
-            <div className="text-[10px] mt-1" style={{ color: s.subColor }}>{s.sub}</div>
           </div>
         ))}
       </div>
@@ -235,6 +298,7 @@ export function AgentDashboard() {
               key={status}
               status={status}
               rfqs={columns[status]}
+              productsMap={productsMap}
               onCardClick={(rfq) => navigate(ROUTES.RFQ.DETAIL(rfq.id))}
             />
           ))}

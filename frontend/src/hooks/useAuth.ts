@@ -48,8 +48,14 @@ export function useAuth() {
         navigate(ROUTES.AUTH.LOGIN);
         return user;
       } catch (error: any) {
+        // Backend errors are shaped {"error": {"message": ...}} (see
+        // app/shared/error_handlers.py), not axios/FastAPI's default
+        // {"detail": ...} — read the real field so validation failures
+        // (missing profile fields, rejected role, duplicate email) show
+        // their actual Arabic-friendly message instead of the generic
+        // fallback.
         const message =
-          error?.response?.data?.detail || "فشل إنشاء الحساب"; // Registration failed
+          error?.response?.data?.error?.message || "فشل إنشاء الحساب"; // Registration failed
         toast.error(message);
         throw error;
       }

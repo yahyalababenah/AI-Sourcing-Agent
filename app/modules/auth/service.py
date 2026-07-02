@@ -26,6 +26,12 @@ from app.modules.auth.models import ClientProfile, SupplierProfile, User, UserRo
 from app.modules.auth.schemas import UserCreate
 from app.shared.exceptions import AuthenticationError, ValidationError
 
+# Roles that may be self-assigned through the public /auth/register endpoint.
+# ADMIN is deliberately excluded: it must only ever be granted by an existing
+# admin (direct DB provisioning today — see TESTING_FINDINGS.md #0e), never by
+# an unauthenticated caller supplying role="admin" in the request body.
+SELF_REGISTERABLE_ROLES = (UserRole.CLIENT, UserRole.AGENT)
+
 
 def _hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
@@ -145,15 +151,22 @@ async def register_user(db: AsyncSession, user_data: UserCreate) -> User:
     # Determine role from payload
     if not user_data.role:
         raise ValidationError(
-            message="Role is required. Must be one of: client, agent, admin",
-            details={"valid_roles": [r.value for r in UserRole]},
+            message="Role is required. Must be one of: client, agent",
+            details={"valid_roles": [r.value for r in SELF_REGISTERABLE_ROLES]},
         )
     try:
         role_value = UserRole(user_data.role)
     except ValueError:
+        role_value = None
+
+    if role_value not in SELF_REGISTERABLE_ROLES:
         raise ValidationError(
-            message=f"Invalid role '{user_data.role}'. Must be one of: {', '.join(r.value for r in UserRole)}",
-            details={"valid_roles": [r.value for r in UserRole]},
+            message=(
+                f"Invalid role '{user_data.role}'. Self-registration is only "
+                f"available for: {', '.join(r.value for r in SELF_REGISTERABLE_ROLES)}. "
+                "Admin accounts cannot be created through this endpoint."
+            ),
+            details={"valid_roles": [r.value for r in SELF_REGISTERABLE_ROLES]},
         )
 
     # Create user
