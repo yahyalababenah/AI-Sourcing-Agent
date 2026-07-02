@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardList, Upload, Calculator, FileText,
   Package, Activity, Users, DollarSign, Store, Truck, ShieldCheck,
-  MessageCircle, Zap,
+  MessageCircle, Zap, ReceiptText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -22,6 +22,7 @@ const adminItems = [
   { to: ROUTES.ADMIN.MONITOR,      label: "مراقبة النظام",    icon: Activity },
   { to: ROUTES.ADMIN.VERIFICATION, label: "توثيق الموردين",   icon: ShieldCheck },
   { to: ROUTES.PRICING.RULES,      label: "قواعد التسعير",    icon: DollarSign },
+  { to: ROUTES.ADMIN.HS_CODES,     label: "جداول رسوم HS",    icon: ReceiptText },
   { to: ROUTES.CATALOG.MARKETPLACE,label: "الكتالوج العالمي", icon: Store },
   { to: ROUTES.SETTINGS,           label: "إدارة المستخدمين", icon: Users },
 ];
