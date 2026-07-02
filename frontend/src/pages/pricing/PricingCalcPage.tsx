@@ -30,7 +30,10 @@ export function PricingCalcPage() {
   const [targetCurrency, setTargetCurrency] = useState("JOD");
   const [destinationPort, setDestinationPort] = useState("");
   const [productInputs, setProductInputs] = useState<
-    Record<string, { quantity: number; unit_price_cny: number }>
+    Record<
+      string,
+      { quantity: number; unit_price_cny: number; hs_code: string; has_license: boolean }
+    >
   >({});
   const [result, setResult] = useState<CalculatePriceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,11 +74,16 @@ export function PricingCalcPage() {
 
   // Populate inputs whenever products data changes
   if (products && Object.keys(productInputs).length === 0 && selectedRfqId) {
-    const inputs: Record<string, { quantity: number; unit_price_cny: number }> = {};
+    const inputs: Record<
+      string,
+      { quantity: number; unit_price_cny: number; hs_code: string; has_license: boolean }
+    > = {};
     for (const p of products) {
       inputs[p.id] = {
         quantity: p.quantity ?? 1,
         unit_price_cny: 0,
+        hs_code: "",
+        has_license: false,
       };
     }
     // Only set if not already set (prevents re-render loop)
@@ -99,6 +107,11 @@ export function PricingCalcPage() {
             name: prod?.name || productId,
             quantity: vals.quantity,
             unit_price_cny: vals.unit_price_cny,
+            // FIX: previously omitted — freight was always computed off a
+            // phantom 0.1 CBM minimum regardless of the product's real weight.
+            weight_kg: prod?.weight_kg ?? 0,
+            hs_code: vals.hs_code.trim() || undefined,
+            has_license: vals.has_license,
           };
         }
       );
@@ -268,6 +281,12 @@ export function PricingCalcPage() {
                         <span dir="ltr">سعر الوحدة (CNY ¥)</span>
                       </th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500">
+                        رمز HS
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500">
+                        أملك الترخيص
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500">
                         الإجمالي
                         <span dir="ltr" className="mr-1">(CNY ¥)</span>
                       </th>
@@ -278,6 +297,8 @@ export function PricingCalcPage() {
                       const input = productInputs[p.id] || {
                         quantity: 1,
                         unit_price_cny: 0,
+                        hs_code: "",
+                        has_license: false,
                       };
                       const lineTotal = input.quantity * input.unit_price_cny;
                       return (
@@ -321,6 +342,39 @@ export function PricingCalcPage() {
                                 }))
                               }
                               className="w-24 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-primary-500 focus:outline-none"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              value={input.hs_code}
+                              onChange={(e) =>
+                                setProductInputs((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev[p.id],
+                                    hs_code: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="اختياري"
+                              className="w-32 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-primary-500 focus:outline-none"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={input.has_license}
+                              onChange={(e) =>
+                                setProductInputs((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev[p.id],
+                                    has_license: e.target.checked,
+                                  },
+                                }))
+                              }
+                              className="h-4 w-4 rounded border-gray-300"
                             />
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -426,8 +480,20 @@ export function PricingCalcPage() {
                     <span dir="ltr">سعر الوحدة (محول)</span>
                   </th>
                   <th className="px-3 py-2 text-xs font-medium text-gray-500">الشحن</th>
+                  <th className="px-3 py-2 text-xs font-medium text-gray-500">التأمين</th>
                   <th className="px-3 py-2 text-xs font-medium text-gray-500">الجمارك</th>
                   <th className="px-3 py-2 text-xs font-medium text-gray-500">التخليص</th>
+                  <th className="px-3 py-2 text-xs font-medium text-gray-500">
+                    خدمات 070
+                  </th>
+                  <th className="px-3 py-2 text-xs font-medium text-gray-500">
+                    بدل خدمات 301
+                  </th>
+                  {result.line_items.some((li) => li.penalty_018 > 0) && (
+                    <th className="px-3 py-2 text-xs font-medium text-red-600">
+                      غرامة 018
+                    </th>
+                  )}
                   <th className="px-3 py-2 text-xs font-medium text-gray-500">العمولة</th>
                   <th className="px-3 py-2 text-xs font-medium text-gray-500">الخصم</th>
                   <th className="px-3 py-2 text-xs font-medium text-gray-500">الإجمالي</th>
@@ -450,11 +516,25 @@ export function PricingCalcPage() {
                       {item.freight_cost.toFixed(2)}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
+                      {item.insurance_cost.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
                       {item.customs_duty.toFixed(2)}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
                       {item.clearance_fee.toFixed(2)}
                     </td>
+                    <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
+                      {item.service_percent_070.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
+                      {item.service_flat_301.toFixed(2)}
+                    </td>
+                    {result.line_items.some((li) => li.penalty_018 > 0) && (
+                      <td className="px-3 py-2 text-sm font-medium text-red-600" dir="ltr">
+                        {item.penalty_018 > 0 ? item.penalty_018.toFixed(2) : "—"}
+                      </td>
+                    )}
                     <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
                       {item.commission.toFixed(2)}
                     </td>

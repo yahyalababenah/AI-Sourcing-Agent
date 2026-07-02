@@ -54,6 +54,9 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
         unit_price_cny: product.unit_price_rmb ?? 0,
         quantity,
         destination_port: destinationPort || "Aqaba",
+        // FIX: previously omitted — freight was always computed off a phantom
+        // 0.1 CBM minimum regardless of the product's real weight.
+        weight_kg: product.weight_kg ?? 0,
       }),
     enabled: open && !!product.unit_price_rmb && quantity > 0,
     retry: false,
@@ -212,6 +215,12 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
                     <span>السعر الأساسي × {estimate.quantity}</span>
                     <span dir="ltr">{(estimate.unit_price_converted * estimate.quantity).toFixed(2)} {estimate.target_currency}</span>
                   </div>
+                  {estimate.insurance_cost > 0 && (
+                    <div className="flex justify-between" style={{ color: "var(--text-2)" }}>
+                      <span>التأمين</span>
+                      <span dir="ltr">{estimate.insurance_cost.toFixed(2)} {estimate.target_currency}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between" style={{ color: "var(--text-2)" }}>
                     <span>الجمارك والرسوم</span>
                     <span dir="ltr">{estimate.customs_duty.toFixed(2)} {estimate.target_currency}</span>
