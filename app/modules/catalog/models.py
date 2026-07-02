@@ -116,6 +116,12 @@ class CatalogProduct(Base):
         nullable=True,
         doc="Product category — B-Tree indexed for filtered queries",
     )
+    hs_code = Column(
+        String(50),
+        nullable=True,
+        index=True,
+        doc="Harmonized System code for customs classification",
+    )
 
     # ── Review Status ──
     review_status = Column(
