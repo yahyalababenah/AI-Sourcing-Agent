@@ -64,7 +64,13 @@ class TestCalculateLandedCost:
         self.engine = PricingEngine()
 
     def test_basic_calculation(self):
-        """Verify the 9-step algorithm produces reasonable results."""
+        """Verify the corrected 10-step algorithm produces reasonable results.
+
+        NOTE: expected values updated after fixing two verified bugs:
+          - exchange_rate_cny_jod default corrected from stale 0.077 to 0.1047
+          - customs duty base corrected from goods-price-only to CIF
+            (goods + freight + insurance), matching a real JCAP result.
+        """
         result = self.engine.calculate_landed_cost(
             price_rmb=100.0,
             weight_kg=500.0,   # 1 CBM
@@ -75,22 +81,29 @@ class TestCalculateLandedCost:
         )
         # Step 1: price_usd = 100 * 0.14 = 14.0
         assert result["price_usd"] == 14.0
-        # Step 2: price_local = 14.0 * (0.077/0.14) ≈ 7.7
-        assert result["price_local"] == pytest.approx(7.7, rel=0.01)
+        # Step 2: price_local = 100 * 0.1047 = 10.47
+        assert result["price_local"] == pytest.approx(10.47, rel=0.01)
         # Step 3: volume_cbm = 500/500 = 1.0
         assert result["volume_cbm"] == 1.0
         # Step 4: freight = 75 * 1.0 / 100 = 0.75
         assert result["freight_per_unit"] == 0.75
-        # Step 5: customs = 7.7 * 0.05 = 0.385
-        assert result["customs_per_unit"] == pytest.approx(0.385, abs=0.01)
-        # Step 6: clearance = 150 / 100 = 1.5
+        # Step 5: insurance = (10.47 + 0.75) * 0.01 ≈ 0.1122
+        assert result["insurance_per_unit"] == pytest.approx(0.1122, abs=0.01)
+        # Step 6: CIF = price_local + freight + insurance ≈ 11.3322
+        assert result["cif_per_unit"] == pytest.approx(11.3322, abs=0.01)
+        # Step 7: customs = CIF * 0.05 ≈ 0.5666 (base is CIF, not goods price alone)
+        assert result["customs_per_unit"] == pytest.approx(0.5666, abs=0.01)
+        # Step 8: clearance = 150 / 100 = 1.5
         assert result["clearance_per_unit"] == 1.5
-        # Step 7: commission = (7.7 + 0.75 + 0.385 + 1.5) * 0.03 ≈ 0.31005
-        total_before = 7.7 + 0.75 + 0.385 + 1.5
+        # Step 9: commission = (price_local + freight + customs + clearance) * 0.03
+        total_before = (
+            result["price_local"] + result["freight_per_unit"]
+            + result["customs_per_unit"] + result["clearance_per_unit"]
+        )
         assert result["commission_per_unit"] == pytest.approx(total_before * 0.03, rel=0.01)
-        # Step 8: total_per_unit = total_before + commission
+        # Step 10: total_per_unit = total_before + commission
         assert result["total_per_unit"] == pytest.approx(total_before * 1.03, rel=0.01)
-        # Step 9: grand_total = total_per_unit * quantity
+        # grand_total = total_per_unit * quantity
         assert result["grand_total"] == pytest.approx(result["total_per_unit"] * 100, rel=0.01)
 
     def test_zero_quantity_raises(self):
@@ -277,6 +290,47 @@ class TestCalculate:
             products=[LineItemInput(product_id="p", product_name="P", quantity=10000, unit_price_cny=50.0)],
         )
         assert r4["line_items"][0]["discount"] > r3["line_items"][0]["discount"]
+
+    def test_vat_base_is_cif_plus_duty_not_full_total(self):
+        """REGRESSION: VAT must be computed on (CIF + duty) only, per a real
+        verified JCAP tax-simulation result — NOT on the full commercial total
+        (which also includes freight, clearance fee and commission). Before the
+        fix, VAT was computed on the inflated ``grand_total`` and would have
+        been significantly higher than the correct government-mandated amount.
+        """
+        products = [
+            LineItemInput(
+                product_id="p1", product_name="Widget",
+                quantity=100, unit_price_cny=100.0, weight_kg=500.0,
+            )
+        ]
+        result = self.engine.calculate(
+            rfq_id="vat-test", target_currency="JOD",
+            destination_port="Aqaba", products=products,
+        )
+        li = result["line_items"][0]
+        expected_vat_base = li["cif_value"] + li["customs_duty"]
+        expected_vat = round(expected_vat_base * 0.16, 2)
+        assert result["vat"] == pytest.approx(expected_vat, rel=0.01)
+        # Sanity: the (wrong) old base would have been much larger than CIF+duty
+        assert expected_vat_base < result["subtotal_before_vat"]
+
+    def test_weight_kg_changes_freight_and_therefore_total(self):
+        """REGRESSION: weight_kg must actually influence the result. Before the
+        fix, weight_kg was never wired from the API request through to the
+        engine, so freight (and everything downstream) was identical for every
+        shipment regardless of its real weight.
+        """
+        light = self.engine.calculate(
+            rfq_id="w1", target_currency="JOD", destination_port="Aqaba",
+            products=[LineItemInput(product_id="p", product_name="P", quantity=10, unit_price_cny=50.0, weight_kg=50.0)],
+        )
+        heavy = self.engine.calculate(
+            rfq_id="w2", target_currency="JOD", destination_port="Aqaba",
+            products=[LineItemInput(product_id="p", product_name="P", quantity=10, unit_price_cny=50.0, weight_kg=5000.0)],
+        )
+        assert heavy["line_items"][0]["freight_cost"] > light["line_items"][0]["freight_cost"]
+        assert heavy["grand_total"] > light["grand_total"]
 
 
 # ═══════════════════════════════════════════════════════════
