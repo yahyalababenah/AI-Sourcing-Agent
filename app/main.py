@@ -95,6 +95,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.ENVIRONMENT == "development":
         pass  # Alembic migrations are run manually or via CI/CD
 
+    # Warm up PaddleOCR in the background so the first document upload isn't
+    # slowed down by lazy model loading. Fire-and-forget: OCR degrades
+    # gracefully (see ocr_client._ocr_unavailable) if this fails.
+    import asyncio
+    from app.modules.documents.ocr_client import warm_up_ocr
+    asyncio.get_event_loop().run_in_executor(None, warm_up_ocr)
+
     yield
 
     # ---- Shutdown ----
