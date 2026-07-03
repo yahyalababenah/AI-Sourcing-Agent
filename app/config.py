@@ -81,11 +81,12 @@ class Settings(BaseSettings):
     # ---- LLM API Providers ----
     TOGETHER_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = ""
 
     @property
     def has_llm_provider(self) -> bool:
         """Check if at least one LLM provider is configured."""
-        return bool(self.TOGETHER_API_KEY or self.OPENROUTER_API_KEY)
+        return bool(self.TOGETHER_API_KEY or self.OPENROUTER_API_KEY or self.DEEPSEEK_API_KEY)
 
     # ---- Exchange Rate API ----
     EXCHANGE_RATE_API_KEY: str = ""
