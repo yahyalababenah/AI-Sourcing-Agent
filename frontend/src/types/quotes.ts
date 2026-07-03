@@ -94,4 +94,6 @@ export interface QuotationGenerateAcceptedResponse {
   task_id?: string;
   status: string;
   message: string;
+  /** TEMPORARY: sync fallback for demo — set once the PDF is generated inline. */
+  pdf_url?: string | null;
 }
