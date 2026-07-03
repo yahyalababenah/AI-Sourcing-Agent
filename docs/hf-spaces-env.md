@@ -1,6 +1,6 @@
 # Hugging Face Spaces — Required Environment Variables
 
-The HF Spaces deployment (`Dockerfile.hf` / `entrypoint.hf.sh`) runs a single `uvicorn`
+The HF Spaces deployment (`Dockerfile` / `entrypoint.hf.sh`) runs a single `uvicorn`
 process against external services (Supabase Postgres + Upstash Redis). It does **not**
 bundle a Celery worker. The admin health dashboard (`/health`) will show
 services as disconnected/not_configured until the matching secrets below are set under
@@ -8,7 +8,7 @@ the Space's **Settings → Repository secrets**.
 
 ## ⚠️ MinIO is currently bundled in-container — TEMPORARY, single-demo-session only
 
-As of the current `Dockerfile.hf`/`entrypoint.hf.sh`, MinIO runs as a background
+As of the current `Dockerfile`/`entrypoint.hf.sh`, MinIO runs as a background
 process *inside the same container* as the API (`minio server /data/minio`,
 started by `entrypoint.hf.sh` before `uvicorn`), with `S3_ENDPOINT=http://localhost:9000`
 and `S3_ACCESS_KEY`/`S3_SECRET_KEY=minioadmin` set as image defaults. This was done to
@@ -26,7 +26,7 @@ support a single live demo (catalog upload) without needing an external S3 accou
 
 | Health item | Env vars to set | Where the value comes from |
 |---|---|---|
-| MinIO (recommended for anything beyond a one-off demo) | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | An S3-compatible bucket (e.g. Supabase Storage or Cloudflare R2). Setting these overrides the in-container MinIO defaults baked into `Dockerfile.hf`. |
+| MinIO (recommended for anything beyond a one-off demo) | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | An S3-compatible bucket (e.g. Supabase Storage or Cloudflare R2). Setting these overrides the in-container MinIO fallback (entrypoint skips starting MinIO entirely when `S3_ENDPOINT` is set). |
 | Celery | `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` | Same Upstash Redis URL used for `REDIS_URL`. Without these, `app/shared/celery_app.py` falls back to `redis://...@redis:6379/1` (also a docker-compose-only hostname). |
 | LLM | `DEEPSEEK_API_KEY` (tried first), `OPENROUTER_API_KEY`, or `TOGETHER_API_KEY` | DeepSeek, OpenRouter, or Together API key. |
 

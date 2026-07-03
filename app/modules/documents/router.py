@@ -184,12 +184,19 @@ async def upload(
         try:
             _ocr_celery_task.delay(str(doc.id))
         except Exception as exc:
+            # Broker/worker unreachable (e.g. CELERY_ENABLED left on with no
+            # worker deployed) — process inline rather than stranding the
+            # document in FAILED over an infrastructure hiccup.
             logger.error(
-                "Failed to dispatch OCR task for document %s: %s", doc.id, exc
+                "Failed to dispatch OCR task for document %s — processing inline: %s",
+                doc.id, exc,
             )
-            doc.status = DocumentStatus.FAILED
-            doc.error_message = "OCR dispatch failed. Retry via POST /{id}/process."
-            await db.flush()
+            try:
+                await process_document_vision(db, str(doc.id))
+            except Exception as inline_exc:
+                logger.error(
+                    "Inline fallback processing failed for %s: %s", doc.id, inline_exc
+                )
             await db.refresh(doc)
     else:
         try:
@@ -316,13 +323,27 @@ async def process_doc(
     try:
         _ocr_celery_task.delay(document_id)
     except Exception as exc:
+        # Broker/worker unreachable — process inline instead of failing the
+        # retry that exists precisely to recover from dispatch failures.
         logger.error(
-            "Failed to dispatch OCR task for document %s: %s", document_id, exc
+            "Failed to dispatch OCR task for document %s — processing inline: %s",
+            document_id, exc,
         )
-        raise HTTPException(
-            status_code=503,
-            detail="OCR task queue is currently unavailable. Please try again later.",
-        )
+        try:
+            await process_document_vision(db, document_id)
+        except Exception as inline_exc:
+            logger.error(
+                "Inline fallback processing failed for %s: %s", document_id, inline_exc
+            )
+            raise HTTPException(
+                status_code=422,
+                detail="Document processing failed. See document status for details.",
+            )
+        return {
+            "document_id": document_id,
+            "status": "extracted",
+            "message": "Document processed inline — see /items for results",
+        }
     return {
         "document_id": document_id,
         "status": "queued",

@@ -1,34 +1,54 @@
 #!/bin/bash
 set -e
 
-# HuggingFace Spaces entrypoint
-# DB and Redis are external services (Supabase + Upstash)
-# Extract DB_HOST from DATABASE_URL if not set explicitly
+# Shared entrypoint for HF Spaces and docker-compose.
+# DB and Redis are external services on Spaces (Supabase + Upstash).
+#
+# HF Spaces injects SPACE_ID at runtime; docker-compose never sets it.
+# All single-container adjustments live inside this gate so the same
+# image behaves normally under compose (Celery workers, Redis rate
+# limiting, external MinIO service).
+if [ -n "$SPACE_ID" ]; then
+    echo "[entrypoint] HF Space detected (${SPACE_ID}) — applying single-container defaults."
+    # ${VAR:-default} keeps any value already set via Space secrets/variables.
+    export CELERY_ENABLED="${CELERY_ENABLED:-false}"
+    export RATE_LIMIT_BACKEND="${RATE_LIMIT_BACKEND:-memory}"
+    export AUTH_SESSION_CHECK_ENABLED="${AUTH_SESSION_CHECK_ENABLED:-false}"
 
-# TEMPORARY: sync fallback for demo, revert to external S3 once a real
-# provider is set up. Starts MinIO as a background process inside this same
-# container so live catalog uploads work without an external S3 account.
-# Storage lives at /data/minio and is ephemeral — wiped on every restart/rebuild.
-echo "[entrypoint] Starting MinIO (internal, ephemeral storage at /data/minio)..."
-minio server /data/minio --address ":9000" --console-address ":9001" \
-    > /tmp/minio.log 2>&1 &
-MINIO_PID=$!
+    if [ -z "$S3_ENDPOINT" ] && command -v minio >/dev/null 2>&1; then
+        # TEMPORARY demo fallback: no external S3 configured — run MinIO
+        # inside this container. /data/minio is ephemeral (wiped on every
+        # Space restart/rebuild).
+        export MINIO_ROOT_USER="${MINIO_ROOT_USER:-minioadmin}"
+        export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-minioadmin}"
+        export S3_ENDPOINT="http://localhost:9000"
+        export S3_ACCESS_KEY="$MINIO_ROOT_USER"
+        export S3_SECRET_KEY="$MINIO_ROOT_PASSWORD"
 
-echo "[entrypoint] Waiting for MinIO to become healthy..."
-MAX_TRIES=20
-TRIES=0
-until curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; do
-    TRIES=$((TRIES + 1))
-    if [ "$TRIES" -ge "$MAX_TRIES" ]; then
-        echo "[entrypoint] WARNING: MinIO not healthy after ${MAX_TRIES} attempts (pid ${MINIO_PID})."
-        echo "[entrypoint] Last MinIO log lines:"
-        tail -n 20 /tmp/minio.log || true
-        break
+        echo "[entrypoint] Starting MinIO (internal, ephemeral storage at /data/minio)..."
+        minio server /data/minio --address ":9000" --console-address ":9001" \
+            > /tmp/minio.log 2>&1 &
+        MINIO_PID=$!
+
+        echo "[entrypoint] Waiting for MinIO to become healthy..."
+        MAX_TRIES=20
+        TRIES=0
+        until curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; do
+            TRIES=$((TRIES + 1))
+            if [ "$TRIES" -ge "$MAX_TRIES" ]; then
+                echo "[entrypoint] WARNING: MinIO not healthy after ${MAX_TRIES} attempts (pid ${MINIO_PID})."
+                echo "[entrypoint] Last MinIO log lines:"
+                tail -n 20 /tmp/minio.log || true
+                break
+            fi
+            sleep 1
+        done
+        if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+            echo "[entrypoint] MinIO is healthy on :9000 (console :9001)."
+        fi
+    else
+        echo "[entrypoint] External S3 configured (S3_ENDPOINT set) — skipping internal MinIO."
     fi
-    sleep 1
-done
-if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
-    echo "[entrypoint] MinIO is healthy on :9000 (console :9001)."
 fi
 
 if [ -n "$DATABASE_URL" ]; then
