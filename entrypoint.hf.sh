@@ -5,6 +5,32 @@ set -e
 # DB and Redis are external services (Supabase + Upstash)
 # Extract DB_HOST from DATABASE_URL if not set explicitly
 
+# TEMPORARY: sync fallback for demo, revert to external S3 once a real
+# provider is set up. Starts MinIO as a background process inside this same
+# container so live catalog uploads work without an external S3 account.
+# Storage lives at /data/minio and is ephemeral — wiped on every restart/rebuild.
+echo "[entrypoint] Starting MinIO (internal, ephemeral storage at /data/minio)..."
+minio server /data/minio --address ":9000" --console-address ":9001" \
+    > /tmp/minio.log 2>&1 &
+MINIO_PID=$!
+
+echo "[entrypoint] Waiting for MinIO to become healthy..."
+MAX_TRIES=20
+TRIES=0
+until curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; do
+    TRIES=$((TRIES + 1))
+    if [ "$TRIES" -ge "$MAX_TRIES" ]; then
+        echo "[entrypoint] WARNING: MinIO not healthy after ${MAX_TRIES} attempts (pid ${MINIO_PID})."
+        echo "[entrypoint] Last MinIO log lines:"
+        tail -n 20 /tmp/minio.log || true
+        break
+    fi
+    sleep 1
+done
+if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+    echo "[entrypoint] MinIO is healthy on :9000 (console :9001)."
+fi
+
 if [ -n "$DATABASE_URL" ]; then
     # Extract host from: postgresql+asyncpg://user:pass@host:port/db
     PARSED_HOST=$(echo "$DATABASE_URL" | sed -E 's|.*@([^:/]+).*|\1|')
