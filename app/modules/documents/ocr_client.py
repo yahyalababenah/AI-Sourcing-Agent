@@ -3,12 +3,17 @@ AI-Sourcing Hub — Document Extraction Pipeline
 
 Two-phase pipeline:
 
-Phase 1 — Raw text extraction:
+Phase 0 — Structured extraction (no LLM):
+    • Excel / CSV / Word tables → pandas direct read (header row auto-detected)
+    • PDF with drawn tables → pdfplumber (rows/columns preserved)
+
+Phase 1 — Raw text extraction (when Phase 0 finds nothing):
     • PDF  → pypdfium2 (instant, no ML, handles text-based PDFs)
     • Image / scanned PDF → PaddleOCR (skipped gracefully if runtime broken)
 
 Phase 2 — LLM structuring:
-    • Raw text is sent to the LLM with a dynamic extraction prompt.
+    • Raw text is sent to the LLM with a dynamic extraction prompt, split into
+      chunks so long catalogs are never truncated.
     • The LLM reads whatever columns/headers exist in this specific document
       and returns a JSON array where each object has the fields found in that
       document (not a hardcoded set of columns).
@@ -66,6 +71,71 @@ def _pdf_to_text(file_bytes: bytes) -> str:
             logger.debug("pypdfium2 page %d error: %s", page_idx, exc)
 
     return "\n\n".join(pages_text)
+
+
+# ═══════════════════════════════════════════════════════════
+# Phase 0 (PDF) — pdfplumber structured table extraction
+#
+# pypdfium2 only gives flat text with no column info, so a 6-column table
+# turns into scrambled lines and the LLM has to guess which number belongs
+# to which column (prices get mixed with quantities). pdfplumber detects
+# actual table structure (rows + columns) from the PDF's drawing geometry,
+# so when it succeeds the result feeds straight into the same no-LLM
+# row→product pipeline used for Excel/Word.
+# ═══════════════════════════════════════════════════════════
+
+
+def _pdf_to_tables(file_bytes: bytes, max_pages: int) -> list:
+    """Extract structured tables from a text-based PDF via pdfplumber.
+
+    Tables that continue across pages usually repeat on each page without
+    their header row, so consecutive tables with the same column count are
+    concatenated before header detection (which also drops repeated header
+    rows). Returns a list of clean pandas DataFrames, or [] if pdfplumber
+    is unavailable or finds nothing.
+    """
+    import io
+
+    try:
+        import pdfplumber
+    except ImportError:
+        logger.warning("pdfplumber not installed — skipping PDF table extraction")
+        return []
+
+    import pandas as pd
+
+    raw_tables: list[list[list]] = []
+    try:
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            for page in pdf.pages[:max_pages]:
+                for table in page.extract_tables():
+                    rows = [r for r in (table or []) if any(
+                        c is not None and str(c).strip() for c in r
+                    )]
+                    if rows and max(len(r) for r in rows) >= 2:
+                        raw_tables.append(rows)
+    except Exception as exc:
+        logger.warning("pdfplumber table extraction failed: %s", exc)
+        return []
+
+    # Merge consecutive same-width tables (multi-page continuation).
+    groups: list[list[list]] = []
+    for table in raw_tables:
+        width = max(len(r) for r in table)
+        padded = [list(r) + [None] * (width - len(r)) for r in table]
+        if groups and len(groups[-1][0]) == width:
+            groups[-1].extend(padded)
+        else:
+            groups.append(padded)
+
+    frames = []
+    for rows in groups:
+        if len(rows) < 2:
+            continue  # header only — no data
+        df = _rebuild_with_detected_header(pd.DataFrame(rows, dtype=object))
+        if df is not None and not df.empty:
+            frames.append(df)
+    return frames
 
 
 # ═══════════════════════════════════════════════════════════
@@ -291,10 +361,64 @@ _SYSTEM_PROMPT = (
 )
 
 
-async def _llm_extract(raw_text: str) -> list[dict]:
-    """Send raw document text to the LLM and return structured product list.
+# Chunk size chosen to stay well inside free-tier context limits while
+# leaving room for the system prompt and an 8K-token JSON response.
+_CHUNK_CHARS = 6000
+_MAX_PARALLEL_LLM_CALLS = 3
 
-    Tries OpenRouter then Together AI. Returns [] if unavailable.
+
+def _split_text_chunks(raw_text: str, chunk_chars: int = _CHUNK_CHARS) -> list[str]:
+    """Split text into ~chunk_chars pieces on line boundaries, so a product's
+    row is never cut in half between two chunks."""
+    chunks: list[str] = []
+    buf: list[str] = []
+    buf_len = 0
+    for line in raw_text.split("\n"):
+        if buf and buf_len + len(line) + 1 > chunk_chars:
+            chunks.append("\n".join(buf))
+            buf, buf_len = [], 0
+        buf.append(line)
+        buf_len += len(line) + 1
+    if buf:
+        chunks.append("\n".join(buf))
+    return chunks
+
+
+async def _llm_extract(raw_text: str) -> list[dict]:
+    """Send raw document text to the LLM and return the structured product
+    list. Long documents are split into chunks (all products get extracted,
+    nothing is truncated away) processed concurrently with a small cap to
+    stay under provider rate limits."""
+    if len(raw_text) <= _CHUNK_CHARS:
+        return await _llm_extract_chunk(raw_text)
+
+    chunks = _split_text_chunks(raw_text)
+    logger.info(
+        "Document text split into %d chunks (%d chars total) for LLM extraction",
+        len(chunks), len(raw_text),
+    )
+
+    sem = asyncio.Semaphore(_MAX_PARALLEL_LLM_CALLS)
+
+    async def _run(chunk: str) -> list[dict]:
+        async with sem:
+            return await _llm_extract_chunk(chunk)
+
+    results = await asyncio.gather(*(_run(c) for c in chunks))
+
+    products: list[dict] = []
+    for i, chunk_products in enumerate(results):
+        if chunk_products:
+            products.extend(chunk_products)
+        else:
+            logger.warning("LLM chunk %d/%d returned no products", i + 1, len(chunks))
+    return products
+
+
+async def _llm_extract_chunk(raw_text: str) -> list[dict]:
+    """Send one chunk of document text to the LLM and return structured
+    products. Tries DeepSeek, then OpenRouter models, then Together AI.
+    Returns [] if unavailable.
     """
     try:
         from app.config import settings
@@ -309,14 +433,11 @@ async def _llm_extract(raw_text: str) -> list[dict]:
         logger.warning("No LLM API key configured — skipping LLM extraction")
         return []
 
-    # Trim to ~8 000 chars so we stay well inside free-tier context limits
-    trimmed = raw_text[:8000]
-    if len(raw_text) > 8000:
-        logger.debug("Document text trimmed from %d to 8 000 chars for LLM", len(raw_text))
-
+    # raw_text arrives pre-chunked to ~_CHUNK_CHARS by _llm_extract, so no
+    # truncation happens here — every product gets a chance to be extracted.
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
-        {"role": "user",   "content": f"Extract all products from this document:\n\n{trimmed}"},
+        {"role": "user",   "content": f"Extract all products from this document:\n\n{raw_text}"},
     ]
 
     # Free OpenRouter models — tried in order (verified available as of 2026-06).
@@ -367,7 +488,7 @@ async def _llm_extract(raw_text: str) -> list[dict]:
                         "model":       ep["model"],
                         "messages":    messages,
                         "temperature": 0.1,
-                        "max_tokens":  4096,
+                        "max_tokens":  8192,
                     },
                 )
 
@@ -395,7 +516,26 @@ async def _llm_extract(raw_text: str) -> list[dict]:
             if array_start != -1:
                 content = content[array_start:]
 
-            data = json.loads(content)
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError:
+                # Usually the array got cut off mid-object at max_tokens.
+                # json-repair closes unterminated structures, recovering the
+                # complete products instead of discarding the whole batch.
+                from json_repair import repair_json
+
+                data = json.loads(repair_json(content))
+                if isinstance(data, list) and data:
+                    # The truncated tail may come back as a partial dict or
+                    # even a stray list — drop it, keep complete dicts only.
+                    tail = data[-1]
+                    if not isinstance(tail, dict) or "product_name" not in tail:
+                        data = data[:-1]
+                    data = [d for d in data if isinstance(d, dict)]
+                logger.warning(
+                    "JSON from model=%s was truncated — recovered %d complete products",
+                    ep["model"], len(data) if isinstance(data, list) else 0,
+                )
 
             if isinstance(data, dict) and "products" in data:
                 data = data["products"]
@@ -520,18 +660,133 @@ def _rows_to_products(df) -> list[dict]:
 
 def _is_ambiguous(df) -> bool:
     """A table is too ambiguous to read directly if it has fewer than two
-    usable columns, or every header is unnamed/blank (pandas 'Unnamed: N')."""
+    usable columns, or nearly every header is a placeholder — pandas
+    'Unnamed: N' or our own 'col_N' from header detection."""
     cols = [str(c).strip() for c in df.columns]
     if len(cols) < 2:
         return True
-    meaningful = [c for c in cols if c and not c.lower().startswith("unnamed")]
+    meaningful = [
+        c for c in cols
+        if c
+        and not c.lower().startswith("unnamed")
+        and not re.fullmatch(r"col_\d+(_\d+)?", c.lower())
+    ]
     return len(meaningful) < 2
+
+
+# ── Header-row detection ────────────────────────────────────
+# Real supplier catalogs rarely start with the header row: there is usually
+# a merged title row, logo/contact/date rows, and THEN the actual header.
+# Reading with header=0 turns that title row into the header ("Unnamed: N"
+# columns), which either mistranslates every field or needlessly dumps the
+# whole file onto the LLM. So tables are read headerless and the most
+# header-looking row within the first rows is detected and promoted.
+
+
+def _cell_text(value) -> str:
+    """Raw cell → stripped string, '' for None/NaN."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and value != value:  # NaN
+        return ""
+    return str(value).strip()
+
+
+def _row_header_score(row: list) -> float:
+    """Score how much a raw row looks like a table header row.
+
+    Higher = more short non-numeric text cells and/or cells matching a known
+    field alias. Merged-title rows score low (few filled cells); data rows
+    score low (mostly numeric cells).
+    """
+    cells = [c for c in (_cell_text(v) for v in row) if c]
+    if not cells:
+        return float("-inf")
+    score = 0.0
+    for c in cells:
+        if c.lower() in _HEADER_MAP:
+            score += 3.0  # strong signal: matches a known field alias
+        elif _coerce_number(c) is not None:
+            score -= 1.0  # numeric cell — looks like data, not a header
+        elif len(c) <= 40:
+            score += 1.0  # short text cell — plausible header label
+    # Reward more distinct filled cells (a title row usually has just one).
+    score += 0.3 * len(cells)
+    return score
+
+
+def _detect_header_row(raw_rows: list[list], max_scan: int = 10) -> int:
+    """Return the index of the most header-looking row among the first
+    `max_scan` rows."""
+    best_idx, best_score = 0, float("-inf")
+    for idx, row in enumerate(raw_rows[:max_scan]):
+        score = _row_header_score(row)
+        if score > best_score:
+            best_idx, best_score = idx, score
+    return best_idx
+
+
+def _rebuild_with_detected_header(df_raw):
+    """Turn a headerless DataFrame into a clean one with proper columns.
+
+    Detects the real header row, deduplicates/fills merged header cells,
+    drops repeated header rows (multi-page PDF tables repeat theirs on every
+    page), and forward-fills vertically-merged cells — but only in mostly-
+    text columns, so a price is never silently duplicated into blank rows.
+    Returns None when there is no data below the detected header.
+    """
+    raw_rows = df_raw.values.tolist()
+    if not raw_rows:
+        return None
+
+    header_idx = _detect_header_row(raw_rows)
+    header_cells = df_raw.iloc[header_idx].ffill().tolist()
+
+    names: list[str] = []
+    seen: dict[str, int] = {}
+    for i, h in enumerate(header_cells):
+        name = _cell_text(h) or f"col_{i}"
+        if name in seen:
+            seen[name] += 1
+            name = f"{name}_{seen[name]}"
+        else:
+            seen[name] = 0
+        names.append(name)
+
+    body = df_raw.iloc[header_idx + 1:].copy()
+    if body.empty:
+        return None
+    body.columns = names
+
+    header_set = {n.lower() for n in names}
+
+    def _is_header_repeat(row) -> bool:
+        vals = [c.lower() for c in (_cell_text(v) for v in row.tolist()) if c]
+        return bool(vals) and sum(v in header_set for v in vals) > len(vals) / 2
+
+    body = body[~body.apply(_is_header_repeat, axis=1)]
+
+    # Positional access: header ffill can produce duplicate names, and
+    # body[name] would then return a DataFrame instead of a Series.
+    for i in range(len(names)):
+        series = body.iloc[:, i]
+        non_null = series.dropna()
+        if non_null.empty:
+            continue
+        numeric_like = sum(_coerce_number(str(v)) is not None for v in non_null)
+        if numeric_like / len(non_null) < 0.5:
+            body.iloc[:, i] = series.ffill()
+
+    return body.reset_index(drop=True)
 
 
 async def _table_file_to_products(file_bytes: bytes, ext: str) -> list[dict]:
     """Read an Excel / CSV / TSV file directly into product dicts (no LLM).
 
-    Falls back to the LLM only when the parsed table is too ambiguous to trust.
+    Files are read headerless first, then the real header row is auto-detected
+    (skipping the merged title/logo/contact rows common in supplier catalogs)
+    and vertically-merged cells are filled. Falls back to the LLM only when
+    the resulting table is still too ambiguous to trust.
     """
     import io
 
@@ -542,14 +797,17 @@ async def _table_file_to_products(file_bytes: bytes, ext: str) -> list[dict]:
         if ext in (".xlsx", ".xls"):
             engine = "openpyxl" if ext == ".xlsx" else None
             sheets = pd.read_excel(
-                io.BytesIO(file_bytes), sheet_name=None, engine=engine, dtype=object
+                io.BytesIO(file_bytes), sheet_name=None, engine=engine,
+                dtype=object, header=None,
             )
-            frames = [df for df in sheets.values() if not df.empty]
-        elif ext in (".csv", ".tsv"):
+            raw_frames = [df for df in sheets.values() if not df.empty]
+        else:  # .csv / .tsv
             sep = "\t" if ext == ".tsv" else ","
-            frames = [
-                pd.read_csv(io.BytesIO(file_bytes), sep=sep, dtype=object, skip_blank_lines=True)
+            raw_frames = [
+                pd.read_csv(io.BytesIO(file_bytes), sep=sep, dtype=object,
+                            skip_blank_lines=True, header=None)
             ]
+        frames = [_rebuild_with_detected_header(df) for df in raw_frames]
     except Exception as exc:
         logger.warning("Failed to parse %s table (%s) — falling back to LLM", ext, exc)
         frames = []
@@ -621,7 +879,7 @@ async def _docx_to_products(file_bytes: bytes) -> list[dict]:
 
 
 # ═══════════════════════════════════════════════════════════
-# Messy-input path (PDF / image → raw text → LLM) — UNCHANGED
+# Messy-input path (PDF / image)
 # ═══════════════════════════════════════════════════════════
 
 
@@ -631,12 +889,31 @@ async def _extract_pdf_or_image(
     ext: str,
     max_pages: int,
 ) -> list[dict]:
-    """Original two-phase pipeline for messy inputs: extract raw text
-    (pypdfium2 for PDFs, PaddleOCR for images/scanned PDFs) → LLM structuring."""
+    """Pipeline for messy inputs. PDFs first try structured table extraction
+    (pdfplumber, no LLM); otherwise raw text is extracted (pypdfium2 for
+    PDFs, PaddleOCR for images/scanned PDFs) and structured by the LLM."""
     import tempfile
 
     is_pdf = ext == ".pdf"
     raw_text = ""
+
+    # ── Phase 0 (PDF only): structured tables, no LLM ──────────
+    # When the PDF has real drawn tables this reads them with correct
+    # row/column structure — same accuracy as the Excel/Word direct paths.
+    if is_pdf:
+        table_frames = await asyncio.get_event_loop().run_in_executor(
+            None, _pdf_to_tables, file_bytes, max_pages
+        )
+        table_products: list[dict] = []
+        for df in table_frames:
+            if not _is_ambiguous(df):
+                table_products.extend(_rows_to_products(df))
+        if table_products:
+            logger.info(
+                "Read %d products directly from PDF tables via pdfplumber (no LLM): %s",
+                len(table_products), file_name,
+            )
+            return table_products
 
     # ── Phase 1: Extract raw text ──────────────────────────────
     if is_pdf:
