@@ -90,17 +90,31 @@ def _get_ocr_engine():
             return None
         try:
             from paddleocr import PaddleOCR
+
+            from app.config import settings
             _ocr_engine = PaddleOCR(
-                lang="ch",
+                lang=getattr(settings, "OCR_LANG", "en"),
                 use_textline_orientation=False,
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
             )
-            logger.info("PaddleOCR engine ready")
+            logger.info("PaddleOCR engine ready (lang=%s)", getattr(settings, "OCR_LANG", "en"))
         except Exception as exc:
             logger.warning("PaddleOCR unavailable (%s) — will skip OCR step", exc)
             _ocr_unavailable = True
     return _ocr_engine
+
+
+def warm_up_ocr() -> None:
+    """Force-load the PaddleOCR engine so the first real request isn't slow.
+
+    Safe to call from app startup — errors are swallowed (mirrors the lazy
+    lookup's own error handling), the OCR feature is simply unavailable.
+    """
+    try:
+        _get_ocr_engine()
+    except Exception:
+        pass
 
 
 def _ocr_image_to_text(img_path: str) -> str:
@@ -117,9 +131,9 @@ def _ocr_image_to_text(img_path: str) -> str:
             use_textline_orientation=False,
         )
     except Exception as exc:
+        # A single bad image shouldn't permanently disable OCR for the
+        # process — only _get_ocr_engine() failing to load the model does.
         logger.warning("PaddleOCR predict failed: %s", exc)
-        global _ocr_unavailable
-        _ocr_unavailable = True
         return ""
 
     # Collect (y_center, x_left, text) then sort top→bottom, left→right
@@ -127,9 +141,18 @@ def _ocr_image_to_text(img_path: str) -> str:
     for page_result in (results or []):
         try:
             rec_texts = getattr(page_result, "rec_texts", None) or []
-            dt_boxes  = getattr(page_result, "dt_boxes",  None) or []
-            if rec_texts and dt_boxes:
-                for box, text in zip(dt_boxes, rec_texts):
+            # PaddleOCR 3.x pairs rec_texts with rec_boxes/rec_polys (index
+            # aligned); dt_polys is the pre-recognition detection set and can
+            # have a different length, so it must not be used here.
+            rec_boxes = getattr(page_result, "rec_boxes", None)
+            rec_polys = getattr(page_result, "rec_polys", None) or []
+            if rec_texts and rec_boxes is not None and len(rec_boxes):
+                for box, text in zip(rec_boxes, rec_texts):
+                    x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
+                    boxes.append(((y1 + y2) / 2, min(x1, x2), text))
+                continue
+            if rec_texts and rec_polys:
+                for box, text in zip(rec_polys, rec_texts):
                     ys = [p[1] for p in box]; xs = [p[0] for p in box]
                     boxes.append((sum(ys)/len(ys), min(xs), text))
                 continue
@@ -333,7 +356,7 @@ async def _llm_extract(raw_text: str) -> list[dict]:
 
     for ep in endpoints:
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=20.0) as client:
                 resp = await client.post(
                     ep["url"],
                     headers={
@@ -637,8 +660,10 @@ async def _extract_pdf_or_image(
             if is_pdf:
                 try:
                     from pdf2image import convert_from_bytes
-                    pages = convert_from_bytes(file_bytes, dpi=200)
-                    for i, page in enumerate(pages[:max_pages]):
+                    pages = convert_from_bytes(
+                        file_bytes, dpi=200, first_page=1, last_page=max_pages
+                    )
+                    for i, page in enumerate(pages):
                         tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
                         page.save(tmp.name, "JPEG")
                         image_paths.append(tmp.name)

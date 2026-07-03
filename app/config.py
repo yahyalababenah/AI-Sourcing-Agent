@@ -88,6 +88,12 @@ class Settings(BaseSettings):
         """Check if at least one LLM provider is configured."""
         return bool(self.TOGETHER_API_KEY or self.OPENROUTER_API_KEY or self.DEEPSEEK_API_KEY)
 
+    # ---- OCR ----
+    # PaddleOCR language model: "en" (Latin script incl. numbers/SKUs), "ch"
+    # (Chinese+English), "arabic" (Arabic script). One model per deployment —
+    # pick whichever matches the majority of scanned documents you receive.
+    OCR_LANG: str = "en"
+
     # ---- Exchange Rate API ----
     EXCHANGE_RATE_API_KEY: str = ""
 
