@@ -56,11 +56,17 @@ async def sync_document_products(db: AsyncSession, document: Document) -> int:
         logger.info("No products to sync for document %s", document.id)
         return 0
 
-    # Verify the uploader is an agent (supplier)
-    supplier = document.uploaded_by
-    if not supplier or supplier.role != UserRole.AGENT:
+    # Verify the uploader can act as a supplier. Uploads are restricted to
+    # agents and admins (require_agent_or_admin), so accept both — otherwise an
+    # admin-uploaded catalog would be silently dropped. Resolve via an explicit
+    # query on the (already-loaded) FK column rather than the lazy relationship,
+    # which is not loaded here and would fail in the async context.
+    supplier = (
+        await db.execute(select(User).where(User.id == document.uploaded_by_id))
+    ).scalar_one_or_none()
+    if not supplier or supplier.role not in (UserRole.AGENT, UserRole.ADMIN):
         logger.warning(
-            "Document %s owner is not an AGENT (role=%s) — skipping sync",
+            "Document %s owner is not an AGENT/ADMIN (role=%s) — skipping sync",
             document.id,
             supplier.role if supplier else "None",
         )
@@ -122,11 +128,12 @@ def sync_document_products_sync(db: Session, document: Document) -> int:
         logger.info("No products to sync for document %s", document.id)
         return 0
 
-    # Verify the uploader is an agent (supplier)
+    # Verify the uploader can act as a supplier (agent or admin — see the async
+    # twin above for rationale).
     supplier = document.uploaded_by
-    if not supplier or supplier.role != UserRole.AGENT:
+    if not supplier or supplier.role not in (UserRole.AGENT, UserRole.ADMIN):
         logger.warning(
-            "Document %s owner is not an AGENT (role=%s) — skipping sync",
+            "Document %s owner is not an AGENT/ADMIN (role=%s) — skipping sync",
             document.id,
             supplier.role if supplier else "None",
         )

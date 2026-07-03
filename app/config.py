@@ -160,11 +160,26 @@ class Settings(BaseSettings):
     # ---- Celery ----
     CELERY_TASK_SOFT_TIME_LIMIT: int = Field(default=180, ge=30)
     CELERY_TASK_TIME_LIMIT: int = Field(default=200, ge=60)
+    # Whether a Celery worker is available. On single-container hosts (e.g. HF
+    # Spaces) there is no worker, so document processing must run inline and the
+    # health check must not wait out a dead broker ping. Set False there.
+    CELERY_ENABLED: bool = Field(default=True)
 
     # ---- Rate Limiting ----
     RATE_LIMIT_GENERAL: str = Field(default="100/minute")
     RATE_LIMIT_UPLOAD: str = Field(default="10/minute")
     RATE_LIMIT_AUTH: str = Field(default="5/minute")
+    # "redis" (shared across instances) or "memory" (per-process, no network).
+    # Use "memory" on single-instance deploys to drop ~3 remote Redis round
+    # trips from every request.
+    RATE_LIMIT_BACKEND: str = Field(default="redis", pattern="^(redis|memory)$")
+
+    # ---- Auth ----
+    # Per-request Redis GET that checks whether a session was invalidated (logout
+    # / forced logout). Fail-open and cheap only when Redis is local. Disable on
+    # remote-Redis single-instance demos — short-lived access tokens make the
+    # extra round trip not worth its latency.
+    AUTH_SESSION_CHECK_ENABLED: bool = Field(default=True)
 
     # ---- Trusted Proxies ----
     # CIDRs whose X-Forwarded-For header is trusted.

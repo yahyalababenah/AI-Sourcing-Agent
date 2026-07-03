@@ -17,7 +17,7 @@ Shutdown:
 """
 
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 import sentry_sdk
 from fastapi import FastAPI, Request
@@ -201,51 +201,6 @@ def create_app() -> FastAPI:
         tags=["Notifications"],
     )
 
-    # ---- DB Debug (temporary) ----
-    @app.get("/debug/db", tags=["System"])
-    async def debug_db() -> JSONResponse:
-        import os, ssl, asyncpg, sys
-        from app.config import settings
-        from sqlalchemy.engine import make_url
-
-        raw_url = os.getenv("DATABASE_URL", "NOT_SET")
-        pw_hint = raw_url.split(":")[2].split("@")[0][:4] + "****" if raw_url.count(":") >= 2 else "?"
-        u = make_url(settings.db_url)
-
-        info = {
-            "asyncpg_version": asyncpg.__version__,
-            "python": sys.version,
-            "host": u.host,
-            "port": u.port,
-            "user": u.username,
-            "pw_hint": pw_hint,
-        }
-
-        # Try SSL=require (strict)
-        for ssl_mode in ["require", "disable"]:
-            try:
-                if ssl_mode == "require":
-                    ctx = ssl.create_default_context()
-                    ctx.check_hostname = False
-                    ctx.verify_mode = ssl.CERT_NONE
-                    ssl_arg = ctx
-                else:
-                    ssl_arg = False
-
-                conn = await asyncpg.connect(
-                    host=u.host, port=u.port or 5432,
-                    user=u.username, password=u.password,
-                    database=u.database, ssl=ssl_arg,
-                    timeout=10,
-                )
-                await conn.fetchval("SELECT 1")
-                await conn.close()
-                return JSONResponse({"status": "ok", "ssl_mode": ssl_mode, **info})
-            except Exception as e:
-                info[f"error_{ssl_mode}"] = str(e)
-
-        return JSONResponse({"status": "error", **info}, status_code=500)
-
     # ---- Health Check ----
     @app.get(
         "/health",
@@ -270,7 +225,7 @@ def create_app() -> FastAPI:
                 from sqlalchemy import text
                 from app.shared.database import async_session_factory
                 async with async_session_factory() as session:
-                    await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=3.0)
+                    await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=2.0)
                 return True
             except Exception:
                 return False
@@ -279,7 +234,7 @@ def create_app() -> FastAPI:
             try:
                 from app.shared.redis_client import get_redis
                 redis = await get_redis()
-                await asyncio.wait_for(redis.ping(), timeout=2.0)
+                await asyncio.wait_for(redis.ping(), timeout=1.5)
                 return True
             except Exception:
                 return False
@@ -294,7 +249,11 @@ def create_app() -> FastAPI:
             except Exception:
                 return False
 
-        async def check_celery() -> bool:
+        async def check_celery() -> Optional[bool]:
+            # No worker exists on single-container hosts (e.g. HF Spaces); pinging
+            # a workerless broker just waits out the timeout, so skip it entirely.
+            if not settings.CELERY_ENABLED:
+                return None
             try:
                 from app.shared.celery_app import celery_app
                 def _ping():
@@ -304,7 +263,10 @@ def create_app() -> FastAPI:
             except Exception:
                 return False
 
-        async def check_llm(redis_ok: bool) -> str:
+        async def check_llm() -> str:
+            # Self-contained (no dependency on the redis check) so it can run
+            # inside the gather instead of serially after it. The circuit-breaker
+            # read is best-effort: any Redis failure degrades to "configured".
             try:
                 providers = []
                 if settings.OPENROUTER_API_KEY:
@@ -313,28 +275,35 @@ def create_app() -> FastAPI:
                     providers.append("together")
                 if not providers:
                     return "not_configured"
-                if redis_ok:
+                try:
                     from app.shared.circuit_breaker import CircuitBreaker
                     from app.shared.redis_client import get_redis
                     _redis = await get_redis()
                     open_circuits = [
                         p for p in providers
-                        if (await CircuitBreaker(f"llm_{p}").get_state(_redis)) == CircuitBreaker.OPEN
+                        if (await asyncio.wait_for(
+                            CircuitBreaker(f"llm_{p}").get_state(_redis), timeout=1.5
+                        )) == CircuitBreaker.OPEN
                     ]
                     if open_circuits:
                         return f"circuit_open:{','.join(open_circuits)}"
+                except Exception:
+                    pass  # circuit state unknown — treat providers as configured
                 return f"configured:{','.join(providers)}"
             except Exception:
                 return "unknown"
 
-        # Run all checks in parallel — total time = slowest single check
-        db_ok, redis_ok, minio_ok, celery_ok = await asyncio.gather(
-            check_db(), check_redis(), check_minio(), check_celery()
+        # Run every check in parallel — total time = slowest single check
+        db_ok, redis_ok, minio_ok, celery_ok, llm_status = await asyncio.gather(
+            check_db(), check_redis(), check_minio(), check_celery(), check_llm()
         )
-        llm_status = await check_llm(redis_ok)
 
         critical_healthy = db_ok and redis_ok
-        non_critical_ok = minio_ok and celery_ok and "circuit_open" not in llm_status
+        # celery_ok is None when Celery is intentionally disabled — not a failure.
+        celery_ok_for_status = celery_ok is not False
+        non_critical_ok = (
+            minio_ok and celery_ok_for_status and "circuit_open" not in llm_status
+        )
         status_code = 200 if critical_healthy else 503
 
         return JSONResponse(
@@ -349,7 +318,10 @@ def create_app() -> FastAPI:
                     "database": "connected" if db_ok else "disconnected",
                     "redis": "connected" if redis_ok else "disconnected",
                     "minio": "connected" if minio_ok else "disconnected",
-                    "celery": "connected" if celery_ok else "disconnected",
+                    "celery": (
+                        "disabled" if celery_ok is None
+                        else "connected" if celery_ok else "disconnected"
+                    ),
                     "llm": llm_status,
                 },
             },

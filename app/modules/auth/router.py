@@ -13,7 +13,10 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import (
+    get_current_user,
+    get_current_user_with_profiles,
+)
 from app.modules.auth.models import User, UserRole
 from app.modules.auth.schemas import (
     TokenRefresh,
@@ -96,7 +99,7 @@ async def refresh(
     summary="Get current user profile with profile data",
 )
 async def get_me(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_with_profiles),
 ):
     """Return the profile of the currently authenticated user.
 
@@ -114,7 +117,7 @@ async def get_me(
 async def update_me(
     data: UpdateProfileRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_with_profiles),
 ):
     """Update the authenticated user's name, phone, and role-specific profile fields."""
     from sqlalchemy import select

@@ -74,6 +74,13 @@ ENV MINIO_ROOT_USER=minioadmin \
     S3_ACCESS_KEY=minioadmin \
     S3_SECRET_KEY=minioadmin
 
+# Single-container performance mode. There is no Celery worker here (process
+# documents inline), Redis/DB are remote so rate-limit in-memory to cut per-
+# request round trips, and skip the per-request session-invalidation Redis GET.
+ENV CELERY_ENABLED=false \
+    RATE_LIMIT_BACKEND=memory \
+    AUTH_SESSION_CHECK_ENABLED=false
+
 USER aisourcing
 
 EXPOSE 7860

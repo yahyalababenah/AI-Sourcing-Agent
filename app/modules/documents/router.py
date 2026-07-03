@@ -125,11 +125,13 @@ from app.modules.documents.service import (
     get_document_items,
     get_document_status,
     list_documents,
+    process_document_vision,
     update_document_items,
     upload_document,
 )
 from app.modules.documents.tasks import process_document_vision as _ocr_celery_task
 from app.modules.intake.service import get_rfq
+from app.config import settings
 from app.shared.database import get_db
 from app.shared.logging import get_logger
 
@@ -173,22 +175,32 @@ async def upload(
         file_bytes=file_bytes,
         content_type=file.content_type,
     )
-    # Trigger OCR asynchronously via Celery (non-blocking).
-    # TEMPORARY: sync fallback for demo — Celery workers aren't reliably
-    # available in the current hosting environment (e.g. HF Spaces has no
-    # worker process), so a broker connection error here must not fail the
-    # upload itself. Mark the document FAILED and let the client retry via
-    # POST /{id}/process instead of surfacing a 500 for an upload that
-    # actually succeeded.
-    try:
-        _ocr_celery_task.delay(str(doc.id))
-    except Exception as exc:
-        logger.error(
-            "Failed to dispatch OCR task for document %s: %s", doc.id, exc
-        )
-        doc.status = DocumentStatus.FAILED
-        doc.error_message = "OCR dispatch failed. Retry via POST /{id}/process."
-        await db.flush()
+    # Kick off extraction. When a Celery worker is available (CELERY_ENABLED),
+    # dispatch asynchronously and return immediately. On single-container hosts
+    # with no worker (e.g. HF Spaces) there is nothing to consume the task, so
+    # process the document inline instead — structured files (Excel/CSV/Word)
+    # parse instantly, so the response already reflects a populated catalog.
+    if settings.CELERY_ENABLED:
+        try:
+            _ocr_celery_task.delay(str(doc.id))
+        except Exception as exc:
+            logger.error(
+                "Failed to dispatch OCR task for document %s: %s", doc.id, exc
+            )
+            doc.status = DocumentStatus.FAILED
+            doc.error_message = "OCR dispatch failed. Retry via POST /{id}/process."
+            await db.flush()
+            await db.refresh(doc)
+    else:
+        try:
+            await process_document_vision(db, str(doc.id))
+        except Exception as exc:
+            # process_document already marked the doc FAILED with an
+            # error_message; surface that state rather than 500-ing an upload
+            # whose file was stored successfully.
+            logger.error(
+                "Inline document processing failed for %s: %s", doc.id, exc
+            )
         await db.refresh(doc)
     return DocumentUploadResponse.model_validate(doc)
 
@@ -272,14 +284,35 @@ async def delete_doc(
 async def process_doc(
     document_id: str,
     provider: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_agent_or_admin),
 ):
-    """Re-trigger OCR extraction on a document via Celery (background task).
+    """Re-trigger OCR extraction on a document.
+
+    Dispatches to a Celery worker when one is available; otherwise processes the
+    document inline (single-container hosts with no worker, e.g. HF Spaces).
 
     Args:
         document_id: Document UUID.
         provider: Deprecated — ignored (local OCR always used).
     """
+    if not settings.CELERY_ENABLED:
+        try:
+            await process_document_vision(db, document_id)
+        except Exception as exc:
+            logger.error(
+                "Inline document processing failed for %s: %s", document_id, exc
+            )
+            raise HTTPException(
+                status_code=422,
+                detail="Document processing failed. See document status for details.",
+            )
+        return {
+            "document_id": document_id,
+            "status": "extracted",
+            "message": "Document processed inline — see /items for results",
+        }
+
     try:
         _ocr_celery_task.delay(document_id)
     except Exception as exc:
