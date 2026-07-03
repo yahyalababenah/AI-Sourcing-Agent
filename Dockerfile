@@ -1,7 +1,13 @@
 # ===================================================================
-# AI-Sourcing Hub — HuggingFace Spaces Dockerfile
-# Port: 7860 (HF Spaces default)
-# External services: Supabase (PostgreSQL) + Upstash (Redis)
+# AI-Sourcing Hub — single Dockerfile for HF Spaces AND docker-compose
+#
+# HF Spaces always builds ./Dockerfile (a custom dockerfile path is not
+# supported), so this image must serve both deployments. All HF-specific
+# behavior (no Celery worker, in-memory rate limiting, optional bundled
+# MinIO) is applied by entrypoint.hf.sh at runtime, gated on the SPACE_ID
+# env var that HF injects — never baked in as ENV here, because compose
+# services share this image and would inherit it.
+# Port: 7860 (HF Spaces default; compose overrides the command/port)
 # ===================================================================
 
 FROM python:3.12-slim-bookworm AS base
@@ -44,6 +50,12 @@ FROM base AS production
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# In-container MinIO for single-container HF Spaces demos. The entrypoint
+# starts it ONLY when running on a Space (SPACE_ID set) with no external
+# S3 configured — it stays inert in docker-compose deployments.
+RUN curl -fsSL https://dl.min.io/server/minio/release/linux-amd64/minio \
+    -o /usr/local/bin/minio && chmod +x /usr/local/bin/minio
+
 RUN groupadd -r aisourcing && useradd -r -g aisourcing -d /app -s /bin/false aisourcing
 
 WORKDIR /app
@@ -51,8 +63,8 @@ WORKDIR /app
 COPY --chown=aisourcing:aisourcing . .
 
 RUN mkdir -p /app/app/static/fonts /app/app/static/logos \
-             /app/.paddleocr /app/.paddlex && \
-    chown -R aisourcing:aisourcing /app && \
+             /app/.paddleocr /app/.paddlex /data/minio && \
+    chown -R aisourcing:aisourcing /app /data/minio && \
     chmod +x /app/entrypoint.hf.sh
 
 ENV PADDLEOCR_HOME=/app/.paddleocr
