@@ -6,7 +6,7 @@ Covers:
     - GET /api/v1/quotes (list quotations)
     - GET /api/v1/quotes/{id} (get quotation by ID)
     - PUT /api/v1/quotes/{id}/status (update quotation status)
-    - POST /api/v1/quotes/generate (async Celery dispatch)
+    - POST /api/v1/quotes/generate (create + synchronous PDF generation)
     - GET /api/v1/quotes/{id}/pdf (PDF redirect)
     - POST /api/v1/quotes/{id}/finalize (finalize quotation)
     - Authentication & authorization guards
@@ -295,23 +295,36 @@ class TestUpdateQuotationStatus:
 
 
 # ═══════════════════════════════════════════════════════════
-# Tests: Generate Quotation (Async Celery Dispatch)
+# Tests: Generate Quotation (Synchronous PDF Generation)
+#
+# TEMPORARY: sync fallback for demo, revert to Celery async once worker
+# hosting is resolved. PDF generation now runs inline in the request via
+# service.generate_quotation_pdf instead of Celery's .delay().
 # ═══════════════════════════════════════════════════════════
 
 
 class TestGenerateQuotation:
     """POST /api/v1/quotes/generate"""
 
-    @patch("app.modules.output.tasks.generate_quotation_pdf_task.delay")
+    @patch("app.modules.output.router.generate_quotation_pdf")
     async def test_generate_async_success(
         self,
-        mock_delay,
+        mock_generate_pdf,
         client: AsyncClient,
         auth_headers: dict,
         sample_rfq: dict,
     ):
-        """Should create quotation and enqueue Celery task."""
-        mock_delay.return_value = None
+        """Should create quotation and generate its PDF synchronously."""
+        from app.modules.output.schemas import QuotationGeneratePdfResponse
+
+        async def _fake_generate_pdf(db, quotation_id, show_details=False):
+            return QuotationGeneratePdfResponse(
+                quotation_id=quotation_id,
+                pdf_path=f"rfq/{quotation_id}/quotation.pdf",
+                pdf_url="https://minio.local/presigned-url",
+            )
+
+        mock_generate_pdf.side_effect = _fake_generate_pdf
 
         response = await client.post(
             "/api/v1/quotes/generate",
@@ -343,11 +356,12 @@ class TestGenerateQuotation:
             },
             headers=auth_headers,
         )
-        assert response.status_code == 202
+        assert response.status_code == 201
         data = response.json()
         assert "quotation_id" in data
-        assert data["status"] == "pending"
-        assert mock_delay.called
+        assert data["status"] == "completed"
+        assert data["pdf_url"] == "https://minio.local/presigned-url"
+        assert mock_generate_pdf.called
 
     async def test_generate_requires_auth(
         self, client: AsyncClient, sample_rfq: dict

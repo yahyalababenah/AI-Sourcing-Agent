@@ -44,6 +44,9 @@ from app.modules.output.service import (
     update_tracking,
 )
 from app.shared.database import get_db
+from app.shared.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -100,8 +103,8 @@ async def list_quotes(
 @router.post(
     "/generate",
     response_model=QuotationGenerateAcceptedResponse,
-    status_code=fastapi_status.HTTP_202_ACCEPTED,
-    summary="Generate quotation asynchronously (Celery)",
+    status_code=fastapi_status.HTTP_201_CREATED,
+    summary="Generate quotation (PDF generated synchronously)",
 )
 async def generate_async(
     data: QuotationGenerateRequest,
@@ -109,14 +112,15 @@ async def generate_async(
     current_user: User = Depends(get_current_user),
     _: None = Depends(require_agent_or_admin),
 ):
-    """Create a quotation and enqueue background PDF generation.
+    """Create a quotation and generate its PDF.
 
-    Accepts pricing data, creates a Quotation record, then dispatches
-    a Celery task to generate the PDF asynchronously.
-
-    Returns 202 Accepted immediately with the quotation_id.
-    The client can poll ``GET /api/v1/quotes/{id}`` to check
-    ``pdf_generated_at`` for completion.
+    TEMPORARY: sync fallback for demo, revert to Celery async once worker
+    hosting is resolved. PDF generation (Jinja2 + WeasyPrint + MinIO upload)
+    now runs inline via ``generate_quotation_pdf`` instead of being enqueued
+    on Celery, because Celery workers are not reliably available in the
+    current hosting environment. If PDF generation fails, the quotation is
+    still returned (status="pdf_failed") so the demo doesn't hard-block —
+    the frontend can retry via ``POST /quotes/{id}/pdf``.
     """
     # Create quotation
     create_data = QuotationCreate(
@@ -138,10 +142,22 @@ async def generate_async(
     )
     quotation = await create_quotation(db, agent_id=str(current_user.id), data=create_data)
 
-    # Enqueue Celery task
-    from app.modules.output.tasks import generate_quotation_pdf_task
-
-    generate_quotation_pdf_task.delay(str(quotation.id))
+    # Generate the PDF synchronously (TEMPORARY: sync fallback for demo,
+    # revert to Celery async once worker hosting is resolved).
+    status_value = "completed"
+    message = "Quotation created. PDF generated."
+    pdf_url: Optional[str] = None
+    try:
+        pdf_result = await generate_quotation_pdf(db, str(quotation.id))
+        pdf_url = pdf_result.pdf_url
+    except Exception as exc:
+        logger.error(
+            "Synchronous PDF generation failed for quotation %s: %s",
+            quotation.id,
+            exc,
+        )
+        status_value = "pdf_failed"
+        message = "Quotation created, but PDF generation failed. Retry via POST /quotes/{id}/pdf."
 
     # Notify the client that their quote is ready
     from sqlalchemy import select as _select
@@ -160,6 +176,9 @@ async def generate_async(
 
     return QuotationGenerateAcceptedResponse(
         quotation_id=str(quotation.id),
+        status=status_value,
+        message=message,
+        pdf_url=pdf_url,
     )
 
 

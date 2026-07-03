@@ -181,8 +181,15 @@ class QuotationGenerateRequest(BaseModel):
 
 
 class QuotationGenerateAcceptedResponse(BaseModel):
-    """202 Accepted response after enqueuing PDF generation."""
+    """Response after quotation creation + PDF generation.
+
+    TEMPORARY: sync fallback for demo, revert to Celery async once worker
+    hosting is resolved. PDF generation now runs inline in the request, so
+    `status` is "completed" (PDF ready, see pdf_url) or "pdf_failed" (quotation
+    was created but PDF generation raised — quotation_id is still usable).
+    """
 
     quotation_id: str
     status: str = "pending"
     message: str = "Quotation created. PDF generation is in progress."
+    pdf_url: Optional[str] = None
