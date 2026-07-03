@@ -1,7 +1,7 @@
 """
 AI-Sourcing Hub — LLM HTTP Client for Translation & Entity Extraction
 
-Handles API calls to Together AI and OpenRouter with fallback support.
+Handles API calls to DeepSeek, Together AI, and OpenRouter with fallback support.
 Implements retry logic with exponential backoff (3 attempts: 1s/4s/15s).
 Two-stage pipeline: extract entities (Prompt A) → translate to Chinese (Prompt B).
 """
@@ -40,9 +40,11 @@ logger = get_logger(__name__)
 #   - qwen/qwen3-next-80b-a3b-instruct:free    (free, good alternative)
 TOGETHER_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+DEEPSEEK_MODEL = "deepseek-chat"
 
 TOGETHER_BASE_URL = "https://api.together.xyz/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 
 REQUEST_TIMEOUT = 30.0  # seconds
 
@@ -55,6 +57,7 @@ RETRY_DELAYS = [1.0, 4.0, 15.0]  # seconds between retries
 _circuit_breakers: dict[str, CircuitBreaker] = {
     "openrouter": CircuitBreaker("llm_openrouter", failure_threshold=5, recovery_timeout=120),
     "together": CircuitBreaker("llm_together", failure_threshold=5, recovery_timeout=120),
+    "deepseek": CircuitBreaker("llm_deepseek", failure_threshold=5, recovery_timeout=120),
 }
 
 
@@ -159,7 +162,7 @@ async def _call_with_retry(
     calls increment it, opening the circuit after 5 consecutive failures.
 
     Args:
-        provider_name: 'together' or 'openrouter'.
+        provider_name: 'deepseek', 'together', or 'openrouter'.
         messages: Chat messages list.
         model: Model name string.
 
@@ -192,6 +195,8 @@ async def _call_with_retry(
         try:
             if provider_name == "together":
                 result = await _call_together(messages, model=model)
+            elif provider_name == "deepseek":
+                result = await _call_deepseek(messages, model=model)
             else:
                 result = await _call_openrouter(messages, model=model)
 
@@ -261,8 +266,9 @@ async def _call_with_fallback(
 
     Provider preference order:
         1. preferred_provider (if specified and configured)
-        2. OpenRouter (if configured — primary, uses free-tier models)
-        3. Together AI (if configured, as fallback)
+        2. DeepSeek (if configured — primary, only provider with a live key)
+        3. OpenRouter (if configured — free-tier models)
+        4. Together AI (if configured, as fallback)
 
     Each provider gets its own retry loop before fallback kicks in.
 
@@ -279,24 +285,34 @@ async def _call_with_fallback(
     # Resolve provider order
     providers: list[tuple[str, str]] = []
 
+    def _append_remaining(exclude: str) -> None:
+        if exclude != "deepseek" and settings.DEEPSEEK_API_KEY:
+            providers.append(("deepseek", DEEPSEEK_MODEL))
+        if exclude != "openrouter" and settings.OPENROUTER_API_KEY:
+            providers.append(("openrouter", OPENROUTER_MODEL))
+        if exclude != "together" and settings.TOGETHER_API_KEY:
+            providers.append(("together", TOGETHER_MODEL))
+
     if preferred_provider == "together" and settings.TOGETHER_API_KEY:
         providers.append(("together", TOGETHER_MODEL))
-        if settings.OPENROUTER_API_KEY:
-            providers.append(("openrouter", OPENROUTER_MODEL))
+        _append_remaining(exclude="together")
     elif preferred_provider == "openrouter" and settings.OPENROUTER_API_KEY:
         providers.append(("openrouter", OPENROUTER_MODEL))
-        if settings.TOGETHER_API_KEY:
-            providers.append(("together", TOGETHER_MODEL))
+        _append_remaining(exclude="openrouter")
+    elif preferred_provider == "deepseek" and settings.DEEPSEEK_API_KEY:
+        providers.append(("deepseek", DEEPSEEK_MODEL))
+        _append_remaining(exclude="deepseek")
     else:
-        # Default: OpenRouter first (free-tier), Together AI as fallback
-        if settings.OPENROUTER_API_KEY:
-            providers.append(("openrouter", OPENROUTER_MODEL))
-        if settings.TOGETHER_API_KEY:
-            providers.append(("together", TOGETHER_MODEL))
+        # Default: DeepSeek first (only provider with a live key), then
+        # OpenRouter (free-tier), then Together AI as fallback
+        _append_remaining(exclude="")
 
     if not providers:
         raise ProviderUnavailableError(
-            message="No LLM provider is configured. Set TOGETHER_API_KEY or OPENROUTER_API_KEY.",
+            message=(
+                "No LLM provider is configured. "
+                "Set DEEPSEEK_API_KEY, TOGETHER_API_KEY, or OPENROUTER_API_KEY."
+            ),
             details={"configured_providers": []},
         )
 
@@ -372,6 +388,55 @@ async def _call_together(
             )
 
 
+async def _call_deepseek(
+    messages: list[dict], model: str = DEEPSEEK_MODEL
+) -> dict:
+    """Call DeepSeek chat completions API.
+
+    Raises:
+        ProviderUnavailableError: On API key missing, timeout, or HTTP error.
+    """
+    if not settings.DEEPSEEK_API_KEY:
+        raise ProviderUnavailableError(
+            message="DeepSeek API key is not configured",
+            details={"provider": "deepseek"},
+        )
+
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        try:
+            response = await client.post(
+                f"{DEEPSEEK_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "temperature": 0.1,
+                    "max_tokens": 2048,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            return _parse_llm_response(content)
+        except httpx.TimeoutException:
+            raise ProviderUnavailableError(
+                message="DeepSeek request timed out",
+                details={"provider": "deepseek", "timeout": REQUEST_TIMEOUT},
+            )
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "DeepSeek HTTP error",
+                extra={"status_code": exc.response.status_code, "body": exc.response.text},
+            )
+            raise ProviderUnavailableError(
+                message=f"DeepSeek returned HTTP {exc.response.status_code}",
+                details={"provider": "deepseek", "status_code": exc.response.status_code},
+            )
+
+
 async def _call_openrouter(
     messages: list[dict], model: str = OPENROUTER_MODEL
 ) -> dict:
@@ -436,7 +501,7 @@ async def extract_entities(
 
     Args:
         arabic_text: Raw Arabic client request text.
-        provider: Preferred provider ('together' | 'openrouter'). Auto-selects if None.
+        provider: Preferred provider ('deepseek' | 'together' | 'openrouter'). Auto-selects if None.
 
     Returns:
         Dict with products list, destination_port, target_currency, urgency.
@@ -468,7 +533,7 @@ async def translate_to_chinese(
     Args:
         arabic_text: Original Arabic client request text.
         extracted_entities: Entities dict from extract_entities().
-        provider: Preferred provider ('together' | 'openrouter'). Auto-selects if None.
+        provider: Preferred provider ('deepseek' | 'together' | 'openrouter'). Auto-selects if None.
 
     Returns:
         Dict with translated_products list and translated_query string.
@@ -498,7 +563,7 @@ async def translate_and_extract(
 
     Args:
         arabic_text: Raw Arabic client request.
-        provider: Preferred provider ('together' | 'openrouter'). Auto-selects if None.
+        provider: Preferred provider ('deepseek' | 'together' | 'openrouter'). Auto-selects if None.
 
     Returns:
         Dict with request_id, chinese_query, entities, confidence.
