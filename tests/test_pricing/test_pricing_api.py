@@ -470,6 +470,7 @@ def app(db_session: AsyncSession):
     async def override_get_redis():
         """Yield an AsyncMock Redis client to avoid needing a real Redis server."""
         mock_redis = AsyncMock()
+        mock_redis.get.return_value = None
         mock_redis.delete.return_value = 1
         yield mock_redis
 

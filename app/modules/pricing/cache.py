@@ -28,6 +28,7 @@ from typing import Optional
 import httpx
 from redis.asyncio import Redis
 
+from app.modules.pricing.schemas import PricingRuleListResponse
 from app.shared.logging import get_logger
 from app.shared.redis_client import cache_get, cache_set, cache_delete, cache_exists
 
@@ -37,7 +38,7 @@ logger = get_logger(__name__)
 # Cache key prefixes
 EXCHANGE_RATE_CACHE_PREFIX = "pricing:exchange_rate:"
 RULES_CACHE_KEY = "pricing:rules:all"
-RULES_LIST_CACHE_PREFIX = "pricing:rules:list:"  # keyed by (category, active_only)
+RULES_LIST_CACHE_PREFIX = "pricing:rules:list:v2:"  # keyed by (category, active_only); v2: bumped after fixing non-JSON-serializable cache entries
 ADMIN_STATS_CACHE_KEY = "admin:stats"
 
 # Stampede-prevention lock keys and TTLs
@@ -360,17 +361,25 @@ async def get_cached_rules_list(
     redis: Redis,
     category: str | None,
     active_only: bool,
-) -> Optional[dict]:
-    return await cache_get(redis, _rules_list_key(category, active_only))
+) -> Optional[PricingRuleListResponse]:
+    cached = await cache_get(redis, _rules_list_key(category, active_only))
+    if cached is None:
+        return None
+    return PricingRuleListResponse.model_validate(cached)
 
 
 async def set_cached_rules_list(
     redis: Redis,
     category: str | None,
     active_only: bool,
-    data: dict,
+    data: PricingRuleListResponse,
 ) -> None:
-    await cache_set(redis, _rules_list_key(category, active_only), data, ttl=RULES_LIST_CACHE_TTL)
+    await cache_set(
+        redis,
+        _rules_list_key(category, active_only),
+        data.model_dump(mode="json"),
+        ttl=RULES_LIST_CACHE_TTL,
+    )
 
 
 # ═══════════════════════════════════════════════════════════
