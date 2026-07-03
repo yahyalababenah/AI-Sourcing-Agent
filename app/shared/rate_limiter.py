@@ -19,6 +19,7 @@ import ipaddress
 import re
 import time
 import uuid
+from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Any, Optional
 
@@ -162,6 +163,45 @@ def _build_redis_key(scope: str, id_type: str, identifier: str) -> str:
     return f"ratelimit:{scope}:{id_type}:{identifier}"
 
 
+# ---- In-Memory Sliding Window ----
+
+# Per-process sliding-window store used when RATE_LIMIT_BACKEND == "memory".
+# Maps a rate-limit key → deque of request timestamps (seconds). No network,
+# so it removes the ~3 remote Redis round trips the Redis backend adds to every
+# request. Limits are per-process and reset on restart — correct only for a
+# single-instance deploy (e.g. HF Spaces).
+_MEMORY_WINDOWS: dict[str, deque[float]] = {}
+_MEMORY_LOCK = asyncio.Lock()
+# Cap distinct keys to bound memory under an IP-spray; oldest-empty keys are
+# dropped first when the cap is hit.
+_MEMORY_MAX_KEYS = 100_000
+
+
+def _memory_count_and_prune(key: str, window_start: float) -> int:
+    """Drop timestamps older than the window and return how many remain."""
+    bucket = _MEMORY_WINDOWS.get(key)
+    if bucket is None:
+        return 0
+    while bucket and bucket[0] < window_start:
+        bucket.popleft()
+    if not bucket:
+        _MEMORY_WINDOWS.pop(key, None)
+        return 0
+    return len(bucket)
+
+
+def _memory_record(key: str, now: float) -> None:
+    """Append the current request's timestamp to the window."""
+    bucket = _MEMORY_WINDOWS.get(key)
+    if bucket is None:
+        if len(_MEMORY_WINDOWS) >= _MEMORY_MAX_KEYS:
+            # Evict an arbitrary key to stay bounded (rare; only under abuse).
+            _MEMORY_WINDOWS.pop(next(iter(_MEMORY_WINDOWS)), None)
+        bucket = deque()
+        _MEMORY_WINDOWS[key] = bucket
+    bucket.append(now)
+
+
 # ---- Rate Limit Middleware ----
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -232,10 +272,53 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         redis_key = _build_redis_key(scope, id_type, identifier)
 
         # ---- Sliding window check ----
-        redis = await self._get_redis()
         now = time.time()
         window_start = now - window_seconds
         request_id = f"{now}:{uuid.uuid4().hex[:8]}"
+
+        # In-memory backend: no network, per-process. Used on single-instance
+        # deploys to avoid remote Redis round trips on every request.
+        if settings.RATE_LIMIT_BACKEND == "memory":
+            async with _MEMORY_LOCK:
+                current_count = _memory_count_and_prune(redis_key, window_start)
+                if current_count >= max_requests:
+                    reset_time = int(window_start + window_seconds)
+                    retry_after = max(1, int(reset_time - now))
+                    logger.warning(
+                        "Rate limit exceeded",
+                        extra={
+                            "scope": scope, "id_type": id_type, "identifier": identifier,
+                            "limit": max_requests, "window_seconds": window_seconds,
+                            "current_count": current_count, "path": path,
+                            "method": request.method,
+                        },
+                    )
+                    return JSONResponse(
+                        status_code=429,
+                        content={
+                            "detail": "Too Many Requests",
+                            "retry_after_seconds": retry_after,
+                            "scope": scope, "limit": max_requests,
+                            "window_seconds": window_seconds,
+                        },
+                        headers={
+                            "Retry-After": str(retry_after),
+                            "X-RateLimit-Limit": str(max_requests),
+                            "X-RateLimit-Remaining": "0",
+                            "X-RateLimit-Reset": str(reset_time),
+                        },
+                    )
+                _memory_record(redis_key, now)
+                remaining = max_requests - current_count - 1
+                reset_time = int(window_start + window_seconds)
+
+            response = await call_next(request)
+            response.headers["X-RateLimit-Limit"] = str(max_requests)
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+            response.headers["X-RateLimit-Reset"] = str(reset_time)
+            return response
+
+        redis = await self._get_redis()
 
         try:
             # Use a Redis pipeline for atomicity

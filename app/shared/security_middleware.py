@@ -211,18 +211,28 @@ class AuditMiddleware(BaseHTTPMiddleware):
             ip = "unknown"
 
         # ---- Extract and sanitize body ----
+        # Only JSON is captured. Multipart/form-data (file uploads) is never read
+        # here — buffering the whole file just to audit-log it would read it into
+        # memory a second time. Oversized JSON is skipped by Content-Length too.
         body_data: Any = None
         content_type = request.headers.get("content-type", "")
+        _MAX_AUDIT_BODY = 64 * 1024  # 64 KB
 
         if "json" in content_type:
             try:
-                # Read body
-                body_bytes = await request.body()
-                if body_bytes:
-                    body_raw = json.loads(body_bytes)
-                    body_data = _sanitize_body(body_raw)
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                body_data = {"_raw": "[unparseable]"}
+                declared_len = int(request.headers.get("content-length") or 0)
+            except ValueError:
+                declared_len = 0
+            if declared_len > _MAX_AUDIT_BODY:
+                body_data = {"_raw": "[too large — not captured]"}
+            else:
+                try:
+                    body_bytes = await request.body()
+                    if body_bytes:
+                        body_raw = json.loads(body_bytes)
+                        body_data = _sanitize_body(body_raw)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    body_data = {"_raw": "[unparseable]"}
 
         start_time = time.monotonic()
 

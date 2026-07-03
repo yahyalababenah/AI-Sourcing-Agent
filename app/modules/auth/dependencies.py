@@ -31,19 +31,22 @@ from app.shared.exceptions import AuthenticationError, AuthorizationError
 from app.shared.redis_client import get_redis
 
 
-async def get_current_user(
-    authorization: Annotated[str | None, Header()] = None,
-    db: AsyncSession = Depends(get_db),
+async def _resolve_user(
+    authorization: str | None,
+    db: AsyncSession,
+    *,
+    load_profiles: bool,
 ) -> User:
-    """Extract and validate JWT from Authorization header.
+    """Validate the Bearer JWT and return the matching active User.
 
-    Expects: Authorization: Bearer <token>
-
-    Returns:
-        User instance if token is valid.
+    Args:
+        authorization: Raw ``Authorization`` header value.
+        db: Async DB session.
+        load_profiles: Eagerly load client/supplier profiles. Off on the hot
+            path (most endpoints never touch profiles); on only for ``/me``.
 
     Raises:
-        AuthenticationError: If token is missing, invalid, or expired.
+        AuthenticationError: If the token is missing, invalid, or expired.
     """
     if not authorization:
         raise AuthenticationError(
@@ -94,31 +97,34 @@ async def get_current_user(
         )
 
     # Check if the session was invalidated after this token was issued (logout).
+    # One remote Redis GET per request — gated off on single-instance/remote-Redis
+    # demos where short-lived access tokens make it not worth the latency.
     # Fail open if Redis is unavailable to avoid locking users out.
-    iat = payload.get("iat")
-    try:
-        redis = await get_redis()
-        invalidated_val = await redis.get(f"session_invalidated:{raw_user_id}")
-        if invalidated_val and iat is not None:
-            if int(iat) <= int(invalidated_val):
-                raise AuthenticationError(
-                    message="Session has been invalidated. Please login again.",
-                    details={"expired": True},
-                )
-    except AuthenticationError:
-        raise
-    except Exception:
-        pass  # Redis unavailable — fail open
+    if settings.AUTH_SESSION_CHECK_ENABLED:
+        iat = payload.get("iat")
+        try:
+            redis = await get_redis()
+            invalidated_val = await redis.get(f"session_invalidated:{raw_user_id}")
+            if invalidated_val and iat is not None:
+                if int(iat) <= int(invalidated_val):
+                    raise AuthenticationError(
+                        message="Session has been invalidated. Please login again.",
+                        details={"expired": True},
+                    )
+        except AuthenticationError:
+            raise
+        except Exception:
+            pass  # Redis unavailable — fail open
 
-    # Fetch user from DB (eagerly load profile relationships)
-    stmt = (
-        select(User)
-        .options(
+    # Fetch user from DB. Profiles are eagerly loaded only when requested — the
+    # extra selectinload SELECTs are pure overhead on the vast majority of
+    # requests that never read the profile.
+    stmt = select(User).where(User.id == user_id)
+    if load_profiles:
+        stmt = stmt.options(
             selectinload(User.client_profile),
             selectinload(User.supplier_profile),
         )
-        .where(User.id == user_id)
-    )
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
@@ -133,6 +139,32 @@ async def get_current_user(
         )
 
     return user
+
+
+async def get_current_user(
+    authorization: Annotated[str | None, Header()] = None,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Validate the Bearer JWT and return the active User (no profiles loaded).
+
+    The default auth dependency for protected endpoints. Use
+    :func:`get_current_user_with_profiles` when the handler needs
+    ``client_profile`` / ``supplier_profile``.
+    """
+    return await _resolve_user(authorization, db, load_profiles=False)
+
+
+async def get_current_user_with_profiles(
+    authorization: Annotated[str | None, Header()] = None,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Like :func:`get_current_user` but eagerly loads role-specific profiles.
+
+    Used by endpoints (e.g. ``/me``) that serialise profile data, so accessing
+    ``user.client_profile`` / ``user.supplier_profile`` never triggers a lazy
+    load in the async context.
+    """
+    return await _resolve_user(authorization, db, load_profiles=True)
 
 
 def require_role(*roles: UserRole):
