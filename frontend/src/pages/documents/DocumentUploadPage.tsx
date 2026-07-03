@@ -123,7 +123,7 @@ export function DocumentUploadPage() {
             {/* File dropzone */}
             <div>
               <label className="block text-[12px] font-semibold mb-1.5" style={{ color: "var(--text-4)" }}>
-                الملف (PDF أو صورة)
+                الملف (PDF · Excel · Word · CSV · نص · صورة)
               </label>
               <label
                 className="flex flex-col items-center justify-center gap-3 rounded-xl py-10 cursor-pointer transition-all"
@@ -152,12 +152,12 @@ export function DocumentUploadPage() {
                     >
                       اختر من جهازك
                     </div>
-                    <div className="text-[10px]" style={{ color: "var(--text-3)" }}>PDF · XLSX · JPG · PNG · TIFF</div>
+                    <div className="text-[10px]" style={{ color: "var(--text-3)" }}>PDF · XLSX · XLS · CSV · DOCX · TXT · JPG · PNG</div>
                   </>
                 )}
                 <input
                   type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.xlsx,.xls"
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.xlsx,.xls,.csv,.tsv,.docx,.txt"
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0] || null;
