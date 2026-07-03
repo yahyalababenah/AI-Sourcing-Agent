@@ -24,42 +24,84 @@ _ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/png",
     "image/gif",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",                                                 # .xls
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",        # .xlsx
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "text/csv",
+    "text/tab-separated-values",
+    "text/plain",
 }
 
-# Magic bytes → canonical MIME type
-_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
-    (b"%PDF", "application/pdf"),
-    (b"\xff\xd8\xff", "image/jpeg"),
-    (b"\x89PNG", "image/png"),
-    (b"GIF8", "image/gif"),
-    (b"\xd0\xcf\x11\xe0", "application/vnd.ms-excel"),
-    (b"PK\x03\x04", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+# Extensions accepted even when the browser sends a generic/empty Content-Type.
+# CSV/TSV/TXT in particular are frequently uploaded as octet-stream or "".
+_ALLOWED_EXTENSIONS = {
+    ".pdf", ".jpg", ".jpeg", ".png", ".gif",
+    ".xls", ".xlsx", ".docx", ".csv", ".tsv", ".txt",
+}
+
+# Text formats have no reliable magic signature — content sniffing is skipped.
+_SIGNATURELESS_EXTENSIONS = {".csv", ".tsv", ".txt"}
+_SIGNATURELESS_TYPES = {"text/csv", "text/tab-separated-values", "text/plain"}
+
+# Magic bytes → the SET of MIME types that share that signature.
+# OOXML .xlsx and .docx are both ZIP archives (PK\x03\x04), so one signature
+# maps to a group; legacy .xls is an OLE compound file.
+_MAGIC_SIGNATURES: list[tuple[bytes, set[str]]] = [
+    (b"%PDF", {"application/pdf"}),
+    (b"\xff\xd8\xff", {"image/jpeg"}),
+    (b"\x89PNG", {"image/png"}),
+    (b"GIF8", {"image/gif"}),
+    (b"\xd0\xcf\x11\xe0", {"application/vnd.ms-excel"}),
+    (
+        b"PK\x03\x04",
+        {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        },
+    ),
 ]
 
 
-def _detect_mime(data: bytes) -> Optional[str]:
-    for magic, mime in _MAGIC_SIGNATURES:
+def _detect_mime_group(data: bytes) -> Optional[set[str]]:
+    for magic, mimes in _MAGIC_SIGNATURES:
         if data[: len(magic)] == magic:
-            return mime
+            return mimes
     return None
+
+
+def _file_ext(filename: Optional[str]) -> str:
+    if not filename or "." not in filename:
+        return ""
+    return "." + filename.rsplit(".", 1)[1].lower()
 
 
 def _validate_upload(file: UploadFile, file_bytes: bytes) -> None:
     """Raise HTTPException if file type is not allowed or content doesn't match header."""
-    if file.content_type not in _ALLOWED_MIME_TYPES:
+    ext = _file_ext(file.filename)
+    accepted = "PDF, JPEG, PNG, GIF, XLS, XLSX, DOCX, CSV, TSV, TXT."
+
+    # Accept by declared MIME OR by a known extension (browsers send unreliable
+    # MIME for CSV/TSV/TXT — often application/octet-stream or empty).
+    if file.content_type not in _ALLOWED_MIME_TYPES and ext not in _ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{file.content_type}' not allowed. Accepted: PDF, JPEG, PNG, GIF, XLS, XLSX.",
+            detail=f"File type '{file.content_type}' not allowed. Accepted: {accepted}",
         )
-    detected = _detect_mime(file_bytes)
+
+    # Text formats have no magic signature — extension/MIME acceptance is enough.
+    if file.content_type in _SIGNATURELESS_TYPES or ext in _SIGNATURELESS_EXTENSIONS:
+        return
+
+    detected = _detect_mime_group(file_bytes)
     if detected is None:
         raise HTTPException(
             status_code=400,
             detail="Cannot verify file type from content. Upload rejected.",
         )
-    if detected != file.content_type:
+    # If the caller declared a whitelisted MIME, it must be a member of the
+    # signature's group (xlsx/docx share the ZIP signature). When the declared
+    # type is generic/unknown, the matched signature alone is sufficient.
+    if file.content_type in _ALLOWED_MIME_TYPES and file.content_type not in detected:
         raise HTTPException(
             status_code=400,
             detail="File content does not match declared Content-Type. Upload rejected.",
@@ -67,6 +109,7 @@ def _validate_upload(file: UploadFile, file_bytes: bytes) -> None:
 
 from app.modules.auth.dependencies import get_current_user, require_agent_or_admin
 from app.modules.auth.models import User, UserRole
+from app.modules.documents.models import DocumentStatus
 from app.shared.exceptions import AuthorizationError
 from app.modules.documents.schemas import (
     DocumentListResponse,
@@ -88,6 +131,9 @@ from app.modules.documents.service import (
 from app.modules.documents.tasks import process_document_vision as _ocr_celery_task
 from app.modules.intake.service import get_rfq
 from app.shared.database import get_db
+from app.shared.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -127,8 +173,23 @@ async def upload(
         file_bytes=file_bytes,
         content_type=file.content_type,
     )
-    # Trigger OCR asynchronously via Celery (non-blocking)
-    _ocr_celery_task.delay(str(doc.id))
+    # Trigger OCR asynchronously via Celery (non-blocking).
+    # TEMPORARY: sync fallback for demo — Celery workers aren't reliably
+    # available in the current hosting environment (e.g. HF Spaces has no
+    # worker process), so a broker connection error here must not fail the
+    # upload itself. Mark the document FAILED and let the client retry via
+    # POST /{id}/process instead of surfacing a 500 for an upload that
+    # actually succeeded.
+    try:
+        _ocr_celery_task.delay(str(doc.id))
+    except Exception as exc:
+        logger.error(
+            "Failed to dispatch OCR task for document %s: %s", doc.id, exc
+        )
+        doc.status = DocumentStatus.FAILED
+        doc.error_message = "OCR dispatch failed. Retry via POST /{id}/process."
+        await db.flush()
+        await db.refresh(doc)
     return DocumentUploadResponse.model_validate(doc)
 
 
@@ -219,7 +280,16 @@ async def process_doc(
         document_id: Document UUID.
         provider: Deprecated — ignored (local OCR always used).
     """
-    _ocr_celery_task.delay(document_id)
+    try:
+        _ocr_celery_task.delay(document_id)
+    except Exception as exc:
+        logger.error(
+            "Failed to dispatch OCR task for document %s: %s", document_id, exc
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="OCR task queue is currently unavailable. Please try again later.",
+        )
     return {
         "document_id": document_id,
         "status": "queued",

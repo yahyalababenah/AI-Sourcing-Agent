@@ -376,6 +376,27 @@ exclusive matches immediately — with no blocking wait state at all.
 flow with a still-pending supplier and confirms nothing blocks it, rather
 than asserting a wait-for-verification gate that doesn't exist.
 
+### 5k. Multi-format extraction — two deferred debts (recorded 2026-07-03)
+Introduced while extending `app/modules/documents/ocr_client.py` to a
+per-format dispatcher (Excel/CSV/Word tables read directly with no LLM; PDF/
+image/txt/prose still go through the LLM). Two items were **intentionally
+deferred** and should be revisited after the demo:
+
+1. **Duplicate LLM implementations.** `ocr_client._llm_extract` is a second,
+   independent LLM client, separate from `app/modules/intake/llm_client.py`.
+   They have different provider/model lists and no shared circuit breaker or
+   retry policy. DeepSeek was added to *both* (so extraction now prefers
+   DeepSeek in each), but the two code paths remain unmerged. Unifying them
+   now — right before the demo — is a needless risk; do it afterward so there
+   is a single LLM gateway with one fallback chain and one breaker.
+
+2. **`.doc` (old binary Word) not supported.** The dispatcher returns `[]`
+   with a "convert to .docx" log for `.doc`. Real support needs LibreOffice
+   headless (`libreoffice --headless --convert-to docx`), which adds hundreds
+   of MB to the image. Deferred to avoid pre-demo image bloat; add the
+   LibreOffice apt package to `Dockerfile.hf` and a `.doc → .docx` conversion
+   step if a genuine `.doc` catalogue actually appears.
+
 ## Fixed
 
 ### F1. `RFQCreatePage`'s custom Arabic validation messages were unreachable via mouse click — FIXED 2026-07-02
