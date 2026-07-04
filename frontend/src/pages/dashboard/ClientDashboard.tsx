@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { intakeService } from "@/services/intakeService";
+import { quotationService } from "@/services/quotationService";
 import { ROUTES } from "@/constants/routes";
 
 // ── Countdown timer ─────────────────────────────────────────────────────────
@@ -20,9 +21,9 @@ function useCountdown(targetMs: number) {
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 const STATUS_BADGES: Record<string, { bg: string; border: string; text: string }> = {
-  open:       { bg: "var(--accent-surface)", border: "var(--accent-border)", text: "#059669"  },
+  open:       { bg: "#E0E7FF", border: "#C7D2FE", text: "#4338CA"  },
   processing: { bg: "var(--amber-surface)",  border: "var(--amber-border)",  text: "#d97706"  },
-  quoted:     { bg: "var(--accent-surface)", border: "var(--accent-border)", text: "#059669"  },
+  quoted:     { bg: "#E0E7FF", border: "#C7D2FE", text: "#4338CA"  },
   closed:     { bg: "var(--surface-3)",      border: "var(--border)",        text: "var(--text-2)" },
 };
 const STATUS_LABELS: Record<string, string> = {
@@ -38,17 +39,15 @@ function CostRow({
   label, amount, color, delay, isTotal,
 }: { label: string; amount: string; color: string; delay: string; isTotal?: boolean }) {
   if (isTotal) {
+    // Financial totals are always green — the one deliberate color exception
+    // to the slate-only rule for money (see CLAUDE.md).
     return (
       <div
-        className="flex items-center justify-between px-4 py-3"
-        style={{
-          background: "var(--accent-surface)",
-          borderTop: "1px solid var(--accent-border)",
-          animation: `totalReveal 0.4s ease ${delay} both`,
-        }}
+        className="flex items-center justify-between px-4 py-3 bg-supplier-50"
+        style={{ borderTop: "1px solid #9FE1CB", animation: `totalReveal 0.4s ease ${delay} both` }}
       >
-        <span className="text-[13px] font-bold" style={{ color: "#065f46" }}>إجمالي التكلفة</span>
-        <span className="text-[17px] font-black font-mono" style={{ color: "#059669", fontVariantNumeric: "tabular-nums" }} dir="ltr">
+        <span className="text-[13px] font-bold text-supplier-900">إجمالي التكلفة</span>
+        <span className="text-[17px] font-black font-mono text-supplier-500" style={{ fontVariantNumeric: "tabular-nums" }} dir="ltr">
           {amount}
         </span>
       </div>
@@ -132,6 +131,15 @@ export function ClientDashboard() {
     staleTime: 15_000,
   });
 
+  // Latest quotation drives the landed-cost hero card with real figures —
+  // no placeholder amounts.
+  const latestQuoteQuery = useQuery({
+    queryKey: ["client-latest-quote"],
+    queryFn:  () => quotationService.list({ limit: 1 }),
+    staleTime: 15_000,
+  });
+  const latestQuote = latestQuoteQuery.data?.items?.[0];
+
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [quantity,    setQuantity]    = useState<number>(500);
@@ -158,15 +166,18 @@ export function ClientDashboard() {
 
   const rfqs = rfqQuery.data?.items ?? [];
 
-  const costRows = [
-    { label: "سعر المنتج FOB",     amount: "$4,200.00", color: "#059669", delay: "0.15s" },
-    { label: "+ الشحن الدولي",     amount: "$320.00",   color: "#4a7ab8", delay: "0.28s" },
-    { label: "+ التأمين",          amount: "$48.00",    color: "#7a68b8", delay: "0.41s" },
-    { label: "+ الجمارك 5%",       amount: "$228.40",   color: "#c9882a", delay: "0.54s" },
-    { label: "+ ضريبة القيمة 16%", amount: "$758.90",   color: "#c86b3a", delay: "0.67s" },
-    { label: "+ رسوم الميناء",     amount: "$180.00",   color: "#3a8a8a", delay: "0.80s" },
-    { label: "+ نقل + رسوم وكيل",  amount: "$215.00",   color: "#9a4a7a", delay: "0.93s" },
-  ];
+  // Real cost breakdown from the client's latest quotation — falls back to
+  // an empty list (rendered as an empty state below) when none exists yet.
+  const costRows = latestQuote
+    ? [
+        latestQuote.freight_total != null && { label: "+ الشحن الدولي", amount: `${latestQuote.freight_total.toFixed(2)}`, color: "#4a7ab8", delay: "0.15s" },
+        latestQuote.customs_total != null && { label: "+ الجمارك",      amount: `${latestQuote.customs_total.toFixed(2)}`, color: "#c9882a", delay: "0.28s" },
+        latestQuote.vat_total != null &&      { label: "+ ضريبة القيمة", amount: `${latestQuote.vat_total.toFixed(2)}`,     color: "#c86b3a", delay: "0.41s" },
+        latestQuote.commission_total != null && { label: "+ العمولة",   amount: `${latestQuote.commission_total.toFixed(2)}`, color: "#9a4a7a", delay: "0.54s" },
+        latestQuote.discount_total != null && latestQuote.discount_total > 0 &&
+          { label: "- الخصم", amount: `-${latestQuote.discount_total.toFixed(2)}`, color: "#3a8a8a", delay: "0.67s" },
+      ].filter(Boolean) as { label: string; amount: string; color: string; delay: string }[]
+    : [];
 
   const inputStyle = {
     background: "var(--surface-2)",
@@ -190,38 +201,40 @@ export function ClientDashboard() {
           className="rounded-xl overflow-hidden shadow-sm"
           style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
         >
-          {/* Shimmer header */}
-          <div
-            className="px-4 py-3 flex items-center justify-between"
-            style={{
-              background: "linear-gradient(270deg,#059669,#06a87a,#047857,#059669)",
-              backgroundSize: "300% 300%",
-              animation: "headerShimmer 6s ease infinite",
-            }}
-            dir="rtl"
-          >
+          {/* Header */}
+          <div className="px-4 py-3 flex items-center justify-between bg-importer-500" dir="rtl">
             <div>
               <div className="text-[13px] font-bold text-white mb-0.5">تكلفة الهبوط المتوقعة</div>
-              <div className="text-[11px] text-white/75">منتج إلكتروني — 500 وحدة</div>
-            </div>
-            <div className="bg-black/15 rounded px-2 py-0.5">
-              <span className="text-[10px] font-bold text-white font-mono" dir="ltr">دقة 0.82%</span>
+              <div className="text-[11px] text-white/75">
+                {latestQuote ? `عرض السعر ${latestQuote.quotation_number}` : "لا يوجد عرض سعر بعد"}
+              </div>
             </div>
           </div>
 
           {/* Cost rows */}
-          <div>
-            {costRows.map((row) => (
-              <CostRow key={row.label} {...row} />
-            ))}
-            <CostRow label="" amount="$5,950.30" color="" delay="1.1s" isTotal />
-          </div>
+          {latestQuoteQuery.isLoading ? (
+            <div className="p-4 space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-8 animate-pulse rounded" style={{ background: "var(--surface-3)" }} />
+              ))}
+            </div>
+          ) : latestQuote ? (
+            <div>
+              {costRows.map((row) => (
+                <CostRow key={row.label} {...row} />
+              ))}
+              <CostRow label="" amount={`${latestQuote.grand_total.toFixed(2)} ${latestQuote.target_currency}`} color="" delay="0.8s" isTotal />
+            </div>
+          ) : (
+            <div className="px-4 py-8 text-center text-[12px]" style={{ color: "var(--text-3)" }}>
+              قدّم طلب عرض سعر لعرض تكلفة الهبوط المتوقعة هنا
+            </div>
+          )}
 
           <div className="p-3">
             <button
               onClick={() => navigate(ROUTES.RFQ.CREATE)}
-              className="w-full py-3 text-[13px] font-bold text-white rounded-lg transition-all hover:brightness-110"
-              style={{ background: "#059669" }}
+              className="w-full py-3 text-[13px] font-bold text-white rounded-lg transition-all bg-importer-500 hover:bg-importer-600"
             >
               تقديم طلب عرض السعر
             </button>
@@ -252,7 +265,7 @@ export function ClientDashboard() {
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
                 placeholder="اسم المنتج (مثال: أجهزة إلكترونية)"
-                className="w-full px-3 py-2.5 text-[13px] rounded-lg outline-none focus:border-[#059669]"
+                className="w-full px-3 py-2.5 text-[13px] rounded-lg outline-none focus:border-importer-500"
                 style={inputStyle}
               />
               <textarea
@@ -260,7 +273,7 @@ export function ClientDashboard() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="المواصفات والتفاصيل..."
                 rows={2}
-                className="w-full px-3 py-2.5 text-[13px] rounded-lg outline-none resize-none focus:border-[#059669]"
+                className="w-full px-3 py-2.5 text-[13px] rounded-lg outline-none resize-none focus:border-importer-500"
                 style={inputStyle}
               />
               <div className="flex gap-3">
@@ -269,15 +282,14 @@ export function ClientDashboard() {
                   min={1}
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                  className="flex-1 px-3 py-2.5 text-[13px] rounded-lg outline-none focus:border-[#059669]"
+                  className="flex-1 px-3 py-2.5 text-[13px] rounded-lg outline-none focus:border-importer-500"
                   style={inputStyle}
                   placeholder="الكمية"
                 />
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="flex-1 py-2.5 text-[13px] font-bold text-white rounded-lg transition-all hover:brightness-110 disabled:opacity-60"
-                  style={{ background: "#059669" }}
+                  className="flex-1 py-2.5 text-[13px] font-bold text-white rounded-lg transition-all bg-importer-500 hover:bg-importer-600 disabled:opacity-60"
                 >
                   {createMutation.isPending ? "جاري الإرسال..." : "إرسال الطلب"}
                 </button>
@@ -299,8 +311,7 @@ export function ClientDashboard() {
               </h3>
               <button
                 onClick={() => navigate(ROUTES.RFQ.LIST)}
-                className="text-[11px] font-medium"
-                style={{ color: "#059669" }}
+                className="text-[11px] font-medium text-importer-600"
               >
                 عرض الكل
               </button>

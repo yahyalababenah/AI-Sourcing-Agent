@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "home": "Home",
+    "purchaseRequests": "Purchase Requests",
+    "incomingClientRequests": "Incoming Client Requests",
+    "marketplace": "Global Marketplace",
+    "myProducts": "My Products",
+    "calculator": "Pricing Calculator",
+    "quotes": "Quotes",
+    "shipmentTracking": "Shipment Tracking",
+    "chat": "Messages",
+    "reels": "Reels Studio",
+    "dashboard": "Dashboard",
+    "newRfq": "New RFQ",
+    "myRequests": "My Requests",
+    "systemMonitor": "System Monitor",
+    "supplierVerification": "Supplier Verification",
+    "pricingRules": "Pricing Rules",
+    "hsCodeSchedules": "HS Code Fee Schedules",
+    "globalCatalog": "Global Catalog",
+    "userManagement": "User Management",
+    "profile": "My Profile",
+    "settings": "Settings",
+    "logout": "Log Out"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel"
+  }
+}

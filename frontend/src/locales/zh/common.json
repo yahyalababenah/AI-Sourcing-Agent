@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "home": "首页",
+    "purchaseRequests": "采购请求",
+    "incomingClientRequests": "客户请求",
+    "marketplace": "全球市场",
+    "myProducts": "我的产品",
+    "calculator": "报价计算器",
+    "quotes": "报价单",
+    "shipmentTracking": "货运跟踪",
+    "chat": "消息",
+    "reels": "短视频工作室",
+    "dashboard": "仪表盘",
+    "newRfq": "新询价单",
+    "myRequests": "我的请求",
+    "systemMonitor": "系统监控",
+    "supplierVerification": "供应商认证",
+    "pricingRules": "定价规则",
+    "hsCodeSchedules": "HS编码税费表",
+    "globalCatalog": "全球目录",
+    "userManagement": "用户管理",
+    "profile": "我的资料",
+    "settings": "设置",
+    "logout": "退出登录"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "出现错误",
+    "retry": "重试",
+    "save": "保存",
+    "cancel": "取消"
+  }
+}

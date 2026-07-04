@@ -1,19 +1,21 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App";
+import "@/lib/i18n";
 import "@/index.css";
 
-// Apply persisted theme before first render to prevent flash of unstyled content
+// Apply persisted theme before first render to prevent flash of unstyled content.
+// Defaults to light — the platform is a light-first B2B design (see CLAUDE.md).
 try {
   const raw = localStorage.getItem("ai-sourcing-theme");
   const saved = raw ? JSON.parse(raw) : null;
-  if (saved?.state?.theme === "light") {
-    document.documentElement.classList.remove("dark");
-  } else {
+  if (saved?.state?.theme === "dark") {
     document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
   }
 } catch {
-  document.documentElement.classList.add("dark");
+  document.documentElement.classList.remove("dark");
 }
 
 const rootElement = document.getElementById("root");

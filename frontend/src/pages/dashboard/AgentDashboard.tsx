@@ -44,7 +44,7 @@ const COL_COLORS: Record<string, string> = {
   open:        "#7a91a8",
   processing:  "#4a7ab8",
   quoted:      "#d97706",
-  closed:      "#059669",
+  closed:      "#0F6E56",
 };
 
 // ── Kanban Card ───────────────────────────────────────────────────────────────
@@ -241,7 +241,7 @@ export function AgentDashboard() {
     {
       label: "إيرادات الشهر",
       value: monthlyRevenue > 0 ? `JOD ${Math.round(monthlyRevenue).toLocaleString()}` : "—",
-      color: "#10b981",
+      color: "#10B981",
     },
   ];
 
@@ -260,8 +260,7 @@ export function AgentDashboard() {
         </div>
         <button
           onClick={() => navigate(ROUTES.RFQ.CREATE)}
-          className="w-full px-4 py-2.5 text-[13px] font-bold text-white rounded-lg transition-all hover:brightness-110 sm:w-auto sm:text-[12px] sm:py-2"
-          style={{ background: "#059669" }}
+          className="w-full px-4 py-2.5 text-[13px] font-bold text-white rounded-lg transition-all bg-supplier-500 hover:bg-supplier-600 sm:w-auto sm:text-[12px] sm:py-2"
         >
           + طلب جديد
         </button>

@@ -1,3 +1,5 @@
+import type { UserRole } from "@/types/auth";
+
 /** Application route paths. */
 export const ROUTES = {
   AUTH: {
@@ -6,10 +8,20 @@ export const ROUTES = {
   },
   ADMIN: {
     LOGIN: "/admin/login",
+    DASHBOARD: "/admin/dashboard",
     VERIFICATION: "/admin/verification",
     MONITOR: "/admin/monitor",
     HS_CODES: "/admin/hs-codes",
   },
+  // Role-scoped home screens (see CLAUDE.md — each role gets its own dashboard route).
+  AGENT: {
+    DASHBOARD: "/agent/dashboard",
+    REELS: "/agent/reels",
+  },
+  CLIENT: {
+    DASHBOARD: "/client/dashboard",
+  },
+  // Generic gateway — resolves to the role-scoped dashboard above at render time.
   DASHBOARD: "/dashboard",
   RFQ: {
     LIST: "/rfq",
@@ -24,7 +36,8 @@ export const ROUTES = {
   },
   PRICING: {
     RULES: "/pricing/rules",
-    CALCULATE: "/pricing/calculate",
+    // Lives under /agent because only agents/admins calculate pricing.
+    CALCULATE: "/agent/calculator",
   },
   QUOTES: {
     LIST: "/quotes",
@@ -50,3 +63,10 @@ export const ROUTES = {
   SETTINGS: "/settings",
   PROFILE: "/profile",
 } as const;
+
+/** Resolves the correct dashboard path for a given role (defaults to agent). */
+export function dashboardPathForRole(role: UserRole | null): string {
+  if (role === "client") return ROUTES.CLIENT.DASHBOARD;
+  if (role === "admin") return ROUTES.ADMIN.DASHBOARD;
+  return ROUTES.AGENT.DASHBOARD;
+}

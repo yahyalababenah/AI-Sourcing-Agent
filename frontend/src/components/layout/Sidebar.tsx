@@ -1,91 +1,154 @@
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
-  LayoutDashboard, ClipboardList, Upload, Calculator,
-  FileText, Settings, Package, Zap,
+  LayoutDashboard, ClipboardList, PlusCircle, Users, Store, Package,
+  ClipboardCheck, FileText, Calculator, Truck, MessageCircle, Clapperboard,
+  Globe, Activity, ShieldCheck, DollarSign, ReceiptText, Settings, UserCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
+import { AppLogo } from "@/components/AppLogo";
 import { useAuthStore } from "@/stores/authStore";
+import type { UserRole } from "@/types/auth";
 
-const navItems = [
-  { to: ROUTES.DASHBOARD,          label: "لوحة التحكم",  icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,           label: "طلبات الشراء",  icon: ClipboardList },
-  { to: ROUTES.RFQ.CREATE,         label: "طلب شراء جديد", icon: Package },
-  { to: ROUTES.DOCUMENTS.UPLOAD,   label: "رفع مستند",     icon: Upload },
-  { to: ROUTES.PRICING.CALCULATE,  label: "حساب الأسعار",  icon: Calculator },
-  { to: ROUTES.QUOTES.LIST,        label: "عروض الأسعار",  icon: FileText },
+interface NavItem {
+  to: string;
+  labelKey: string;
+  icon: LucideIcon;
+}
+
+const AGENT_NAV: NavItem[] = [
+  { to: ROUTES.AGENT.DASHBOARD,      labelKey: "nav.home",                  icon: LayoutDashboard },
+  { to: ROUTES.RFQ.LIST,             labelKey: "nav.purchaseRequests",      icon: ClipboardList },
+  { to: ROUTES.RFQ.SUPPLIER_INBOX,   labelKey: "nav.incomingClientRequests",icon: Users },
+  { to: ROUTES.CATALOG.MARKETPLACE,  labelKey: "nav.marketplace",           icon: Store },
+  { to: ROUTES.SUPPLIER.MY_PRODUCTS, labelKey: "nav.myProducts",            icon: Package },
+  { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.myProducts",            icon: ClipboardCheck },
+  { to: ROUTES.PRICING.CALCULATE,    labelKey: "nav.calculator",            icon: Calculator },
+  { to: ROUTES.QUOTES.LIST,          labelKey: "nav.quotes",                icon: FileText },
+  { to: ROUTES.ORDERS.LIST,          labelKey: "nav.shipmentTracking",      icon: Truck },
+  { to: ROUTES.CHAT.LIST,            labelKey: "nav.chat",                  icon: MessageCircle },
+  { to: ROUTES.AGENT.REELS,          labelKey: "nav.reels",                 icon: Clapperboard },
 ];
 
-const adminItems = [
-  { to: ROUTES.PRICING.RULES, label: "قواعد التسعير", icon: Settings },
+const CLIENT_NAV: NavItem[] = [
+  { to: ROUTES.CLIENT.DASHBOARD,    labelKey: "nav.dashboard",  icon: LayoutDashboard },
+  { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "nav.marketplace",icon: Globe },
+  { to: ROUTES.RFQ.CREATE,          labelKey: "nav.newRfq",     icon: PlusCircle },
+  { to: ROUTES.RFQ.LIST,            labelKey: "nav.myRequests", icon: ClipboardList },
+  { to: ROUTES.CHAT.LIST,           labelKey: "nav.chat",       icon: MessageCircle },
+  { to: ROUTES.ORDERS.LIST,         labelKey: "nav.shipmentTracking", icon: Truck },
 ];
 
-export function Sidebar() {
-  const role = useAuthStore((s) => s.role);
+const ADMIN_NAV: NavItem[] = [
+  { to: ROUTES.ADMIN.DASHBOARD,     labelKey: "nav.dashboard",           icon: LayoutDashboard },
+  { to: ROUTES.ADMIN.MONITOR,       labelKey: "nav.systemMonitor",       icon: Activity },
+  { to: ROUTES.ADMIN.VERIFICATION,  labelKey: "nav.supplierVerification",icon: ShieldCheck },
+  { to: ROUTES.PRICING.RULES,       labelKey: "nav.pricingRules",        icon: DollarSign },
+  { to: ROUTES.ADMIN.HS_CODES,      labelKey: "nav.hsCodeSchedules",     icon: ReceiptText },
+  { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "nav.globalCatalog",       icon: Store },
+];
 
-  return (
-    <aside className="flex h-full w-64 flex-col" style={{ background: "var(--sidebar-bg)" }}>
+const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
+  agent: AGENT_NAV,
+  client: CLIENT_NAV,
+  admin: ADMIN_NAV,
+};
+
+// Active-state accent per role — supplier(green)/importer(indigo)/slate(admin).
+const ACCENT_BY_ROLE: Record<UserRole, { text: string; bg: string }> = {
+  agent:  { text: "text-supplier-600", bg: "bg-supplier-50" },
+  client: { text: "text-importer-600", bg: "bg-importer-50" },
+  admin:  { text: "text-slate-900",    bg: "bg-slate-100" },
+};
+
+interface SidebarProps {
+  role: UserRole;
+  /** Render without the fixed width wrapper (used inside MobileDrawer). */
+  bare?: boolean;
+}
+
+export function Sidebar({ role, bare = false }: SidebarProps) {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const items = NAV_BY_ROLE[role];
+  const accent = ACCENT_BY_ROLE[role];
+
+  const content = (
+    <>
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-white/5 px-5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/20">
-          <Zap className="h-4 w-4 text-white" />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-tight text-white">AI-Sourcing Hub</p>
-          <p className="text-[10px] text-slate-500">بوابة الاستيراد الذكي</p>
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-100">
+        <AppLogo size={30} />
+        <div>
+          <p className="text-[14px] font-extrabold leading-tight text-slate-900">
+            مركز التوريد
+          </p>
+          <p className="text-[8px] tracking-widest mt-0.5 text-slate-400" dir="ltr">
+            AI SOURCING HUB
+          </p>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {navItems.map((item) => (
+        {items.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              cn("sidebar-link", isActive ? "sidebar-link-active" : "sidebar-link-inactive")
+              cn(
+                "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] transition-colors",
+                isActive ? cn("font-bold", accent.text, accent.bg) : "font-medium text-slate-600 hover:bg-slate-50"
+              )
             }
           >
             <item.icon className="h-4 w-4 shrink-0" />
-            <span>{item.label}</span>
+            <span className="flex-1">{t(item.labelKey)}</span>
           </NavLink>
         ))}
-
-        {role === "admin" && (
-          <>
-            <div className="pt-4 pb-1">
-              <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
-                الإدارة
-              </p>
-            </div>
-            {adminItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn("sidebar-link", isActive ? "sidebar-link-active" : "sidebar-link-inactive")
-                }
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </>
-        )}
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-white/5 px-3 py-3">
+      <div className="border-t border-slate-100 px-2 py-2 space-y-0.5">
+        <NavLink
+          to={ROUTES.PROFILE}
+          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+        >
+          <UserCircle className="h-4 w-4 shrink-0" />
+          <span>{t("nav.profile")}</span>
+        </NavLink>
         <NavLink
           to={ROUTES.SETTINGS}
-          className={({ isActive }) =>
-            cn("sidebar-link", isActive ? "sidebar-link-active" : "sidebar-link-inactive")
-          }
+          className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-slate-600 hover:bg-slate-50"
         >
           <Settings className="h-4 w-4 shrink-0" />
-          <span>الإعدادات</span>
+          <span>{t("nav.settings")}</span>
         </NavLink>
+
+        <div className="px-2.5 py-3 flex items-center gap-2.5">
+          <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", accent.bg)}>
+            <span className={cn("text-[12px] font-bold", accent.text)}>
+              {user?.full_name?.charAt(0)?.toUpperCase() ?? "U"}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-slate-900 truncate">
+              {user?.full_name ?? "—"}
+            </div>
+          </div>
+        </div>
       </div>
+    </>
+  );
+
+  if (bare) {
+    return <div className="flex h-full w-full flex-col bg-white" dir="rtl">{content}</div>;
+  }
+
+  return (
+    <aside className="flex h-full w-64 flex-col bg-white border-e border-slate-200" dir="rtl">
+      {content}
     </aside>
   );
 }

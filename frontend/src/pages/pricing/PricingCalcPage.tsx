@@ -198,7 +198,7 @@ export function PricingCalcPage() {
               <select
                 value={selectedRfqId}
                 onChange={(e) => handleRfqChange(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-supplier-500 focus:outline-none"
               >
                 <option value="">-- اختر طلب عرض سعر --</option>
                 {rfqsData?.items?.map((rfq) => (
@@ -218,7 +218,7 @@ export function PricingCalcPage() {
             <select
               value={targetCurrency}
               onChange={(e) => setTargetCurrency(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-supplier-500 focus:outline-none"
             >
               {CURRENCIES.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -237,7 +237,7 @@ export function PricingCalcPage() {
               value={destinationPort}
               onChange={(e) => setDestinationPort(e.target.value)}
               placeholder="مثال: Aqaba, Jordan"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-supplier-500 focus:outline-none"
             />
           </div>
         </div>
@@ -252,7 +252,7 @@ export function PricingCalcPage() {
 
           {productsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-supplier-100 border-t-supplier-600" />
             </div>
           ) : !hasProducts ? (
             <div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800">
@@ -325,7 +325,7 @@ export function PricingCalcPage() {
                                   },
                                 }))
                               }
-                              className="w-20 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-primary-500 focus:outline-none"
+                              className="w-20 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-supplier-500 focus:outline-none"
                             />
                           </td>
                           <td className="px-4 py-3">
@@ -343,7 +343,7 @@ export function PricingCalcPage() {
                                   },
                                 }))
                               }
-                              className="w-24 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-primary-500 focus:outline-none"
+                              className="w-24 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-supplier-500 focus:outline-none"
                             />
                           </td>
                           <td className="px-4 py-3">
@@ -361,7 +361,7 @@ export function PricingCalcPage() {
                                   },
                                 }))
                               }
-                              className={`w-24 rounded border px-2 py-1 text-sm text-center focus:border-primary-500 focus:outline-none ${
+                              className={`w-24 rounded border px-2 py-1 text-sm text-center focus:border-supplier-500 focus:outline-none ${
                                 input.weight_kg <= 0 ? "border-amber-300 bg-amber-50" : "border-gray-300"
                               }`}
                             />
@@ -380,7 +380,7 @@ export function PricingCalcPage() {
                                 }))
                               }
                               placeholder="اختياري"
-                              className="w-32 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-primary-500 focus:outline-none"
+                              className="w-32 rounded border border-gray-300 px-2 py-1 text-sm text-center focus:border-supplier-500 focus:outline-none"
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -478,14 +478,14 @@ export function PricingCalcPage() {
                 {result.target_currency}
               </p>
             </div>
-            <div className="rounded-lg border-2 border-primary-200 bg-primary-50 p-4">
-              <p className="text-xs font-medium text-primary-700">
+            <div className="rounded-lg border-2 border-supplier-100 bg-supplier-50 p-4">
+              <p className="text-xs font-medium text-supplier-600">
                 الإجمالي النهائي
               </p>
-              <p className="mt-1 text-2xl font-bold text-primary-800">
+              <p className="mt-1 text-2xl font-bold text-supplier-900">
                 <span dir="ltr">{result.grand_total.toFixed(2)}</span>
               </p>
-              <p className="text-xs font-medium text-primary-600" dir="ltr">
+              <p className="text-xs font-medium text-supplier-600" dir="ltr">
                 {result.target_currency}
               </p>
             </div>

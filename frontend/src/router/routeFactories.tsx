@@ -1,6 +1,10 @@
 import { ROUTES } from "@/constants/routes";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { DashboardRouter } from "@/pages/dashboard/DashboardRouter";
+import { AgentDashboard } from "@/pages/dashboard/AgentDashboard";
+import { ClientDashboard } from "@/pages/dashboard/ClientDashboard";
+import { AdminDashboard } from "@/pages/dashboard/AdminDashboard";
+import { ReelsStudioPage } from "@/pages/reels/ReelsStudioPage";
 import { MarketplacePage } from "@/pages/catalog/MarketplacePage";
 import { SupplierShowroomPage } from "@/pages/catalog/SupplierShowroomPage";
 import { SupplierProductsPage } from "@/pages/catalog/SupplierProductsPage";
@@ -34,10 +38,46 @@ import type { RouteObject } from "react-router-dom";
  * Page-level role guards provide fine-grained access control.
  */
 export const sharedRoutes: RouteObject[] = [
-  // ── Dashboard (role-switched via DashboardRouter) ──
+  // ── Generic dashboard gateway — redirects to the role-scoped route below ──
   {
     path: ROUTES.DASHBOARD,
     element: <DashboardRouter />,
+  },
+
+  // ── Role-scoped dashboards ──
+  {
+    path: ROUTES.AGENT.DASHBOARD,
+    element: (
+      <RoleGuard roles={["agent"]} redirectTo={ROUTES.DASHBOARD}>
+        <AgentDashboard />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: ROUTES.CLIENT.DASHBOARD,
+    element: (
+      <RoleGuard roles={["client"]} redirectTo={ROUTES.DASHBOARD}>
+        <ClientDashboard />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: ROUTES.ADMIN.DASHBOARD,
+    element: (
+      <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <AdminDashboard />
+      </RoleGuard>
+    ),
+  },
+
+  // ── Agent: Reels Studio (agent & admin) ──
+  {
+    path: ROUTES.AGENT.REELS,
+    element: (
+      <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <ReelsStudioPage />
+      </RoleGuard>
+    ),
   },
 
   // ── Global Catalog Marketplace (client, agent & admin) ──
