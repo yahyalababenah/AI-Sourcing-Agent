@@ -25,7 +25,8 @@ from app.modules.pricing.cache import (
     RULES_CACHE_LOCK_KEY,
     REBUILD_LOCK_TTL,
 )
-from app.modules.pricing.engine import PricingEngine, LineItemInput
+from app.modules.pricing.engine import PricingEngine, LineItemInput, CustomRule
+from app.modules.pricing.formula import validate_formula
 from app.modules.pricing.models import (
     HSCodeFeeSchedule,
     PricingRule,
@@ -65,13 +66,25 @@ async def create_pricing_rule(
 
     Returns:
         Created PricingRule instance.
+
+    Raises:
+        ValidationError: If rule_type is "formula" and the formula is missing
+            or fails safety/structural validation.
     """
+    if rule_data.rule_type == "formula":
+        if not rule_data.formula or not rule_data.formula.strip():
+            raise ValidationError(message="يرجى إدخال المعادلة")
+        errors = validate_formula(rule_data.formula)
+        if errors:
+            raise ValidationError(message="المعادلة غير صالحة: " + "; ".join(errors))
+
     rule = PricingRule(
         name=rule_data.name,
         description=rule_data.description,
         category=PricingRuleCategory(rule_data.category),
         rule_type=rule_data.rule_type,
         value=rule_data.value,
+        formula=rule_data.formula,
         currency=rule_data.currency,
         conditions=rule_data.conditions,
         priority=rule_data.priority,
@@ -157,12 +170,30 @@ async def update_pricing_rule(
 
     Returns:
         Updated PricingRule instance.
+
+    Raises:
+        ValidationError: If rule_type is being set to "formula" and the
+            formula is missing or fails safety/structural validation.
     """
     rule = await get_pricing_rule(db, rule_id)
+
+    new_rule_type = update_data.get("rule_type", rule.rule_type)
+    if new_rule_type == "formula":
+        new_formula = update_data.get("formula", rule.formula)
+        if not new_formula or not new_formula.strip():
+            raise ValidationError(message="يرجى إدخال المعادلة")
+        errors = validate_formula(new_formula)
+        if errors:
+            raise ValidationError(message="المعادلة غير صالحة: " + "; ".join(errors))
 
     for key, value in update_data.items():
         if hasattr(rule, key) and value is not None:
             setattr(rule, key, value)
+
+    # The setattr loop above skips None values, so a stale formula would
+    # otherwise survive a switch away from rule_type "formula".
+    if update_data.get("rule_type") and update_data["rule_type"] != "formula":
+        rule.formula = None
 
     rule.version += 1
     await db.flush()
@@ -219,6 +250,7 @@ async def create_hs_code_schedule(
         service_percent_070=data.service_percent_070,
         requires_license=data.requires_license,
         penalty_rate_018=data.penalty_rate_018,
+        vat_rate_020=data.vat_rate_020,
         is_verified=data.is_verified,
         source_note=data.source_note,
     )
@@ -291,9 +323,18 @@ async def update_hs_code_schedule(
     # let the request body silently rename it.
     update_data.pop("hs_code", None)
 
+    # vat_rate_020 is nullable by design (None = fall back to the global
+    # default rate), so an explicit null must be allowed to clear it — unlike
+    # every other field here, which treats None as "not provided".
+    vat_rate_020_provided = "vat_rate_020" in update_data
+    vat_rate_020_value = update_data.pop("vat_rate_020", None)
+
     for key, value in update_data.items():
         if hasattr(entry, key) and value is not None:
             setattr(entry, key, value)
+
+    if vat_rate_020_provided:
+        entry.vat_rate_020 = vat_rate_020_value
 
     await db.flush()
     await db.refresh(entry)
@@ -340,6 +381,7 @@ async def _load_hs_code_schedule(
         "service_percent_070": entry.service_percent_070,
         "requires_license": entry.requires_license,
         "penalty_rate_018": entry.penalty_rate_018,
+        "vat_rate_020": entry.vat_rate_020,
     }
 
 
@@ -350,15 +392,21 @@ async def _load_hs_code_schedule(
 async def _load_rules_for_engine(
     db: AsyncSession,
     redis: Optional[Redis] = None,
-) -> dict[str, float]:
+) -> tuple[dict[str, float], list[CustomRule]]:
     """Load active pricing rules from cache or DB.
+
+    Splits rules into two groups for the engine:
+      - Canonical rules (name matches a PricingEngine.DEFAULTS key) become a
+        plain name → value override dict, exactly as before.
+      - Custom rules (any other name) are kept as full CustomRule objects so
+        the engine can apply them by rule_type (percentage/fixed/formula).
 
     Args:
         db: Database session.
         redis: Optional Redis client for caching.
 
     Returns:
-        Dict of rule_name → value.
+        Tuple of (overrides dict, list of CustomRule).
     """
     import asyncio
 
@@ -366,7 +414,7 @@ async def _load_rules_for_engine(
     lock_acquired = False
     if redis:
         cached = await get_cached_rules(redis)
-        if cached:
+        if cached is not None:
             logger.debug("Loaded pricing rules from cache")
             return cached
 
@@ -378,7 +426,7 @@ async def _load_rules_for_engine(
             # Another worker is rebuilding — wait briefly and re-read cache
             await asyncio.sleep(0.2)
             cached = await get_cached_rules(redis)
-            if cached:
+            if cached is not None:
                 logger.debug("Loaded pricing rules from cache (after lock wait)")
                 return cached
             # Still None — proceed to DB query below
@@ -393,16 +441,29 @@ async def _load_rules_for_engine(
         )
         db_rules = list(result.scalars().all())
 
-        rules_dict: dict[str, float] = {}
+        overrides: dict[str, float] = {}
+        custom: list[CustomRule] = []
         for rule in db_rules:
-            rules_dict[rule.name] = rule.value
+            if rule.name in PricingEngine.DEFAULTS:
+                overrides[rule.name] = rule.value
+            else:
+                custom.append(
+                    CustomRule(
+                        name=rule.name,
+                        rule_type=rule.rule_type,
+                        value=rule.value,
+                        formula=rule.formula,
+                        category=rule.category.value,
+                        priority=rule.priority,
+                    )
+                )
 
         # Cache if Redis available
-        if redis and rules_dict:
-            await set_cached_rules(redis, rules_dict)
+        if redis and (overrides or custom):
+            await set_cached_rules(redis, overrides, custom)
             logger.debug("Loaded pricing rules from DB and cached")
 
-        return rules_dict
+        return overrides, custom
     finally:
         if redis and lock_acquired:
             await redis.delete(RULES_CACHE_LOCK_KEY)
@@ -431,7 +492,7 @@ async def calculate_price(
         ValidationError: If input validation fails.
     """
     # Load rules from DB/cache
-    rules_override = await _load_rules_for_engine(db, redis=redis)
+    rules_override, custom_rules = await _load_rules_for_engine(db, redis=redis)
 
     # Try to get exchange rate with auto-fetch (cache → API fallback)
     if redis:
@@ -446,7 +507,7 @@ async def calculate_price(
                 rules_override["exchange_rate_cny_usd"] = rate
 
     # Initialize engine
-    engine = PricingEngine(rules_override=rules_override)
+    engine = PricingEngine(rules_override=rules_override, custom_rules=custom_rules)
 
     # Build line item inputs
     # FIX: weight_kg was previously never passed through, so freight was always
@@ -496,6 +557,9 @@ async def calculate_price(
         grand_total=result["grand_total"],
         discount_total=result["discount_total"],
         rules_applied=result["rules_applied"],
+        service_flat_fee_301_total=result.get("service_flat_fee_301_total", 0.0),
+        custom_fees_total=result.get("custom_fees_total", 0.0),
+        custom_rules_applied=result.get("custom_rules_applied", []),
     )
 
 

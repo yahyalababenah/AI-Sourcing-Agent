@@ -88,7 +88,7 @@ export const sharedRoutes: RouteObject[] = [
   {
     path: ROUTES.RFQ.CREATE,
     element: (
-      <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+      <RoleGuard roles={["client", "agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
         <RFQCreatePage />
       </RoleGuard>
     ),

@@ -75,6 +75,9 @@ const CALC_RESULT: CalculatePriceResponse = {
   grand_total: 753.6,
   discount_total: 0,
   rules_applied: ["exchange_rate:cny_usd=0.14"],
+  service_flat_fee_301_total: 0,
+  custom_fees_total: 0,
+  custom_rules_applied: [],
 };
 
 describe("PricingCalcPage", () => {
@@ -139,5 +142,40 @@ describe("PricingCalcPage", () => {
       await screen.findByText("يرجى اختيار طلب عرض السعر وتعبئة ميناء الوصول"),
     ).toBeInTheDocument();
     expect(pricingService.calculate).not.toHaveBeenCalled();
+  });
+
+  it("only offers JOD/USD in the currency dropdown (the engine doesn't support the others)", async () => {
+    renderWithProviders(<PricingCalcPage />);
+    const currencySelect = screen.getByDisplayValue("دينار أردني (JOD)") as HTMLSelectElement;
+    const optionLabels = Array.from(currencySelect.options).map((o) => o.value);
+    expect(optionLabels).toEqual(["JOD", "USD"]);
+  });
+
+  it("sends the edited per-unit weight in the calculation payload", async () => {
+    vi.mocked(pricingService.calculate).mockResolvedValue(CALC_RESULT);
+    const user = userEvent.setup();
+    renderWithProviders(<PricingCalcPage />);
+
+    const select = await screen.findByDisplayValue("-- اختر طلب عرض سعر --");
+    await user.selectOptions(select, "rfq-1");
+    await screen.findByText("Industrial LED Floodlight");
+
+    // Row order is: quantity, unit_price_cny, weight_kg (all <input type="number">).
+    const spinbuttons = screen.getAllByRole("spinbutton");
+    const weightInput = spinbuttons[2];
+    await user.clear(weightInput);
+    await user.type(weightInput, "2.5");
+
+    const portInput = screen.getByPlaceholderText("مثال: Aqaba, Jordan");
+    await user.type(portInput, "Aqaba");
+    await user.click(screen.getByRole("button", { name: /حساب التسعير/ }));
+
+    await waitFor(() => {
+      expect(pricingService.calculate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          products: [expect.objectContaining({ weight_kg: 2.5 })],
+        }),
+      );
+    });
   });
 });

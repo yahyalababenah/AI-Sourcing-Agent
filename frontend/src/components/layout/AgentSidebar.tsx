@@ -1,23 +1,26 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, BarChart2, Users, Package, FileText, TrendingUp, Settings, UserCircle, ClipboardCheck,
+  LayoutDashboard, BarChart2, Users, Package, FileText, Calculator, Settings, UserCircle,
+  ClipboardCheck, PlusCircle, Store, Truck, MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { AppLogo } from "@/components/AppLogo";
 import { useAuthStore } from "@/stores/authStore";
 
-// `/supplier/review` (ProductReviewPage) had no entry point anywhere in the
-// UI — reachable only if you already knew the direct URL. Added here so an
-// agent can actually discover and reach it.
 const navItems = [
-  { to: ROUTES.DASHBOARD,            label: "الرئيسية",       icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,             label: "الطلبات",        icon: BarChart2      },
-  { to: ROUTES.RFQ.SUPPLIER_INBOX,   label: "العملاء",         icon: Users,         badge: "14" },
-  { to: ROUTES.CATALOG.MARKETPLACE,  label: "الموردون",        icon: Package        },
-  { to: ROUTES.DOCUMENTS.UPLOAD,     label: "الكتالوجات",      icon: FileText,      badgeAmber: "3" },
-  { to: ROUTES.SUPPLIER.REVIEW,      label: "مراجعة المنتجات", icon: ClipboardCheck },
-  { to: ROUTES.PRICING.CALCULATE,    label: "التقارير",        icon: TrendingUp     },
+  { to: ROUTES.DASHBOARD,             label: "الرئيسية",              icon: LayoutDashboard },
+  { to: ROUTES.RFQ.LIST,              label: "طلبات الشراء",          icon: BarChart2       },
+  { to: ROUTES.RFQ.CREATE,            label: "طلب شراء جديد",         icon: PlusCircle      },
+  { to: ROUTES.RFQ.SUPPLIER_INBOX,    label: "طلبات العملاء الواردة", icon: Users           },
+  { to: ROUTES.CATALOG.MARKETPLACE,   label: "السوق العالمي",         icon: Store           },
+  { to: ROUTES.SUPPLIER.MY_PRODUCTS,  label: "منتجاتي",               icon: Package         },
+  { to: ROUTES.SUPPLIER.REVIEW,       label: "مراجعة المنتجات",       icon: ClipboardCheck  },
+  { to: ROUTES.DOCUMENTS.UPLOAD,      label: "رفع كتالوج / مستند",    icon: FileText        },
+  { to: ROUTES.PRICING.CALCULATE,     label: "حاسبة التسعير",         icon: Calculator      },
+  { to: ROUTES.QUOTES.LIST,           label: "عروض الأسعار",          icon: FileText        },
+  { to: ROUTES.ORDERS.LIST,           label: "تتبع الشحنات",          icon: Truck           },
+  { to: ROUTES.CHAT.LIST,             label: "المحادثات",             icon: MessageCircle   },
 ];
 
 const footerItems = [
@@ -31,7 +34,7 @@ export function AgentSidebar() {
     ?.split(" ")
     .map((w) => w[0])
     .slice(0, 2)
-    .join("") ?? "وك";
+    .join("") ?? "مو";
 
   return (
     <aside
@@ -90,22 +93,6 @@ export function AgentSidebar() {
                   style={{ color: isActive ? "#10b981" : "var(--text-2)" }}
                 />
                 <span className="flex-1">{item.label}</span>
-                {item.badge && (
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: "var(--surface-3)", color: "var(--text-4)" }}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-                {item.badgeAmber && (
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: "var(--amber-surface)", color: "#d97706" }}
-                  >
-                    {item.badgeAmber}
-                  </span>
-                )}
               </>
             )}
           </NavLink>
@@ -142,9 +129,9 @@ export function AgentSidebar() {
           </div>
           <div>
             <div className="text-[13px] font-semibold" style={{ color: "var(--text-dim)" }}>
-              {user?.full_name ?? "الوكيل"}
+              {user?.full_name ?? "المورد"}
             </div>
-            <div className="text-[10px]" style={{ color: "var(--text-2)" }}>وكيل مميّز</div>
+            <div className="text-[10px]" style={{ color: "var(--text-2)" }}>مورد معتمد</div>
           </div>
         </div>
       </div>

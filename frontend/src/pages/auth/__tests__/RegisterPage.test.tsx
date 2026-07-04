@@ -26,7 +26,7 @@ describe("RegisterPage — role-specific profile fields (TESTING_FINDINGS.md #0d
     const user = userEvent.setup();
     renderWithProviders(<RegisterPage />);
 
-    await user.click(screen.getByRole("button", { name: /عميل/ }));
+    await user.click(screen.getByRole("button", { name: /مستورد/ }));
     await fillCommonFields(user);
     await user.type(screen.getByLabelText("اسم الشركة"), "Acme Trading Co.");
 
@@ -68,7 +68,7 @@ describe("RegisterPage — role-specific profile fields (TESTING_FINDINGS.md #0d
     const user = userEvent.setup();
     renderWithProviders(<RegisterPage />);
 
-    await user.click(screen.getByRole("button", { name: /عميل/ }));
+    await user.click(screen.getByRole("button", { name: /مستورد/ }));
     await fillCommonFields(user);
     // company_name intentionally left blank.
 

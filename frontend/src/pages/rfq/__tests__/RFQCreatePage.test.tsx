@@ -1,12 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { RFQCreatePage } from "../RFQCreatePage";
 import { intakeService } from "@/services/intakeService";
+import { useAuthStore } from "@/stores/authStore";
 import type { RFQ } from "@/types/intake";
+import type { User } from "@/types/auth";
 
 vi.mock("@/services/intakeService");
+
+afterEach(() => {
+  useAuthStore.setState({ user: null, role: null });
+});
 
 const CREATED_RFQ: RFQ = {
   id: "rfq-new-1",
@@ -115,5 +121,40 @@ describe("RFQCreatePage", () => {
     await user.click(screen.getByRole("button", { name: "إنشاء طلب عرض السعر" }));
 
     expect(await screen.findByText("Network Error")).toBeInTheDocument();
+  });
+
+  it("hides the client name/phone fields and prefills them from the account for a client role", async () => {
+    useAuthStore.setState({
+      role: "client",
+      user: {
+        id: "u1",
+        email: "importer@example.com",
+        full_name: "محمد المستورد",
+        role: "client",
+        phone: "+962799999999",
+      } as User,
+    });
+    vi.mocked(intakeService.create).mockResolvedValue(CREATED_RFQ);
+    const user = userEvent.setup();
+    renderWithProviders(<RFQCreatePage />);
+
+    expect(screen.queryByPlaceholderText("أحمد محمد")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("+962791234567")).not.toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText("اكتب وصف المنتجات المطلوبة بالتفصيل..."),
+      "أحتاج 100 كشاف إضاءة صناعي",
+    );
+    await user.click(screen.getByRole("button", { name: "إنشاء طلب عرض السعر" }));
+
+    await waitFor(() => {
+      expect(intakeService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client_name: "محمد المستورد",
+          client_phone: "+962799999999",
+          client_request_arabic: "أحتاج 100 كشاف إضاءة صناعي",
+        }),
+      );
+    });
   });
 });

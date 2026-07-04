@@ -4,6 +4,8 @@ export interface PricingRuleCreate {
   category: string;
   rule_type: "percentage" | "fixed" | "formula";
   value: number;
+  /** Expression evaluated per line item, used only when rule_type === "formula". */
+  formula?: string | null;
   currency?: string;
   conditions?: Record<string, unknown>;
   priority: number;
@@ -17,6 +19,7 @@ export interface PricingRule {
   category: string;
   rule_type: string;
   value: number;
+  formula?: string | null;
   currency?: string;
   conditions?: Record<string, unknown>;
   priority: number;
@@ -39,6 +42,8 @@ export interface HSCodeFeeScheduleCreate {
   service_percent_070: number;
   requires_license: boolean;
   penalty_rate_018: number;
+  /** Per-HS VAT override, percent; null/undefined = global default (16%). */
+  vat_rate_020?: number | null;
   is_verified: boolean;
   source_note?: string;
 }
@@ -52,6 +57,7 @@ export interface HSCodeFeeSchedule {
   service_percent_070: number;
   requires_license: boolean;
   penalty_rate_018: number;
+  vat_rate_020?: number | null;
   is_verified: boolean;
   source_note?: string;
   created_at: string;
@@ -105,6 +111,12 @@ export interface LineItemResult {
   hs_code_matched: boolean;
 }
 
+export interface AppliedCustomRule {
+  name: string;
+  rule_type: string;
+  amount: number;
+}
+
 export interface CalculatePriceResponse {
   rfq_id: string;
   target_currency: string;
@@ -116,6 +128,10 @@ export interface CalculatePriceResponse {
   grand_total: number;
   discount_total: number;
   rules_applied: string[];
+  /** 301 is a per-shipment fee (charged once, not per line item) — see PricingCalcPage. */
+  service_flat_fee_301_total: number;
+  custom_fees_total: number;
+  custom_rules_applied: AppliedCustomRule[];
 }
 
 export interface QuickEstimateResponse {

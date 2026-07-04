@@ -11,12 +11,11 @@ import type {
   PriceProductInput,
 } from "@/types/pricing";
 
+// Only JOD/USD are actually supported by the pricing engine — any other
+// currency silently falls back to JOD math (see engine.py's currency branch).
 const CURRENCIES = [
   { value: "JOD", label: "دينار أردني (JOD)" },
   { value: "USD", label: "دولار أمريكي (USD)" },
-  { value: "EGP", label: "جنيه مصري (EGP)" },
-  { value: "SAR", label: "ريال سعودي (SAR)" },
-  { value: "AED", label: "درهم إماراتي (AED)" },
 ];
 
 export function PricingCalcPage() {
@@ -32,7 +31,7 @@ export function PricingCalcPage() {
   const [productInputs, setProductInputs] = useState<
     Record<
       string,
-      { quantity: number; unit_price_cny: number; hs_code: string; has_license: boolean }
+      { quantity: number; unit_price_cny: number; weight_kg: number; hs_code: string; has_license: boolean }
     >
   >({});
   const [result, setResult] = useState<CalculatePriceResponse | null>(null);
@@ -76,12 +75,13 @@ export function PricingCalcPage() {
   if (products && Object.keys(productInputs).length === 0 && selectedRfqId) {
     const inputs: Record<
       string,
-      { quantity: number; unit_price_cny: number; hs_code: string; has_license: boolean }
+      { quantity: number; unit_price_cny: number; weight_kg: number; hs_code: string; has_license: boolean }
     > = {};
     for (const p of products) {
       inputs[p.id] = {
         quantity: p.quantity ?? 1,
         unit_price_cny: 0,
+        weight_kg: p.weight_kg ?? 0,
         hs_code: "",
         has_license: false,
       };
@@ -107,9 +107,7 @@ export function PricingCalcPage() {
             name: prod?.name || productId,
             quantity: vals.quantity,
             unit_price_cny: vals.unit_price_cny,
-            // FIX: previously omitted — freight was always computed off a
-            // phantom 0.1 CBM minimum regardless of the product's real weight.
-            weight_kg: prod?.weight_kg ?? 0,
+            weight_kg: vals.weight_kg,
             hs_code: vals.hs_code.trim() || undefined,
             has_license: vals.has_license,
           };
@@ -281,6 +279,9 @@ export function PricingCalcPage() {
                         <span dir="ltr">سعر الوحدة (CNY ¥)</span>
                       </th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500">
+                        الوزن (كغ/وحدة)
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500">
                         رمز HS
                       </th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500">
@@ -297,6 +298,7 @@ export function PricingCalcPage() {
                       const input = productInputs[p.id] || {
                         quantity: 1,
                         unit_price_cny: 0,
+                        weight_kg: 0,
                         hs_code: "",
                         has_license: false,
                       };
@@ -346,6 +348,26 @@ export function PricingCalcPage() {
                           </td>
                           <td className="px-4 py-3">
                             <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              value={input.weight_kg}
+                              onChange={(e) =>
+                                setProductInputs((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev[p.id],
+                                    weight_kg: Math.max(0, Number(e.target.value)),
+                                  },
+                                }))
+                              }
+                              className={`w-24 rounded border px-2 py-1 text-sm text-center focus:border-primary-500 focus:outline-none ${
+                                input.weight_kg <= 0 ? "border-amber-300 bg-amber-50" : "border-gray-300"
+                              }`}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
                               type="text"
                               value={input.hs_code}
                               onChange={(e) =>
@@ -386,6 +408,12 @@ export function PricingCalcPage() {
                   </tbody>
                 </table>
               </div>
+
+              {Object.values(productInputs).some((v) => v.weight_kg <= 0) && (
+                <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                  ⚠️ منتجات بدون وزن — سيُقدَّر الشحن بحد أدنى 0.1 CBM بدلاً من الوزن الفعلي
+                </div>
+              )}
 
               <div className="mt-6 flex items-center gap-4">
                 <button
@@ -486,9 +514,6 @@ export function PricingCalcPage() {
                   <th className="px-3 py-2 text-xs font-medium text-gray-500">
                     خدمات 070
                   </th>
-                  <th className="px-3 py-2 text-xs font-medium text-gray-500">
-                    بدل خدمات 301
-                  </th>
                   {result.line_items.some((li) => li.penalty_018 > 0) && (
                     <th className="px-3 py-2 text-xs font-medium text-red-600">
                       غرامة 018
@@ -500,10 +525,17 @@ export function PricingCalcPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {result.line_items.map((item: LineItemResult, i: number) => (
+                {result.line_items.map((item: LineItemResult, i: number) => {
+                  const enteredHsCode = productInputs[item.product_id]?.hs_code?.trim();
+                  return (
                   <tr key={i} className="transition-colors hover:bg-gray-50">
                     <td className="px-3 py-2 text-sm font-medium text-gray-900">
                       {item.product_name}
+                      {enteredHsCode && !item.hs_code_matched && (
+                        <p className="mt-0.5 text-xs font-normal text-amber-600">
+                          ⚠️ الرمز غير موجود في الجدول — طُبّق رسم عام 5٪
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-700">{item.quantity}</td>
                     <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
@@ -527,9 +559,6 @@ export function PricingCalcPage() {
                     <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
                       {item.service_percent_070.toFixed(2)}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-700" dir="ltr">
-                      {item.service_flat_301.toFixed(2)}
-                    </td>
                     {result.line_items.some((li) => li.penalty_018 > 0) && (
                       <td className="px-3 py-2 text-sm font-medium text-red-600" dir="ltr">
                         {item.penalty_018 > 0 ? item.penalty_018.toFixed(2) : "—"}
@@ -545,10 +574,29 @@ export function PricingCalcPage() {
                       {item.total.toFixed(2)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          {/* Shipment-level fees */}
+          {result.service_flat_fee_301_total > 0 && (
+            <div className="mt-3 text-right text-sm text-gray-700">
+              بدل خدمات 301 (مرة واحدة لكل شحنة):{" "}
+              <span dir="ltr" className="font-medium">
+                {result.service_flat_fee_301_total.toFixed(2)} {result.target_currency}
+              </span>
+            </div>
+          )}
+          {result.custom_fees_total !== 0 && (
+            <div className="mt-1 text-right text-sm text-gray-700">
+              رسوم قواعد مخصصة:{" "}
+              <span dir="ltr" className="font-medium">
+                {result.custom_fees_total.toFixed(2)} {result.target_currency}
+              </span>
+            </div>
+          )}
 
           {/* Early Payment Discount */}
           {result.early_payment_discount > 0 && (
@@ -557,6 +605,25 @@ export function PricingCalcPage() {
               <span dir="ltr" className="font-medium">
                 -{result.early_payment_discount.toFixed(2)} {result.target_currency}
               </span>
+            </div>
+          )}
+
+          {/* Custom Rules Applied */}
+          {result.custom_rules_applied && result.custom_rules_applied.length > 0 && (
+            <div className="mt-4">
+              <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                قواعد التسعير المخصصة المطبقة
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {result.custom_rules_applied.map((r, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700"
+                  >
+                    {r.name}: <span dir="ltr" className="mr-1">{r.amount.toFixed(2)}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 

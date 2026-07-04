@@ -11,7 +11,7 @@ code (falls back to the JOD conversion path with a logged warning).
 """
 import pytest
 
-from app.modules.pricing.engine import LineItemInput, PricingEngine
+from app.modules.pricing.engine import CustomRule, LineItemInput, PricingEngine
 
 
 class TestZeroPrice:
@@ -92,3 +92,109 @@ class TestUnsupportedCurrency:
         )
         assert result["target_currency"] == "XYZ"
         assert result["grand_total"] > 0
+
+
+class TestCustomRules:
+    """Admin-created rules whose name isn't a canonical DEFAULTS key.
+
+    Previously any such rule was persisted but silently ignored by every
+    calculation, since the engine only ever looked rules up by exact name
+    against its hardcoded DEFAULTS keys. These tests cover the new
+    _apply_custom_rules() path added to fix that.
+    """
+
+    def _products(self):
+        return [
+            LineItemInput(
+                product_id="p1", product_name="Widget A",
+                quantity=10, unit_price_cny=50.0, weight_kg=100.0,
+            ),
+            LineItemInput(
+                product_id="p2", product_name="Widget B",
+                quantity=5, unit_price_cny=80.0, weight_kg=50.0,
+            ),
+        ]
+
+    def test_canonical_rule_name_is_not_treated_as_custom(self):
+        """A rule named after a canonical DEFAULTS key must still only act as
+        a plain override — CustomRule filters these out in __init__.
+        """
+        engine = PricingEngine(
+            custom_rules=[CustomRule(name="clearance_fee", rule_type="fixed", value=999.0)]
+        )
+        assert engine.custom_rules == []
+
+    def test_percentage_custom_rule_applies_to_goods_subtotal(self):
+        engine = PricingEngine(
+            custom_rules=[CustomRule(name="handling_fee", rule_type="percentage", value=5.0, priority=0)]
+        )
+        with_rule = engine.calculate(
+            rfq_id="custom-pct", target_currency="JOD",
+            destination_port="Aqaba", products=self._products(),
+        )
+        baseline = PricingEngine().calculate(
+            rfq_id="custom-pct-baseline", target_currency="JOD",
+            destination_port="Aqaba", products=self._products(),
+        )
+        goods_subtotal = sum(li["subtotal"] for li in with_rule["line_items"])
+        expected_fee = goods_subtotal * 0.05
+        assert with_rule["custom_fees_total"] == pytest.approx(expected_fee, rel=0.01)
+        assert with_rule["grand_total"] > baseline["grand_total"]
+        assert any("custom:handling_fee" in r for r in with_rule["rules_applied"])
+
+    def test_fixed_custom_rule_charged_once_per_shipment(self):
+        """A fixed custom fee must not multiply with the number of line items."""
+        engine = PricingEngine(
+            custom_rules=[CustomRule(name="doc_fee", rule_type="fixed", value=20.0)]
+        )
+        result = engine.calculate(
+            rfq_id="custom-fixed", target_currency="JOD",
+            destination_port="Aqaba", products=self._products(),
+        )
+        assert result["custom_fees_total"] == pytest.approx(20.0)
+
+    def test_formula_custom_rule_evaluated_per_line(self):
+        engine = PricingEngine(
+            custom_rules=[
+                CustomRule(name="per_line_fee", rule_type="formula", formula="max(1, quantity * 0.1)")
+            ]
+        )
+        result = engine.calculate(
+            rfq_id="custom-formula", target_currency="JOD",
+            destination_port="Aqaba", products=self._products(),
+        )
+        # quantities are 10 and 5 → max(1, 1.0) + max(1, 0.5) = 1.0 + 1.0
+        assert result["custom_fees_total"] == pytest.approx(2.0)
+        applied = {r["name"]: r for r in result["custom_rules_applied"]}
+        assert applied["per_line_fee"]["rule_type"] == "formula"
+
+    def test_broken_formula_rule_is_skipped_not_fatal(self):
+        """An invalid/unsafe formula must not crash the calculation — it
+        contributes 0 and is flagged in rules_applied instead.
+        """
+        engine = PricingEngine(
+            custom_rules=[
+                CustomRule(name="bad_rule", rule_type="formula", formula="unknown_var * 2")
+            ]
+        )
+        result = engine.calculate(
+            rfq_id="custom-formula-broken", target_currency="JOD",
+            destination_port="Aqaba", products=self._products(),
+        )
+        assert result["custom_fees_total"] == 0.0
+        assert any("custom:bad_rule:error" in r for r in result["rules_applied"])
+
+    def test_priority_order_does_not_affect_total_but_all_rules_apply(self):
+        engine = PricingEngine(
+            custom_rules=[
+                CustomRule(name="fee_b", rule_type="fixed", value=10.0, priority=5),
+                CustomRule(name="fee_a", rule_type="fixed", value=15.0, priority=1),
+            ]
+        )
+        result = engine.calculate(
+            rfq_id="custom-priority", target_currency="JOD",
+            destination_port="Aqaba", products=self._products(),
+        )
+        assert result["custom_fees_total"] == pytest.approx(25.0)
+        names = [r["name"] for r in result["custom_rules_applied"]]
+        assert names == ["fee_a", "fee_b"]  # sorted by priority

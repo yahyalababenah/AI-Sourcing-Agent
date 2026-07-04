@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Package, Search, AlertCircle, RefreshCw } from "lucide-react";
 import { catalogService } from "@/services/catalogService";
 import { useAuthStore } from "@/stores/authStore";
+import { categoryLabel } from "@/constants/categories";
 import { cn } from "@/lib/utils";
 import type { CatalogProduct } from "@/types/catalog";
 
@@ -180,7 +181,7 @@ export function SupplierProductsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-gray-600">
-                        {product.category ?? "—"}
+                        {categoryLabel(product.category)}
                       </span>
                     </td>
                     <td className="px-4 py-3">

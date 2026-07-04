@@ -64,14 +64,17 @@ class TestHSCodeLandedCost:
         expected = result["cif_per_unit"] * 0.05
         assert result["service_percent_per_unit"] == pytest.approx(expected, rel=0.01)
 
-    def test_301_flat_fee_divided_across_quantity(self):
-        """301 flat fee (50 JOD) is divided across the quantity, like clearance."""
+    def test_301_flat_fee_is_shipment_level_not_divided(self):
+        """301 (50 JOD) is a per-declaration fee — the full amount is reported
+        per line by calculate_landed_cost; PricingEngine.calculate() then
+        charges it once per shipment (max across lines), not per unit/line.
+        """
         result = self.engine.calculate_landed_cost(
             price_rmb=100.0, weight_kg=500.0, quantity=100,
             destination_port="Aqaba", currency="JOD",
             hs_entry=VERIFIED_HS_ENTRY, has_license=True,
         )
-        assert result["service_flat_per_unit"] == pytest.approx(50.0 / 100, rel=0.01)
+        assert result["service_flat_301_line"] == pytest.approx(50.0, rel=0.01)
 
     def test_018_penalty_not_applied_when_license_confirmed(self):
         """018 penalty is 0 when has_license=True even though requires_license=True."""
@@ -110,7 +113,7 @@ class TestHSCodeLandedCost:
             destination_port="Aqaba", currency="JOD",
         )
         assert result["hs_code_matched"] is False
-        assert result["service_flat_per_unit"] == 0.0
+        assert result["service_flat_301_line"] == 0.0
         assert result["service_percent_per_unit"] == 0.0
         assert result["penalty_per_unit"] == 0.0
         assert "hs_code_not_found:fallback_to_general_rate" in result["rules_applied"]
@@ -125,10 +128,37 @@ class TestHSCodeCalculate:
     def setup_method(self):
         self.engine = PricingEngine()
 
-    def test_vat_base_excludes_070_301_018(self):
-        """REGRESSION: VAT (020) base must stay (CIF + 001 duty) only — it must
-        NOT include 070, 301, or 018, matching the real JCAP result where 020
-        was computed solely on CIF+001.
+    def test_vat_base_excludes_070_301_018_when_toggle_off(self):
+        """By decision, vat_base_includes_fees defaults ON — but an admin can
+        disable it (rule named "vat_base_includes_fees" = 0), which restores
+        the CIF+001-only VAT base with no 070/301/018 included.
+        """
+        engine = PricingEngine(rules_override={"vat_base_includes_fees": 0.0})
+        products = [
+            LineItemInput(
+                product_id="p1", product_name="Lamp", quantity=100,
+                unit_price_cny=100.0, weight_kg=500.0,
+                hs_entry=VERIFIED_HS_ENTRY, has_license=False,
+            )
+        ]
+        result = engine.calculate(
+            rfq_id="hs-vat-test", target_currency="JOD",
+            destination_port="Aqaba", products=products,
+        )
+        li = result["line_items"][0]
+        # penalty_018 must be > 0 in this scenario (no license confirmed)
+        assert li["penalty_018"] > 0
+        assert result["service_flat_fee_301_total"] > 0
+        assert li["service_percent_070"] > 0
+
+        expected_vat_base = li["cif_value"] + li["customs_duty"]
+        expected_vat = round(expected_vat_base * 0.16, 2)
+        assert result["vat"] == pytest.approx(expected_vat, rel=0.01)
+
+    def test_vat_base_includes_070_301_018_by_default(self):
+        """Default behavior: vat_base_includes_fees=1 widens the VAT base to
+        include the 070/301/018 fees, so VAT here must exceed the CIF+001-only
+        calculation from the toggle-off test above.
         """
         products = [
             LineItemInput(
@@ -138,21 +168,19 @@ class TestHSCodeCalculate:
             )
         ]
         result = self.engine.calculate(
-            rfq_id="hs-vat-test", target_currency="JOD",
+            rfq_id="hs-vat-test-default", target_currency="JOD",
             destination_port="Aqaba", products=products,
         )
         li = result["line_items"][0]
-        # penalty_018 must be > 0 in this scenario (no license confirmed)
-        assert li["penalty_018"] > 0
-        assert li["service_flat_301"] > 0
-        assert li["service_percent_070"] > 0
-
-        expected_vat_base = li["cif_value"] + li["customs_duty"]
-        expected_vat = round(expected_vat_base * 0.16, 2)
-        assert result["vat"] == pytest.approx(expected_vat, rel=0.01)
+        narrow_vat_base = li["cif_value"] + li["customs_duty"]
+        narrow_vat = round(narrow_vat_base * 0.16, 2)
+        assert result["vat"] > narrow_vat
 
     def test_line_item_result_fields_present(self):
-        """LineItemResult exposes service_flat_301, service_percent_070, penalty_018, hs_code_matched."""
+        """LineItemResult exposes service_percent_070, penalty_018, hs_code_matched;
+        service_flat_301 stays 0 per line since 301 is now a shipment-level fee
+        surfaced via the top-level service_flat_fee_301_total instead.
+        """
         products = [
             LineItemInput(
                 product_id="p1", product_name="Lamp", quantity=10,
@@ -167,7 +195,8 @@ class TestHSCodeCalculate:
         li = result["line_items"][0]
         assert li["hs_code_matched"] is True
         assert li["penalty_018"] == 0.0  # license confirmed
-        assert li["service_flat_301"] > 0
+        assert li["service_flat_301"] == 0.0
+        assert result["service_flat_fee_301_total"] > 0
         assert li["service_percent_070"] > 0
 
     def test_fallback_product_has_no_hs_fields(self):
@@ -444,9 +473,10 @@ class TestCalculateWithHSCode:
             },
         )
         assert resp.status_code == 200
-        li = resp.json()["line_items"][0]
+        body = resp.json()
+        li = body["line_items"][0]
         assert li["hs_code_matched"] is True
-        assert li["service_flat_301"] > 0
+        assert body["service_flat_fee_301_total"] > 0
         assert li["service_percent_070"] > 0
         assert li["penalty_018"] > 0
 

@@ -18,6 +18,7 @@ function makeProduct(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
     dimensions: "30x20x15cm",
     material: "Aluminum",
     category: "Industrial Lighting",
+    hs_code: null,
     supplier_id: "sup-1",
     supplier_name: "Guangzhou Factory",
     factory_name: "Guangzhou Factory",
@@ -118,6 +119,41 @@ describe("ProductReviewPage", () => {
 
     await waitFor(() => {
       expect(capturedBody).toMatchObject({ action: "approve", unit_price_rmb: 99.5 });
+    });
+  });
+
+  it("shows a non-canonical category in the free-text 'other' field when editing", async () => {
+    mockPendingList([makeProduct({ category: "Industrial Lighting" })]);
+    const user = userEvent.setup();
+    renderWithProviders(<ProductReviewPage />);
+    await screen.findByText("工业LED投光灯");
+
+    await user.click(screen.getByRole("button", { name: "تعديل" }));
+
+    expect(screen.getByDisplayValue("Industrial Lighting")).toBeInTheDocument();
+  });
+
+  it("selecting a canonical category and approving sends its value", async () => {
+    mockPendingList([makeProduct({ category: null })]);
+    let capturedBody: any;
+    server.use(
+      http.patch("*/catalog/products/:id/review", async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json(makeProduct({ category: "electronics" }));
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<ProductReviewPage />);
+    await screen.findByText("工业LED投光灯");
+
+    await user.click(screen.getByRole("button", { name: "تعديل" }));
+    const categorySelect = screen.getByDisplayValue("—");
+    await user.selectOptions(categorySelect, "electronics");
+    await user.click(screen.getByRole("button", { name: "حفظ وقبول" }));
+
+    await waitFor(() => {
+      expect(capturedBody).toMatchObject({ action: "approve", category: "electronics" });
     });
   });
 

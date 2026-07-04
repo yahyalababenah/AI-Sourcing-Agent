@@ -9,6 +9,8 @@ export interface CatalogProduct {
   dimensions: string | null;
   material: string | null;
   category: string | null;
+  /** HS code for customs classification, if known — enables an accurate marketplace estimate. */
+  hs_code: string | null;
 
   /** Supplier (agent) who owns this product. */
   supplier_id: string | null;

@@ -6,6 +6,7 @@ import { catalogService } from "@/services/catalogService";
 import { intakeService } from "@/services/intakeService";
 import { pricingService } from "@/services/pricingService";
 import { useAuthStore } from "@/stores/authStore";
+import { PRODUCT_CATEGORIES } from "@/constants/categories";
 import type { QuickEstimateResponse } from "@/types/pricing";
 import type { CatalogProduct, CatalogListResponse } from "@/types/catalog";
 import type { RFQCreate } from "@/types/intake";
@@ -58,6 +59,12 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
         // FIX: previously omitted — freight was always computed off a phantom
         // 0.1 CBM minimum regardless of the product's real weight.
         weight_kg: product.weight_kg ?? 0,
+        // FIX: previously omitted — every marketplace estimate silently used
+        // the 5% general customs fallback instead of this product's real HS
+        // fee schedule, so the same product could show different customs
+        // duty here vs. in the full pricing calculator.
+        hs_code: product.hs_code ?? undefined,
+        has_license: true,
       }),
     enabled: open && !!product.unit_price_rmb && quantity > 0,
     retry: false,
@@ -255,6 +262,11 @@ function RfqModal({ product, open, onClose }: RfqModalProps) {
                   <p className="text-xs" style={{ color: "var(--text-3)" }}>
                     سعر الصرف: 1 CNY = {estimate.exchange_rate.toFixed(4)} {estimate.target_currency}
                   </p>
+                  {product.hs_code && !estimate.hs_code_matched && (
+                    <p className="text-xs text-amber-600">
+                      ⚠️ رمز HS {product.hs_code} غير موجود في الجدول — طُبّق رسم عام تقديري 5٪
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs" style={{ color: "var(--text-3)" }}>تعذّر حساب التكلفة التقديرية</p>
@@ -449,15 +461,11 @@ export function MarketplacePage() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [data]);
 
-  const uniqueCategories = useMemo(() => {
-    if (!data?.items) return [];
-    const cats = new Set<string>();
-    data.items.forEach((p) => {
-      if (p.category) cats.add(p.category);
-      if (p.material) cats.add(p.material);
-    });
-    return Array.from(cats).sort();
-  }, [data]);
+  // FIX: previously derived from the current page's items and merged in
+  // `material` values, so the dropdown mixed materials into the category
+  // list and only ever showed categories present on the current page.
+  // PRODUCT_CATEGORIES is the fixed canonical list used everywhere else.
+  const uniqueCategories = PRODUCT_CATEGORIES;
 
   const handleRequestQuote = useCallback((product: CatalogProduct) => {
     setSelectedProduct(product);

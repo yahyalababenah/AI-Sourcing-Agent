@@ -61,6 +61,7 @@ class PricingRule(Base):
     )
     rule_type = Column(String(50), nullable=False)  # percentage | fixed | formula
     value = Column(Float, nullable=False)  # The numeric value / rate
+    formula = Column(Text, nullable=True)  # Expression used when rule_type == "formula"
     currency = Column(String(10), nullable=True)
     conditions = Column(JSONB, nullable=True)  # e.g., {"min_quantity": 1000, "port": "Aqaba"}
     priority = Column(Integer, default=0, nullable=False)
@@ -104,6 +105,7 @@ class HSCodeFeeSchedule(Base):
     service_percent_070 = Column(Float, nullable=False, default=0.0)  # % on CIF
     requires_license = Column(Boolean, nullable=False, default=False)
     penalty_rate_018 = Column(Float, nullable=False, default=0.0)  # % on CIF, conditional
+    vat_rate_020 = Column(Float, nullable=True)  # % on (CIF + duty); None = use global default
     is_verified = Column(Boolean, nullable=False, default=False)
     source_note = Column(Text, nullable=True)
 

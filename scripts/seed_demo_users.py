@@ -33,14 +33,14 @@ DEMO_USERS = [
     {
         "email": "agent@example.com",
         "password": "Demo@123456!",
-        "full_name": "أحمد الوكيل",
+        "full_name": "أحمد المورد",
         "role": UserRole.AGENT,
         "phone": "+962792222222",
     },
     {
         "email": "client@example.com",
         "password": "Demo@123456!",
-        "full_name": "محمد العميل",
+        "full_name": "محمد المستورد",
         "role": UserRole.CLIENT,
         "phone": "+962793333333",
     },

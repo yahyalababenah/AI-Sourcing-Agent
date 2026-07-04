@@ -25,6 +25,7 @@ from app.modules.catalog.schemas import (
     CatalogProductResponse,
 )
 from app.modules.documents.models import Document, DocumentStatus
+from app.shared.categories import normalize_category
 
 # ── Module-level logger ──
 from app.shared.logging import get_logger
@@ -94,7 +95,7 @@ async def sync_document_products(db: AsyncSession, document: Document) -> int:
             weight_kg=prod.get("weight_kg") or prod.get("weight"),
             dimensions=prod.get("dimensions") or prod.get("size"),
             material=prod.get("material") or prod.get("fabric_composition") or prod.get("fabric"),
-            category=prod.get("category") or prod.get("type"),
+            category=normalize_category(prod.get("category") or prod.get("type") or product_name) or (prod.get("category") or prod.get("type")),
         )
         db.add(catalog_product)
         count += 1
@@ -161,7 +162,7 @@ def sync_document_products_sync(db: Session, document: Document) -> int:
             weight_kg=prod.get("weight_kg") or prod.get("weight"),
             dimensions=prod.get("dimensions") or prod.get("size"),
             material=prod.get("material") or prod.get("fabric_composition") or prod.get("fabric"),
-            category=prod.get("category") or prod.get("type"),
+            category=normalize_category(prod.get("category") or prod.get("type") or product_name) or (prod.get("category") or prod.get("type")),
         )
         db.add(catalog_product)
         count += 1
@@ -325,6 +326,7 @@ async def search_catalog(
                 dimensions=prod.dimensions,
                 material=prod.material,
                 category=prod.category,
+                hs_code=prod.hs_code,
                 supplier_id=prod.supplier_id,
                 supplier_name=supplier.full_name if supplier else None,
                 factory_name=profile.factory_name if profile else None,
@@ -431,6 +433,7 @@ async def search_catalog_fallback(
                 dimensions=prod.dimensions,
                 material=prod.material,
                 category=prod.category,
+                hs_code=prod.hs_code,
                 supplier_id=prod.supplier_id,
                 supplier_name=supplier.full_name if supplier else None,
                 factory_name=profile.factory_name if profile else None,
@@ -526,6 +529,7 @@ def _to_response(prod: CatalogProduct) -> CatalogProductResponse:
         dimensions=prod.dimensions,
         material=prod.material,
         category=prod.category,
+        hs_code=prod.hs_code,
         supplier_id=prod.supplier_id,
         supplier_name=supplier.full_name if supplier else None,
         factory_name=profile.factory_name if profile else None,

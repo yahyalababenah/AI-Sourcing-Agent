@@ -4,12 +4,17 @@ import { useMutation } from "@tanstack/react-query";
 import { ROUTES } from "@/constants/routes";
 import { intakeService } from "@/services/intakeService";
 import type { RFQCreate } from "@/types/intake";
+import { useAuthStore } from "@/stores/authStore";
 
 export function RFQCreatePage() {
   const navigate = useNavigate();
+  const role = useAuthStore((s) => s.role);
+  const user = useAuthStore((s) => s.user);
+  const isClient = role === "client";
+
   const [formData, setFormData] = useState<RFQCreate>({
-    client_name: "",
-    client_phone: "",
+    client_name: isClient ? (user?.full_name ?? "") : "",
+    client_phone: isClient ? (user?.phone ?? "") : "",
     client_request_arabic: "",
     destination_port: "",
     target_currency: "USD",
@@ -35,7 +40,7 @@ export function RFQCreatePage() {
     e.preventDefault();
     setError(null);
 
-    if (!formData.client_name.trim()) {
+    if (!isClient && !formData.client_name.trim()) {
       setError("يرجى إدخال اسم العميل");
       return;
     }
@@ -61,7 +66,9 @@ export function RFQCreatePage() {
             طلب عرض سعر جديد
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            أدخل بيانات المنتج المطلوب للحصول على عرض سعر
+            {isClient
+              ? "صف ما تريد استيراده وسيصلك عرض سعر من الموردين"
+              : "أدخل بيانات المنتج المطلوب للحصول على عرض سعر"}
           </p>
         </div>
       </div>
@@ -73,35 +80,39 @@ export function RFQCreatePage() {
           validation bubble instead, silently preventing our messages from
           ever being seen. */}
       <form onSubmit={handleSubmit} noValidate className="card space-y-5 p-6">
-        {/* Client Name */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            اسم العميل <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={formData.client_name}
-            onChange={(e) => handleChange("client_name", e.target.value)}
-            required
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="أحمد محمد"
-          />
-        </div>
+        {/* Client Name (agent/admin only — clients are identified by their account) */}
+        {!isClient && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              اسم العميل <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.client_name}
+              onChange={(e) => handleChange("client_name", e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="أحمد محمد"
+            />
+          </div>
+        )}
 
-        {/* Client Phone */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            هاتف العميل
-          </label>
-          <input
-            type="text"
-            value={formData.client_phone || ""}
-            onChange={(e) => handleChange("client_phone", e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="+962791234567"
-            dir="ltr"
-          />
-        </div>
+        {/* Client Phone (agent/admin only) */}
+        {!isClient && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              هاتف العميل
+            </label>
+            <input
+              type="text"
+              value={formData.client_phone || ""}
+              onChange={(e) => handleChange("client_phone", e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="+962791234567"
+              dir="ltr"
+            />
+          </div>
+        )}
 
         {/* Client Request */}
         <div>
@@ -147,9 +158,6 @@ export function RFQCreatePage() {
           >
             <option value="USD">دولار أمريكي (USD)</option>
             <option value="JOD">دينار أردني (JOD)</option>
-            <option value="EGP">جنيه مصري (EGP)</option>
-            <option value="SAR">ريال سعودي (SAR)</option>
-            <option value="AED">درهم إماراتي (AED)</option>
           </select>
         </div>
 

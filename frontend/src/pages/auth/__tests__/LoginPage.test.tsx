@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 vi.mock("@/hooks/useAuth");
 
-describe("LoginPage — role tabs (client / agent / supplier)", () => {
+describe("LoginPage — role tabs (client / agent / admin)", () => {
   const login = vi.fn();
 
   beforeEach(() => {
@@ -25,16 +25,16 @@ describe("LoginPage — role tabs (client / agent / supplier)", () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    await user.click(screen.getByRole("button", { name: "وكيل" }));
+    await user.click(screen.getByRole("button", { name: "مورد" }));
 
     expect(screen.getByDisplayValue("agent@example.com")).toBeInTheDocument();
   });
 
-  it("switching to the supplier tab autofills its demo email", async () => {
+  it("switching to the admin tab autofills its demo email", async () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    await user.click(screen.getByRole("button", { name: "مورّد" }));
+    await user.click(screen.getByRole("button", { name: "الإدارة" }));
 
     expect(screen.getByDisplayValue("admin@example.com")).toBeInTheDocument();
   });
@@ -43,7 +43,7 @@ describe("LoginPage — role tabs (client / agent / supplier)", () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    await user.click(screen.getByRole("button", { name: "وكيل" }));
+    await user.click(screen.getByRole("button", { name: "مورد" }));
     const passwordInput = screen.getByPlaceholderText("••••••••");
     await user.clear(passwordInput);
     await user.type(passwordInput, "MyPassword123!");

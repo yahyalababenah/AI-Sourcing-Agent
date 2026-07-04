@@ -80,7 +80,7 @@ export function ProfilePage() {
             <h1 className="text-xl font-bold text-gray-900">{user?.full_name}</h1>
             <p className="text-sm text-gray-500">{user?.email}</p>
             <span className="mt-1 inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
-              {isAgent ? "مندوب" : isClient ? "عميل" : "مدير"}
+              {isAgent ? "مورد" : isClient ? "مستورد" : "مدير"}
             </span>
           </div>
         </div>

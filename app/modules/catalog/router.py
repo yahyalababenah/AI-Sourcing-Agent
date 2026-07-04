@@ -150,6 +150,7 @@ async def review_product_endpoint(
         dimensions=product.dimensions,
         material=product.material,
         category=product.category,
+        hs_code=product.hs_code,
         supplier_id=product.supplier_id,
         extracted_at=product.updated_at,
         # Was omitted entirely, so every approve/reject response reported

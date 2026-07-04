@@ -27,7 +27,8 @@ function makeProduct(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
     weight_kg: 1.2,
     dimensions: "30x20x15cm",
     material: "Aluminum",
-    category: "Industrial Lighting",
+    category: "electronics",
+    hs_code: null,
     supplier_id: "sup-1",
     supplier_name: "Guangzhou Factory",
     factory_name: "Guangzhou Factory",
@@ -97,6 +98,24 @@ describe("MarketplacePage", () => {
       expect.objectContaining({ q: "LED" }),
     );
     vi.useRealTimers();
+  });
+
+  it("passes the product's hs_code and has_license through to the estimate call", async () => {
+    vi.mocked(catalogService.search).mockResolvedValue(
+      listResponse([makeProduct({ hs_code: "85241210000" })]),
+    );
+    vi.mocked(pricingService.estimate).mockResolvedValue(ESTIMATE);
+    const user = userEvent.setup();
+    renderWithProviders(<MarketplacePage />);
+    await screen.findByText("工业LED投光灯");
+
+    await user.click(screen.getByRole("button", { name: "طلب عرض سعر" }));
+
+    await waitFor(() => {
+      expect(pricingService.estimate).toHaveBeenCalledWith(
+        expect.objectContaining({ hs_code: "85241210000", has_license: true }),
+      );
+    });
   });
 
   it("opens the RFQ modal, shows a live cost estimate, and submits the RFQ", async () => {
