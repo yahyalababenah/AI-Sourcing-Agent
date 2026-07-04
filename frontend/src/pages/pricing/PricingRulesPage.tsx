@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { useAuthStore } from "@/stores/authStore";
 import { pricingService } from "@/services/pricingService";
+import { FORMULA_VARIABLES, FORMULA_EXAMPLE } from "@/constants/pricingFormula";
 import type { PricingRule, PricingRuleCreate } from "@/types/pricing";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -11,7 +13,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   clearance: "التخليص",
   commission: "العمولة",
   discount: "الخصم",
+  moq_discount: "خصم الكمية",
   tax: "الضريبة",
+  margin: "هامش الربح",
   other: "أخرى",
 };
 
@@ -20,6 +24,14 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   fixed: "قيمة ثابتة",
   formula: "معادلة",
 };
+
+function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err)) {
+    const backendMessage = err.response?.data?.error?.message;
+    if (typeof backendMessage === "string") return backendMessage;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
 
 function RuleFormModal({
   rule,
@@ -35,6 +47,7 @@ function RuleFormModal({
     category: rule?.category || "other",
     rule_type: (rule?.rule_type as "percentage" | "fixed" | "formula") || "percentage",
     value: rule?.value || 0,
+    formula: rule?.formula || "",
     currency: rule?.currency || "USD",
     priority: rule?.priority || 0,
     is_active: rule?.is_active ?? true,
@@ -47,7 +60,7 @@ function RuleFormModal({
       queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
       onClose();
     },
-    onError: (err: Error) => setError(err.message),
+    onError: (err) => setError(extractApiErrorMessage(err, "فشل حفظ القاعدة")),
   });
 
   const updateMutation = useMutation({
@@ -56,7 +69,7 @@ function RuleFormModal({
       queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
       onClose();
     },
-    onError: (err: Error) => setError(err.message),
+    onError: (err) => setError(extractApiErrorMessage(err, "فشل حفظ القاعدة")),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -68,11 +81,25 @@ function RuleFormModal({
       return;
     }
 
-    if (rule) {
-      updateMutation.mutate(formData);
-    } else {
-      createMutation.mutate(formData);
+    if (formData.rule_type === "formula" && !formData.formula?.trim()) {
+      setError("يرجى إدخال المعادلة");
+      return;
     }
+
+    const payload: PricingRuleCreate = {
+      ...formData,
+      formula: formData.rule_type === "formula" ? formData.formula : null,
+    };
+
+    if (rule) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
+  };
+
+  const insertVariable = (name: string) => {
+    setFormData((p) => ({ ...p, formula: `${p.formula || ""}${name}` }));
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -134,7 +161,35 @@ function RuleFormModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {formData.rule_type === "formula" ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">المعادلة</label>
+              <textarea
+                value={formData.formula || ""}
+                onChange={(e) => setFormData((p) => ({ ...p, formula: e.target.value }))}
+                dir="ltr"
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-primary-500 focus:outline-none"
+                placeholder={FORMULA_EXAMPLE}
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                مثال: <code dir="ltr">{FORMULA_EXAMPLE}</code> — تُحسب لكل سطر منتج على حدة
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {FORMULA_VARIABLES.map((v) => (
+                  <button
+                    key={v.name}
+                    type="button"
+                    onClick={() => insertVariable(v.name)}
+                    title={v.label}
+                    className="rounded-md bg-gray-100 px-2 py-1 font-mono text-xs text-gray-700 transition-colors hover:bg-gray-200"
+                  >
+                    {v.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">القيمة</label>
               <input
@@ -145,17 +200,22 @@ function RuleFormModal({
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                 required
               />
+              <p className="mt-1 text-xs text-gray-400">
+                {formData.rule_type === "percentage"
+                  ? "٪ تُحتسب من إجمالي قيمة البضاعة (للقواعد المخصصة)"
+                  : "مبلغ ثابت يُضاف مرة واحدة لكل شحنة"}
+              </p>
             </div>
+          )}
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">الأولوية</label>
-              <input
-                type="number"
-                value={formData.priority}
-                onChange={(e) => setFormData((p) => ({ ...p, priority: parseInt(e.target.value) || 0 }))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-            </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">الأولوية</label>
+            <input
+              type="number"
+              value={formData.priority}
+              onChange={(e) => setFormData((p) => ({ ...p, priority: parseInt(e.target.value) || 0 }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -351,7 +411,17 @@ export function PricingRulesPage() {
                       {RULE_TYPE_LABELS[rule.rule_type] || rule.rule_type}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {rule.rule_type === "percentage" ? `${rule.value}%` : `${rule.value} ${rule.currency || ""}`}
+                      {rule.rule_type === "formula" ? (
+                        <code dir="ltr" title={rule.formula ?? ""} className="font-mono text-xs text-gray-700">
+                          {(rule.formula ?? "").length > 30
+                            ? `${(rule.formula ?? "").slice(0, 30)}…`
+                            : rule.formula}
+                        </code>
+                      ) : rule.rule_type === "percentage" ? (
+                        `${rule.value}%`
+                      ) : (
+                        `${rule.value} ${rule.currency || ""}`
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{rule.priority}</td>
                     <td className="px-4 py-3">

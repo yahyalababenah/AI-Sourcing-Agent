@@ -1,21 +1,12 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, ClipboardList, Upload, Calculator, FileText,
-  Package, Activity, Users, DollarSign, Store, Truck, ShieldCheck,
-  MessageCircle, Zap, ReceiptText,
+  LayoutDashboard, Activity, Users, DollarSign, Store, ShieldCheck, Zap, ReceiptText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 
 const mainItems = [
-  { to: ROUTES.DASHBOARD,        label: "لوحة التحكم",   icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,         label: "طلبات الشراء",   icon: ClipboardList },
-  { to: ROUTES.RFQ.CREATE,       label: "طلب شراء جديد",  icon: Package },
-  { to: ROUTES.DOCUMENTS.UPLOAD, label: "رفع مستند",      icon: Upload },
-  { to: ROUTES.PRICING.CALCULATE,label: "حساب الأسعار",   icon: Calculator },
-  { to: ROUTES.QUOTES.LIST,      label: "عروض الأسعار",   icon: FileText },
-  { to: ROUTES.ORDERS.LIST,      label: "تتبع الشحنات",   icon: Truck },
-  { to: ROUTES.CHAT.LIST,        label: "المحادثات",      icon: MessageCircle },
+  { to: ROUTES.DASHBOARD, label: "لوحة التحكم", icon: LayoutDashboard },
 ];
 
 const adminItems = [

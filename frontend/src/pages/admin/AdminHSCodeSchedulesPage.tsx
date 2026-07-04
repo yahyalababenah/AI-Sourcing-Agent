@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { pricingService } from "@/services/pricingService";
 import type { HSCodeFeeSchedule, HSCodeFeeScheduleCreate } from "@/types/pricing";
+
+function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err)) {
+    const backendMessage = err.response?.data?.error?.message;
+    if (typeof backendMessage === "string") return backendMessage;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
 
 function HSCodeFormModal({
   entry,
@@ -19,6 +28,7 @@ function HSCodeFormModal({
     service_percent_070: entry?.service_percent_070 ?? 0,
     requires_license: entry?.requires_license ?? false,
     penalty_rate_018: entry?.penalty_rate_018 ?? 0,
+    vat_rate_020: entry?.vat_rate_020 ?? null,
     is_verified: entry?.is_verified ?? false,
     source_note: entry?.source_note || "",
   });
@@ -30,7 +40,7 @@ function HSCodeFormModal({
       queryClient.invalidateQueries({ queryKey: ["hs-code-schedules"] });
       onClose();
     },
-    onError: (err: Error) => setError(err.message),
+    onError: (err) => setError(extractApiErrorMessage(err, "فشل حفظ الرمز")),
   });
 
   const updateMutation = useMutation({
@@ -40,7 +50,7 @@ function HSCodeFormModal({
       queryClient.invalidateQueries({ queryKey: ["hs-code-schedules"] });
       onClose();
     },
-    onError: (err: Error) => setError(err.message),
+    onError: (err) => setError(extractApiErrorMessage(err, "فشل حفظ الرمز")),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -49,6 +59,19 @@ function HSCodeFormModal({
 
     if (!formData.hs_code.trim()) {
       setError("يرجى إدخال رمز HS");
+      return;
+    }
+    if (!/^\d{6,12}$/.test(formData.hs_code.trim())) {
+      setError("رمز HS يجب أن يكون من 6 إلى 12 رقماً");
+      return;
+    }
+    if (
+      formData.duty_rate_001 > 100 ||
+      formData.service_percent_070 > 100 ||
+      formData.penalty_rate_018 > 100 ||
+      (formData.vat_rate_020 !== null && formData.vat_rate_020 !== undefined && formData.vat_rate_020 > 100)
+    ) {
+      setError("النسبة يجب ألا تتجاوز 100٪");
       return;
     }
 
@@ -73,10 +96,13 @@ function HSCodeFormModal({
             <label className="mb-1 block text-sm font-medium text-gray-700">رمز HS</label>
             <input
               type="text"
+              inputMode="numeric"
+              pattern="\d{6,12}"
               value={formData.hs_code}
               onChange={(e) => setFormData((p) => ({ ...p, hs_code: e.target.value }))}
               disabled={!!entry}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+              placeholder="مثال: 85241210000"
               required
             />
           </div>
@@ -99,6 +125,8 @@ function HSCodeFormModal({
               <input
                 type="number"
                 step="0.01"
+                min={0}
+                max={100}
                 value={formData.duty_rate_001}
                 onChange={(e) =>
                   setFormData((p) => ({ ...p, duty_rate_001: parseFloat(e.target.value) || 0 }))
@@ -134,6 +162,8 @@ function HSCodeFormModal({
               <input
                 type="number"
                 step="0.01"
+                min={0}
+                max={100}
                 value={formData.service_percent_070}
                 onChange={(e) =>
                   setFormData((p) => ({
@@ -151,6 +181,8 @@ function HSCodeFormModal({
               <input
                 type="number"
                 step="0.01"
+                min={0}
+                max={100}
                 value={formData.penalty_rate_018}
                 onChange={(e) =>
                   setFormData((p) => ({
@@ -161,6 +193,27 @@ function HSCodeFormModal({
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              ضريبة المبيعات 020 (٪) — اتركه فارغاً للافتراضي 16٪
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min={0}
+              max={100}
+              value={formData.vat_rate_020 ?? ""}
+              onChange={(e) =>
+                setFormData((p) => ({
+                  ...p,
+                  vat_rate_020: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+                }))
+              }
+              placeholder="16"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -326,6 +379,7 @@ export function AdminHSCodeSchedulesPage() {
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">070 (%)</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">ترخيص؟</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">018 (%)</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">020 (%)</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">الحالة</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">الإجراءات</th>
                 </tr>
@@ -353,6 +407,9 @@ export function AdminHSCodeSchedulesPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600" dir="ltr">
                       {entry.requires_license ? `${entry.penalty_rate_018}%` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600" dir="ltr">
+                      {entry.vat_rate_020 ?? "16 (افتراضي)"}
                     </td>
                     <td className="px-4 py-3">
                       <span

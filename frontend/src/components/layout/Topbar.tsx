@@ -10,8 +10,8 @@ import { ROUTES } from "@/constants/routes";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير النظام",
-  client: "عميل",
-  agent: "وكيل",
+  client: "مستورد",
+  agent: "مورد",
 };
 
 export function Topbar() {

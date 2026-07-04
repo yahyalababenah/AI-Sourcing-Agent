@@ -2,8 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { API } from "@/constants/api";
+import { PRODUCT_CATEGORIES, categoryLabel } from "@/constants/categories";
 import type { CatalogProduct } from "@/types/catalog";
 import { CheckCircle, XCircle, Edit2, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+
+const OTHER_CATEGORY = "__other__";
 
 interface PendingListResponse {
   items: CatalogProduct[];
@@ -67,7 +70,12 @@ export function ProductReviewPage() {
     if (editForm.model_number) payload.model_number = String(editForm.model_number);
     if (editForm.unit_price_rmb) payload.unit_price_rmb = Number(editForm.unit_price_rmb);
     if (editForm.moq) payload.moq = Number(editForm.moq);
-    if (editForm.category) payload.category = String(editForm.category);
+    if (editForm.category) {
+      payload.category =
+        editForm.category === OTHER_CATEGORY
+          ? String(editForm.category_other ?? "")
+          : String(editForm.category);
+    }
     if (editForm.material) payload.material = String(editForm.material);
     reviewMutation.mutate({ id, payload });
   };
@@ -77,12 +85,14 @@ export function ProductReviewPage() {
 
   const startEdit = (p: CatalogProduct) => {
     setEditId(p.id);
+    const isCanonical = !p.category || PRODUCT_CATEGORIES.some((c) => c.value === p.category);
     setEditForm({
       product_name: p.product_name ?? "",
       model_number: p.model_number ?? "",
       unit_price_rmb: p.unit_price_rmb ?? "",
       moq: p.moq ?? "",
-      category: p.category ?? "",
+      category: isCanonical ? (p.category ?? "") : OTHER_CATEGORY,
+      category_other: isCanonical ? "" : (p.category ?? ""),
       material: p.material ?? "",
     });
   };
@@ -161,7 +171,7 @@ export function ProductReviewPage() {
                       <span>¥ {product.unit_price_rmb.toLocaleString()}</span>
                     )}
                     {product.moq && <span>MOQ: {product.moq}</span>}
-                    {product.category && <span className="text-blue-600">{product.category}</span>}
+                    {product.category && <span className="text-blue-600">{categoryLabel(product.category)}</span>}
                     {product.material && <span>{product.material}</span>}
                   </div>
                 </div>
@@ -231,7 +241,6 @@ export function ProductReviewPage() {
                     { key: "model_number", label: "رقم الموديل" },
                     { key: "unit_price_rmb", label: "السعر (RMB)", type: "number" },
                     { key: "moq", label: "الحد الأدنى للطلب", type: "number" },
-                    { key: "category", label: "الفئة" },
                     { key: "material", label: "الخامة" },
                   ].map(({ key, label, type = "text" }) => (
                     <div key={key}>
@@ -244,6 +253,29 @@ export function ProductReviewPage() {
                       />
                     </div>
                   ))}
+                  <div>
+                    <label className="mb-1 block text-[11px] text-gray-500">الفئة</label>
+                    <select
+                      className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs focus:border-primary-400 focus:outline-none"
+                      value={String(editForm.category ?? "")}
+                      onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                    >
+                      <option value="">—</option>
+                      {PRODUCT_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                      <option value={OTHER_CATEGORY}>أخرى...</option>
+                    </select>
+                    {editForm.category === OTHER_CATEGORY && (
+                      <input
+                        type="text"
+                        placeholder="اكتب الفئة"
+                        className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs focus:border-primary-400 focus:outline-none"
+                        value={String(editForm.category_other ?? "")}
+                        onChange={(e) => setEditForm((f) => ({ ...f, category_other: e.target.value }))}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
 

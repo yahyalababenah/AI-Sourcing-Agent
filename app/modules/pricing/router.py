@@ -300,12 +300,15 @@ async def quick_estimate(
     result = await calculate_price(db, calc_request, redis=redis)
     line = result.line_items[0] if result.line_items else None
     lv = lambda k: getattr(line, k, 0) if line else 0
+    # 301 is charged once per shipment (not per line item — see engine.calculate),
+    # so it's read off the top-level result, not the line item.
+    service_flat_301 = result.service_flat_fee_301_total
     subtotal = (
         lv("unit_price_converted") * request.quantity
         + lv("customs_duty")
         + lv("clearance_fee")
         + lv("commission")
-        + lv("service_flat_301")
+        + service_flat_301
         + lv("service_percent_070")
         + lv("penalty_018")
     )
@@ -322,7 +325,7 @@ async def quick_estimate(
         subtotal_excl_shipping=subtotal,
         vat=result.vat,
         estimated_total=result.grand_total,
-        service_flat_301=lv("service_flat_301"),
+        service_flat_301=service_flat_301,
         service_percent_070=lv("service_percent_070"),
         penalty_018=lv("penalty_018"),
         hs_code_matched=lv("hs_code_matched") or False,

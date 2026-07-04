@@ -29,6 +29,7 @@ from app.modules.intake.models import (
     RFQMatch,
     RFQStatus,
 )
+from app.shared.categories import CATEGORY_KEYWORD_MAP
 from app.shared.exceptions import NotFoundException
 from app.shared.logging import get_logger
 
@@ -116,53 +117,7 @@ def _extract_categories_from_db_products(products: list[Product]) -> set[str]:
         # Simple keyword-based category inference
         combined = f"{name} {specs}"
 
-        # Map common Chinese/Arabic product keywords to broad categories
-        keyword_map = {
-            "soap": "personal care",
-            "shampoo": "personal care",
-            "cosmetic": "personal care",
-            "cream": "personal care",
-            "oil": "personal care",
-            "food": "food & beverage",
-            "beverage": "food & beverage",
-            "snack": "food & beverage",
-            "rice": "food & beverage",
-            "tea": "food & beverage",
-            "spice": "food & beverage",
-            "textile": "textiles",
-            "fabric": "textiles",
-            "cloth": "textiles",
-            "garment": "textiles",
-            "clothing": "textiles",
-            "plastic": "plastic & rubber",
-            "rubber": "plastic & rubber",
-            "pipe": "plastic & rubber",
-            "electronic": "electronics",
-            "appliance": "electronics",
-            "battery": "electronics",
-            "cable": "electronics",
-            "machine": "machinery",
-            "equipment": "machinery",
-            "tool": "machinery",
-            "parts": "machinery",
-            "metal": "metal & hardware",
-            "steel": "metal & hardware",
-            "hardware": "metal & hardware",
-            "furniture": "furniture",
-            "chair": "furniture",
-            "table": "furniture",
-            "paper": "paper & packaging",
-            "packaging": "paper & packaging",
-            "box": "paper & packaging",
-            "chemical": "chemicals",
-            "cleaner": "chemicals",
-            "detergent": "chemicals",
-            "glass": "glass & ceramics",
-            "ceramic": "glass & ceramics",
-            "tile": "glass & ceramics",
-        }
-
-        for keyword, category in keyword_map.items():
+        for keyword, category in CATEGORY_KEYWORD_MAP.items():
             # Use word-boundary matching to avoid false positives like
             # "rice" matching inside "price" or "oil" inside "soil".
             if re.search(rf"\b{re.escape(keyword)}\b", combined):

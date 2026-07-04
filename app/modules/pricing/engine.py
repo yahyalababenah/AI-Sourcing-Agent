@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional
 
+from app.modules.pricing.formula import FormulaError, evaluate_formula
 from app.shared.logging import get_logger
 
 logger = get_logger(__name__)
@@ -63,6 +64,24 @@ class PricingContext:
 
     # Tracking
     rules_applied: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CustomRule:
+    """An admin-created pricing rule whose name is not one of PricingEngine.DEFAULTS.
+
+    Canonical rules (matched by exact name — e.g. "clearance_fee",
+    "commission_rate_standard") are folded into the plain rules_override dict
+    and never reach this path. Only rules with arbitrary names go through
+    _apply_custom_rules(), where rule_type actually matters.
+    """
+
+    name: str
+    rule_type: str  # percentage | fixed | formula
+    value: float = 0.0
+    formula: Optional[str] = None
+    category: str = "other"
+    priority: int = 0
 
 
 @dataclass
@@ -140,18 +159,33 @@ class PricingEngine:
         "vat_rate": 0.16,                   # 16% GST — confirmed against real JCAP result: base = (CIF + customs duty)
         "target_margin": 0.15,              # 15% target margin
         "early_payment_discount": 0.02,     # 2% for early payment
+        # VAT base scope toggle — by decision, service fees 070/301 and the
+        # conditional penalty 018 are included in the GST base by default.
+        # Admins can disable this by creating a rule named
+        # "vat_base_includes_fees" with value 0.
+        "vat_base_includes_fees": 1.0,
     }
 
-    def __init__(self, rules_override: Optional[dict[str, float]] = None):
+    def __init__(
+        self,
+        rules_override: Optional[dict[str, float]] = None,
+        custom_rules: Optional[list[CustomRule]] = None,
+    ):
         """Initialize engine with optional rule overrides.
 
         Args:
             rules_override: Dict of rule names → values to override defaults.
+            custom_rules: Admin-created rules whose name is not a canonical
+                DEFAULTS key — applied via _apply_custom_rules() in calculate().
         """
         self.rules = {**self.DEFAULTS, **(rules_override or {})}
+        self.custom_rules = sorted(
+            [r for r in (custom_rules or []) if r.name not in self.DEFAULTS],
+            key=lambda r: (r.priority, r.name),
+        )
         logger.info(
             "Pricing engine initialized",
-            extra={"rule_count": len(self.rules)},
+            extra={"rule_count": len(self.rules), "custom_rule_count": len(self.custom_rules)},
         )
 
     # ═══════════════════════════════════════════════════════════
@@ -323,18 +357,20 @@ class PricingEngine:
         # (percent service fee), and 018 (conditional import penalty). All four
         # are real JCAP tax-simulation line items; only 001 feeds into the VAT
         # (020) base — see calculate() for vat_base_total, which stays CIF+001 only.
-        service_flat_per_unit = 0.0
+        service_flat_301_line = 0.0  # shipment-level fee — charged once, see calculate()
         service_percent_per_unit = 0.0
         penalty_per_unit = 0.0
         hs_code_matched = False
         hs_rules_applied: list[str] = []
+        vat_rate_020: Optional[float] = None
 
         if hs_entry is not None:
             hs_code_matched = True
             customs_rate = hs_entry["duty_rate_001"] / 100.0
             customs_per_unit = cif_per_unit * customs_rate
             service_percent_per_unit = cif_per_unit * (hs_entry["service_percent_070"] / 100.0)
-            service_flat_per_unit = hs_entry["service_flat_fee_301"] / max(quantity, 1)
+            service_flat_301_line = hs_entry["service_flat_fee_301"]
+            vat_rate_020 = hs_entry.get("vat_rate_020")
             if hs_entry.get("requires_license") and not has_license:
                 penalty_per_unit = cif_per_unit * (hs_entry["penalty_rate_018"] / 100.0)
                 hs_rules_applied.append(
@@ -342,7 +378,7 @@ class PricingEngine:
                 )
             hs_rules_applied.append(f"customs_rate={customs_rate}(base=CIF,hs_code_matched)")
             hs_rules_applied.append(f"service_percent_070={hs_entry['service_percent_070']}%")
-            hs_rules_applied.append(f"service_flat_301={hs_entry['service_flat_fee_301']}")
+            hs_rules_applied.append(f"service_flat_301={hs_entry['service_flat_fee_301']}(per_shipment)")
         else:
             customs_rate = self._get_rule_value("customs_duty_rate_general", 0.05)
             customs_per_unit = cif_per_unit * customs_rate
@@ -354,15 +390,17 @@ class PricingEngine:
         clearance_per_unit = clearance_fee_total / max(quantity, 1)
 
         # ── Step 9: Commission (platform/agent fee — excluded from VAT base) ──
-        # 301/070/018 are real importer costs like clearance, so they're added to
-        # the commercial total the same way — but excluded from the VAT base.
+        # 070/018 are real per-line importer costs like clearance, so they're
+        # added to the commercial total the same way — but excluded from the
+        # VAT base (unless vat_base_includes_fees is on; see calculate()).
+        # 301 is a per-shipment fee (charged once — see calculate()) and is
+        # deliberately excluded here so commission is never computed on it.
         total_before_commission = (
             price_local
             + freight_per_unit
             + customs_per_unit
             + clearance_per_unit
             + service_percent_per_unit
-            + service_flat_per_unit
             + penalty_per_unit
         )
         commission_pct = agent_commission_pct / 100.0
@@ -395,10 +433,11 @@ class PricingEngine:
             "cif_per_unit": round(cif_per_unit, 2),
             "customs_per_unit": round(customs_per_unit, 2),
             "clearance_per_unit": round(clearance_per_unit, 2),
-            "service_flat_per_unit": round(service_flat_per_unit, 2),
+            "service_flat_301_line": round(service_flat_301_line, 2),
             "service_percent_per_unit": round(service_percent_per_unit, 2),
             "penalty_per_unit": round(penalty_per_unit, 2),
             "hs_code_matched": hs_code_matched,
+            "vat_rate_020": vat_rate_020,
             "commission_per_unit": round(commission_per_unit, 2),
             "total_per_unit": round(total_per_unit, 2),
             "grand_total": round(grand_total, 2),
@@ -450,7 +489,11 @@ class PricingEngine:
         total_customs = 0.0
         total_clearance = 0.0
         total_commission = 0.0
-        vat_base_total = 0.0  # sum of (CIF + duty) per line — the correct GST base per JCAP
+        vat_total = 0.0  # accumulated per-line, since vat_rate_020 can differ per HS code
+        service_flat_301_candidates: list[float] = []
+
+        vat_base_includes_fees = self._get_rule_value("vat_base_includes_fees", 1.0) >= 0.5
+        global_vat_rate = self._get_rule_value("vat_rate", 0.16)
 
         for product in products:
             # Run landed cost for this product
@@ -487,7 +530,7 @@ class PricingEngine:
                 subtotal=lc["price_local"] * product.quantity,
                 discount=round(discount, 2),
                 total=round(line_total, 2),
-                service_flat_301=round(lc["service_flat_per_unit"] * product.quantity, 2),
+                service_flat_301=0.0,  # shipment-level now — see service_flat_fee_301_total below
                 service_percent_070=round(lc["service_percent_per_unit"] * product.quantity, 2),
                 penalty_018=round(lc["penalty_per_unit"] * product.quantity, 2),
                 hs_code_matched=lc["hs_code_matched"],
@@ -501,24 +544,47 @@ class PricingEngine:
             total_customs += lc["customs_per_unit"] * product.quantity
             total_clearance += lc["clearance_per_unit"] * product.quantity
             total_commission += lc["commission_per_unit"] * product.quantity
-            # CORRECTED: VAT base is (CIF + duty) per JCAP, not the full commercial total
-            vat_base_total += (lc["cif_per_unit"] + lc["customs_per_unit"]) * product.quantity
+            service_flat_301_candidates.append(lc["service_flat_301_line"])
+
+            # Per-line VAT: base is (CIF + duty) per JCAP, optionally widened to
+            # include the 070/018 fees; rate is the per-HS vat_rate_020 override
+            # when the schedule provides one, else the global vat_rate.
+            base_line = (lc["cif_per_unit"] + lc["customs_per_unit"]) * product.quantity
+            if vat_base_includes_fees:
+                base_line += line_item.service_percent_070 + line_item.penalty_018
+            if lc["vat_rate_020"] is not None:
+                rate_line = lc["vat_rate_020"] / 100.0
+                ctx.rules_applied.append(f"vat:rate={rate_line}(hs_020_override)")
+            else:
+                rate_line = global_vat_rate
+                ctx.rules_applied.append(f"vat:rate={rate_line}")
+            vat_total += base_line * rate_line
+
             ctx.rules_applied.extend(lc["rules_applied"])
+
+        # 301 is a per-declaration fee — charged once per shipment (the max
+        # across matched lines), not summed per line item.
+        service_flat_301_total = max(service_flat_301_candidates, default=0.0)
+        grand_total += service_flat_301_total
+        if vat_base_includes_fees and service_flat_301_total:
+            vat_total += service_flat_301_total * global_vat_rate
+
+        ctx.vat_rate = global_vat_rate
+
+        # Custom (non-canonical) pricing rules — percentage/fixed/formula rules
+        # created by admins that don't match one of PricingEngine.DEFAULTS.
+        custom_fees_total, custom_rules_applied = self._apply_custom_rules(products, line_items, ctx)
+        grand_total += custom_fees_total
 
         # Early payment discount — applied against the commercial subtotal (business rule, not government tax)
         early_discount_rate = self._early_payment_discount(ctx)
         early_discount = grand_total * early_discount_rate
         discount_total += early_discount
 
-        # VAT — CORRECTED: computed on (CIF + customs duty) only, per verified JCAP
-        # result, NOT on the full commercial total (which also includes freight,
-        # clearance fee, and platform commission — none of which belong in the
-        # government tax base). VAT is still added on top of the commercial total,
-        # since it is a real cost the importer must pay.
-        vat = self._calculate_vat(ctx, vat_base_total)
+        vat = vat_total
 
-        # Final total = commercial total (goods+freight+insurance+duty+clearance+commission)
-        # + VAT (on CIF+duty only) - early payment discount
+        # Final total = commercial total (goods+freight+insurance+duty+clearance+
+        # commission+301+custom fees) + VAT - early payment discount
         final_total = grand_total + vat - early_discount
 
         # Target margin check
@@ -558,7 +624,82 @@ class PricingEngine:
             "grand_total": round(final_total, 2),
             "discount_total": round(discount_total, 2),
             "rules_applied": list(set(ctx.rules_applied)),
+            "service_flat_fee_301_total": round(service_flat_301_total, 2),
+            "custom_fees_total": round(custom_fees_total, 2),
+            "custom_rules_applied": custom_rules_applied,
         }
+
+    # ═══════════════════════════════════════════════════════════
+    # Custom (non-canonical) Pricing Rules
+    # ═══════════════════════════════════════════════════════════
+
+    def _apply_custom_rules(
+        self,
+        products: list[LineItemInput],
+        line_items: list[LineItemResult],
+        ctx: PricingContext,
+    ) -> tuple[float, list[dict]]:
+        """Apply admin-created rules whose name isn't a canonical DEFAULTS key.
+
+        - percentage: value% of the total commercial goods subtotal (across all lines).
+        - fixed: flat amount charged once per shipment.
+        - formula: evaluated per line against that line's variables, then summed.
+          A bad/erroring formula is skipped (contributes 0) rather than failing
+          the whole calculation.
+        """
+        total_fees = 0.0
+        applied: list[dict] = []
+        goods_subtotal = sum(li.subtotal for li in line_items)
+
+        for rule in self.custom_rules:
+            if not rule.rule_type:
+                continue
+
+            if rule.rule_type == "percentage":
+                amount = goods_subtotal * (rule.value / 100.0)
+            elif rule.rule_type == "fixed":
+                amount = rule.value
+            elif rule.rule_type == "formula":
+                amount = 0.0
+                if not rule.formula:
+                    ctx.rules_applied.append(f"custom:{rule.name}:error=missing_formula")
+                    continue
+                try:
+                    for product, li in zip(products, line_items):
+                        context = {
+                            "unit_price_cny": product.unit_price_cny,
+                            "unit_price_usd": product.unit_price_cny * self._get_rule_value("exchange_rate_cny_usd", 0.14),
+                            "unit_price_local": li.unit_price_converted,
+                            "quantity": product.quantity,
+                            "weight_kg": product.weight_kg,
+                            "total_weight_kg": product.weight_kg * product.quantity,
+                            "cbm": self.estimate_volume_cbm(product.weight_kg * product.quantity),
+                            "freight": li.freight_cost,
+                            "insurance": li.insurance_cost,
+                            "cif": li.cif_value,
+                            "customs": li.customs_duty,
+                            "clearance": li.clearance_fee,
+                            "commission": li.commission,
+                            "exchange_rate": li.exchange_rate,
+                            "subtotal": li.subtotal,
+                            "line_total": li.total,
+                        }
+                        amount += evaluate_formula(rule.formula, context)
+                except FormulaError as exc:
+                    logger.warning(
+                        "Custom formula rule failed to evaluate, skipping",
+                        extra={"rule_name": rule.name, "error": str(exc)},
+                    )
+                    ctx.rules_applied.append(f"custom:{rule.name}:error=skipped")
+                    continue
+            else:
+                continue
+
+            total_fees += amount
+            ctx.rules_applied.append(f"custom:{rule.name}({rule.rule_type})={amount:.2f}")
+            applied.append({"name": rule.name, "rule_type": rule.rule_type, "amount": round(amount, 2)})
+
+        return total_fees, applied
 
     # ═══════════════════════════════════════════════════════════
     # MOQ Discount  (Rules 11-13)
@@ -588,21 +729,6 @@ class PricingEngine:
 
         ctx.moq_discount_rate = rate
         return rate
-
-    # ═══════════════════════════════════════════════════════════
-    # VAT  (Rule 14)
-    # ═══════════════════════════════════════════════════════════
-
-    def _calculate_vat(self, ctx: PricingContext, amount: float) -> float:
-        """Calculate VAT.
-
-        Rule:
-            R14: VAT rate (16% Jordan standard)
-        """
-        rate = self._get_rule_value("vat_rate", 0.16)
-        ctx.vat_rate = rate
-        ctx.rules_applied.append(f"vat:rate={rate}")
-        return amount * rate
 
     # ═══════════════════════════════════════════════════════════
     # Early Payment Discount  (Rule 15)

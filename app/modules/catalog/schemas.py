@@ -25,6 +25,10 @@ class CatalogProductResponse(BaseModel):
         None,
         description="Product category derived from AI extraction or material field",
     )
+    hs_code: Optional[str] = Field(
+        None,
+        description="HS code for customs classification, if known — enables the marketplace estimate to use the real HS fee schedule instead of the general fallback rate",
+    )
 
     # Supplier info
     supplier_id: Optional[UUID] = None

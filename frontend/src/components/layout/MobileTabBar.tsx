@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardList, Globe, Truck, MessageCircle,
-  BarChart2, Users, Package, FileText, Activity, DollarSign,
+  BarChart2, Package, Store, Activity, ShieldCheck, DollarSign, ReceiptText,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { ROUTES } from "@/constants/routes";
@@ -17,19 +17,19 @@ const CLIENT_TABS = [
 ];
 
 const AGENT_TABS = [
-  { to: ROUTES.DASHBOARD,           label: "الرئيسية",   icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,            label: "الطلبات",    icon: BarChart2       },
-  { to: ROUTES.RFQ.SUPPLIER_INBOX,  label: "العملاء",    icon: Users           },
-  { to: ROUTES.CATALOG.MARKETPLACE, label: "الموردون",   icon: Package         },
-  { to: ROUTES.DOCUMENTS.UPLOAD,    label: "الكتالوج",   icon: FileText        },
+  { to: ROUTES.DASHBOARD,             label: "الرئيسية",  icon: LayoutDashboard },
+  { to: ROUTES.RFQ.LIST,              label: "الطلبات",   icon: BarChart2       },
+  { to: ROUTES.SUPPLIER.MY_PRODUCTS,  label: "منتجاتي",   icon: Package         },
+  { to: ROUTES.CATALOG.MARKETPLACE,   label: "السوق",     icon: Store           },
+  { to: ROUTES.CHAT.LIST,             label: "المحادثات", icon: MessageCircle   },
 ];
 
 const ADMIN_TABS = [
-  { to: ROUTES.DASHBOARD,       label: "الرئيسية",  icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,        label: "الطلبات",   icon: ClipboardList   },
-  { to: ROUTES.ADMIN.MONITOR,   label: "المراقبة",  icon: Activity        },
-  { to: ROUTES.PRICING.RULES,   label: "التسعير",   icon: DollarSign      },
-  { to: ROUTES.QUOTES.LIST,     label: "العروض",    icon: FileText        },
+  { to: ROUTES.DASHBOARD,          label: "الرئيسية",  icon: LayoutDashboard },
+  { to: ROUTES.ADMIN.MONITOR,      label: "المراقبة",  icon: Activity        },
+  { to: ROUTES.ADMIN.VERIFICATION, label: "التوثيق",   icon: ShieldCheck     },
+  { to: ROUTES.PRICING.RULES,      label: "التسعير",   icon: DollarSign      },
+  { to: ROUTES.ADMIN.HS_CODES,     label: "رموز HS",   icon: ReceiptText     },
 ];
 
 const TABS_BY_ROLE = {

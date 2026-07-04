@@ -44,7 +44,7 @@ class TestMigrationChainIntegrity:
         missing/broken, so successfully collecting all of them proves the
         chain is intact. Also confirms exactly one base (down_revision=None)."""
         revisions = list(script_directory.walk_revisions())
-        assert len(revisions) == 15
+        assert len(revisions) == 16
 
         bases = [r for r in revisions if r.down_revision is None]
         assert len(bases) == 1

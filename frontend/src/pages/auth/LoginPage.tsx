@@ -5,18 +5,18 @@ import { ROUTES } from "@/constants/routes";
 import { AppLogo } from "@/components/AppLogo";
 import { Eye, EyeOff } from "lucide-react";
 
-type RoleTab = "client" | "agent" | "supplier";
+type RoleTab = "client" | "agent" | "admin";
 
 const ROLE_TABS: { role: RoleTab; label: string }[] = [
-  { role: "client",   label: "مستورد" },
-  { role: "agent",    label: "وكيل"    },
-  { role: "supplier", label: "مورّد"   },
+  { role: "client", label: "مستورد" },
+  { role: "agent",  label: "مورد"   },
+  { role: "admin",  label: "الإدارة" },
 ];
 
 const ROLE_EMAILS: Record<RoleTab, string> = {
-  client:   "client@example.com",
-  agent:    "agent@example.com",
-  supplier: "admin@example.com",
+  client: "client@example.com",
+  agent:  "agent@example.com",
+  admin:  "admin@example.com",
 };
 
 const VALUE_PROPS = [

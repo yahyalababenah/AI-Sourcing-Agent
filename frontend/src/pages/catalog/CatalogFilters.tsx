@@ -14,9 +14,14 @@ interface SupplierOption {
   name: string;
 }
 
+interface CategoryOption {
+  value: string;
+  label: string;
+}
+
 interface CatalogFiltersProps {
   suppliers: SupplierOption[];
-  categories: string[];
+  categories: CategoryOption[];
   filters: FilterState;
   onChange: (filters: FilterState) => void;
   onReset: () => void;
@@ -71,8 +76,8 @@ export function CatalogFilters({
         >
           <option value="">جميع الفئات</option>
           {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
+            <option key={cat.value} value={cat.value}>
+              {cat.label}
             </option>
           ))}
         </select>

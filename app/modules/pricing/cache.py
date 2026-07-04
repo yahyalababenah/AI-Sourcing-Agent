@@ -28,6 +28,7 @@ from typing import Optional
 import httpx
 from redis.asyncio import Redis
 
+from app.modules.pricing.engine import CustomRule
 from app.modules.pricing.schemas import PricingRuleListResponse
 from app.shared.logging import get_logger
 from app.shared.redis_client import cache_get, cache_set, cache_delete, cache_exists
@@ -37,7 +38,8 @@ logger = get_logger(__name__)
 
 # Cache key prefixes
 EXCHANGE_RATE_CACHE_PREFIX = "pricing:exchange_rate:"
-RULES_CACHE_KEY = "pricing:rules:all"
+RULES_CACHE_KEY = "pricing:rules:all:v3"  # v3: payload is now {"overrides": {...}, "custom": [...]}
+_LEGACY_RULES_CACHE_KEY = "pricing:rules:all"  # pre-custom-rules payload shape; deleted on invalidation
 RULES_LIST_CACHE_PREFIX = "pricing:rules:list:v2:"  # keyed by (category, active_only); v2: bumped after fixing non-JSON-serializable cache entries
 ADMIN_STATS_CACHE_KEY = "admin:stats"
 
@@ -312,37 +314,57 @@ async def set_exchange_rate(
 
 async def get_cached_rules(
     redis: Redis,
-) -> Optional[dict[str, float]]:
+) -> Optional[tuple[dict[str, float], list[CustomRule]]]:
     """Get all cached pricing rules.
 
     Args:
         redis: Redis client.
 
     Returns:
-        Dict of rule_name → value, or None.
+        Tuple of (overrides dict, list of CustomRule), or None on cache miss
+        or an unrecognized (e.g. pre-v3) payload shape.
     """
     value = await cache_get(redis, RULES_CACHE_KEY)
-    if value is not None and isinstance(value, dict):
-        return {k: float(v) for k, v in value.items()}
-    return None
+    if not isinstance(value, dict) or "overrides" not in value or "custom" not in value:
+        return None
+    overrides = {k: float(v) for k, v in value["overrides"].items()}
+    custom = [CustomRule(**c) for c in value["custom"]]
+    return overrides, custom
 
 
 async def set_cached_rules(
     redis: Redis,
-    rules: dict[str, float],
+    overrides: dict[str, float],
+    custom: list[CustomRule],
 ) -> None:
     """Cache all pricing rules.
 
     Args:
         redis: Redis client.
-        rules: Dict of rule_name → value.
+        overrides: Dict of canonical rule_name → value.
+        custom: List of admin-created rules with non-canonical names.
     """
-    await cache_set(redis, RULES_CACHE_KEY, rules, ttl=RULES_CACHE_TTL)
+    payload = {
+        "overrides": overrides,
+        "custom": [
+            {
+                "name": c.name,
+                "rule_type": c.rule_type,
+                "value": c.value,
+                "formula": c.formula,
+                "category": c.category,
+                "priority": c.priority,
+            }
+            for c in custom
+        ],
+    }
+    await cache_set(redis, RULES_CACHE_KEY, payload, ttl=RULES_CACHE_TTL)
 
 
 async def invalidate_rules_cache(redis: Redis) -> None:
     """Invalidate the pricing rules cache (calculation dict + all list variants)."""
     await cache_delete(redis, RULES_CACHE_KEY)
+    await cache_delete(redis, _LEGACY_RULES_CACHE_KEY)
     # Delete all list-cache variants via pattern scan
     async for key in redis.scan_iter(f"{RULES_LIST_CACHE_PREFIX}*"):
         await redis.delete(key)

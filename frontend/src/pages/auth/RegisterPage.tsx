@@ -17,16 +17,16 @@ interface RoleConfig {
 const ROLE_TABS: RoleConfig[] = [
   {
     role: "client",
-    label: "عميل",
-    labelEn: "Client",
+    label: "مستورد",
+    labelEn: "Importer",
     icon: "🛒",
     description: "أريد شراء المنتجات من الصين",
     color: "from-emerald-500 to-teal-600",
   },
   {
     role: "agent",
-    label: "وكيل",
-    labelEn: "Agent",
+    label: "مورد",
+    labelEn: "Supplier",
     icon: "🤝",
     description: "أريد تقديم خدمات التوريد",
     color: "from-blue-500 to-indigo-600",
