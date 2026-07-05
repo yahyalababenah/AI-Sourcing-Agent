@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/renderWithProviders";
-import { PricingCalcPage } from "../PricingCalcPage";
+import { PricingCalcPageMobile } from "../PricingCalcPageMobile";
 import { intakeService } from "@/services/intakeService";
 import { pricingService } from "@/services/pricingService";
 import type { RFQListResponse, Product } from "@/types/intake";
@@ -80,36 +80,23 @@ const CALC_RESULT: CalculatePriceResponse = {
   custom_rules_applied: [],
 };
 
-describe("PricingCalcPage", () => {
+describe("PricingCalcPageMobile", () => {
   beforeEach(() => {
     vi.mocked(intakeService.list).mockResolvedValue(RFQ_LIST);
     vi.mocked(intakeService.listProducts).mockResolvedValue(PRODUCTS);
   });
 
-  it("shows the placeholder before an RFQ is selected", async () => {
-    renderWithProviders(<PricingCalcPage />);
+  it("shows an empty-state placeholder before an RFQ is selected", async () => {
+    renderWithProviders(<PricingCalcPageMobile />);
     expect(
       await screen.findByText("يرجى اختيار طلب عرض سعر للبدء في حساب التكلفة النهائية للاستيراد"),
     ).toBeInTheDocument();
   });
 
-  it("loads products once an RFQ is selected from the dropdown", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<PricingCalcPage />);
-
-    const select = await screen.findByDisplayValue("-- اختر طلب عرض سعر --");
-    await user.selectOptions(select, "rfq-1");
-
-    await waitFor(() => {
-      expect(intakeService.listProducts).toHaveBeenCalledWith("rfq-1");
-    });
-    expect(await screen.findByText("Industrial LED Floodlight")).toBeInTheDocument();
-  });
-
-  it("calculates pricing and displays the result summary", async () => {
+  it("stacks the shipment form above the LineRow result card (no sticky side column)", async () => {
     vi.mocked(pricingService.calculate).mockResolvedValue(CALC_RESULT);
     const user = userEvent.setup();
-    renderWithProviders(<PricingCalcPage />);
+    const { container } = renderWithProviders(<PricingCalcPageMobile />);
 
     const select = await screen.findByDisplayValue("-- اختر طلب عرض سعر --");
     await user.selectOptions(select, "rfq-1");
@@ -117,7 +104,6 @@ describe("PricingCalcPage", () => {
 
     const portInput = screen.getByPlaceholderText("مثال: Aqaba, Jordan");
     await user.type(portInput, "Aqaba");
-
     await user.click(screen.getByRole("button", { name: /حساب التسعير/ }));
 
     await waitFor(() => {
@@ -125,57 +111,11 @@ describe("PricingCalcPage", () => {
         expect.objectContaining({ rfq_id: "rfq-1", destination_port: "Aqaba" }),
       );
     });
-    expect(await screen.findByText("753.60 JOD")).toBeInTheDocument(); // grand_total
-  });
 
-  it("shows an inline error instead of crashing when destination port is empty", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<PricingCalcPage />);
-
-    const select = await screen.findByDisplayValue("-- اختر طلب عرض سعر --");
-    await user.selectOptions(select, "rfq-1");
-    await screen.findByText("Industrial LED Floodlight");
-
-    await user.click(screen.getByRole("button", { name: /حساب التسعير/ }));
-
-    expect(
-      await screen.findByText("يرجى اختيار طلب عرض السعر وتعبئة ميناء الوصول"),
-    ).toBeInTheDocument();
-    expect(pricingService.calculate).not.toHaveBeenCalled();
-  });
-
-  it("only offers JOD/USD in the currency dropdown (the engine doesn't support the others)", async () => {
-    renderWithProviders(<PricingCalcPage />);
-    const currencySelect = screen.getByDisplayValue("دينار أردني (JOD)") as HTMLSelectElement;
-    const optionLabels = Array.from(currencySelect.options).map((o) => o.value);
-    expect(optionLabels).toEqual(["JOD", "USD"]);
-  });
-
-  it("sends the edited per-unit weight in the calculation payload", async () => {
-    vi.mocked(pricingService.calculate).mockResolvedValue(CALC_RESULT);
-    const user = userEvent.setup();
-    renderWithProviders(<PricingCalcPage />);
-
-    const select = await screen.findByDisplayValue("-- اختر طلب عرض سعر --");
-    await user.selectOptions(select, "rfq-1");
-    await screen.findByText("Industrial LED Floodlight");
-
-    // Row order is: quantity, unit_price_cny, weight_kg (all <input type="number">).
-    const spinbuttons = screen.getAllByRole("spinbutton");
-    const weightInput = spinbuttons[2];
-    await user.clear(weightInput);
-    await user.type(weightInput, "2.5");
-
-    const portInput = screen.getByPlaceholderText("مثال: Aqaba, Jordan");
-    await user.type(portInput, "Aqaba");
-    await user.click(screen.getByRole("button", { name: /حساب التسعير/ }));
-
-    await waitFor(() => {
-      expect(pricingService.calculate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          products: [expect.objectContaining({ weight_kg: 2.5 })],
-        }),
-      );
-    });
+    expect(await screen.findByText("التكلفة الواصلة المتوقعة")).toBeInTheDocument();
+    expect(screen.getByText("دقة 0.82%")).toBeInTheDocument();
+    expect(await screen.findByText("753.60 JOD")).toBeInTheDocument();
+    // Mobile has no desktop sticky/two-column split.
+    expect(container.querySelector('[class*="lg:grid-cols-"]')).not.toBeInTheDocument();
   });
 });

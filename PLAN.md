@@ -430,7 +430,30 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     نظيف، 105/105 اختبار ناجح (`--no-file-parallelism`)، فحص curl لكل
     الملفات الجديدة عبر Vite dev server يعيد 200 بلا أخطاء تحويل،
     `npm run dev` نظيف بلا console errors. ✅
-- [ ] **T5.2 — الموبايل**: النموذج فوق النتيجة، BottomNav.
+- [x] **T5.2 — الموبايل**: النموذج فوق النتيجة، BottomNav.
+  - `PricingCalcPageMobile.tsx` كان لا يزال النقل الحرفي المؤقت من T5.1
+    (نمط قديم CSS-variables + عنوان "١. اختيار طلب عرض السعر" مرقّم +
+    بطاقة نتيجة محلية مكرَّرة بدل المكوّنات المشتركة). أُعيد بناؤه
+    ليستخدم `usePricingCalculator` + `ProductsInputTable` +
+    `PricingResultCard` + `PricingDetailBreakdown` نفسها المستخدمة في
+    الديسكتوب (بلا أي تكرار منطق) — نفس محرك التسعير الحقيقي، فقط
+    مكدّس بعمود واحد (نموذج الشحنة → المنتجات → بطاقة النتيجة بلا
+    `sticky`) بدل عمودي الديسكتوب، مطابقاً للمرجع البصري
+    `pricing-calculator-mobile.html` (تحقّق بصري عبر Playwright
+    screenshot لأن الملف حزمة JS مصغّرة). TopBar/BottomNav/Drawer
+    موجودة أصلاً في `AgentLayout` فبقيت كما هي بلا لمس.
+  - عدّلت `PricingCalcPage.switcher.test.tsx`: كلا الملفين صار يعرض
+    عنوان "بيانات الشحنة" نفسه الآن، فاستبدلت نقطة التفريق بفحص بنيوي
+    (وجود/غياب class عمودي `lg:grid-cols-*` الحصري للديسكتوب) بدل فحص
+    عنوان نصي. عدّلت أيضاً اختبار `PricingCalcPage.test.tsx` القديم
+    الذي كان يتوقع نص "753.60" منفرداً (كان في العرض القديم) —
+    أصبح "753.60 JOD" ضمن `LineRow` الإجمالي المشترك الجديد.
+  - قبول: تحقّق فعلي — `PricingCalcPageMobile.test.tsx` جديد (حالة
+    الفراغ + بطاقة LineRow/شارة الدقة/الإجمالي بعد الحساب + تأكيد غياب
+    الشبكة العمودية الحصرية بالديسكتوب). `npx tsc --noEmit` نظيف،
+    107/107 اختبار ناجح بالمشروع كاملاً (`--no-file-parallelism`)، فحص
+    curl عبر Vite dev server لملف `PricingCalcPageMobile.tsx` يعيد 200
+    بلا أخطاء تحويل، لا `text-left/right` ثابتة بالملف الجديد. ✅
 - [ ] **T5.3 — ربط `POST /api/v1/pricing/calculate/`** مع fallback
   محلي عند فشل الطلب.
   - قبول: تغيير أي حقل يحدّث النتيجة، وفصل الباك إند لا يكسرها.
@@ -596,4 +619,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T4.1 | ClientDashboard.tsx كان نفس مخالفة LoginPage/AgentDashboard (ملف واحد responsive) لكن بمحتوى مختلف كلياً عن المرجع/المواصفة (بطاقة تكلفة هبوط + نموذج RFQ سريع، بلا 4 KPI ولا قسم "جديد اليوم من المصانع"). قسمته لنفس نمط Desktop/Mobile/switcher + useClientDashboardData.ts مشترك. الـ4 KPI والريلز وقائمة الطلبات كلها بيانات حقيقية مشتقة (لا أرقام ملفّقة) — راجع تفاصيل الحساب تحت T4.1 أعلاه. ClientDashboardMobile.tsx حالياً نقل حرفي للملف القديم (بديل مؤقت) — إعادة بنائه الفعلية هي T4.2. لا يوجد backend/DB في هذه البيئة (بلا docker) فتعذّر تسجيل دخول حي؛ تحقّق بصري عبر Playwright screenshot لـimporter-home-desktop/mobile.html + فحص curl لتحويل Vite بلا أخطاء. 101/101 اختبار ناجح، tsc نظيف. |
 | 2026-07-05 | T4.2 | أعدت بناء ClientDashboardMobile.tsx بالكامل مطابقاً لـimporter-home-mobile.html (نفس نهج T3.2 لـAgentDashboardMobile): 3 KPI فقط (لا 4)، شبكة ريلز grid-cols-3، قائمة طلبات بنفس منطق الديسكتوب. استبدل النقل الحرفي المؤقت من T4.1. **نهاية المرحلة 4.** لا يوجد backend/DB بهذه البيئة فتحقّق بصري عبر Playwright screenshot + فحص curl لتحويل Vite. 101/101 اختبار ناجح، tsc نظيف. |
 | 2026-07-05 | T5.1 | اكتُشف تعارض جوهري بين المرجع البصري (حاسبة بسيطة منتج واحد بحقول يدوية) والصفحة الحقيقية الموجودة `/agent/calculator` (تدفق RFQ متعدد المنتجات + محرك تسعير حقيقي بالباك إند: HS codes/VAT/formula rules/إنشاء عرض سعر فعلي، تستخدمه QuoteBuilderPage أيضاً). استشرت المستخدم — اختار الحفاظ على المنطق الحقيقي وإعادة التصميم البصري فقط (تفاصيل القرار والتنفيذ تحت T5.1 أعلاه). قسمت PricingCalcPage.tsx (ملف responsive قديم) لـDesktop/Mobile/switcher بنفس نمط كل الصفحات السابقة، مع مكوّنات مشتركة جديدة (PricingResultCard، ProductsInputTable، PricingDetailBreakdown) ووسّعت LineRow.value لـReactNode. PricingCalcPageMobile.tsx حالياً نقل حرفي مؤقت (بديل لحين T5.2). 105/105 اختبار ناجح (`--no-file-parallelism`)، tsc نظيف، dev server نظيف. |
+| 2026-07-05 | T5.2 | استبدلت النقل الحرفي المؤقت من T5.1 بإعادة بناء PricingCalcPageMobile.tsx فعلياً: نفس usePricingCalculator/ProductsInputTable/PricingResultCard/PricingDetailBreakdown المستخدمة بالديسكتوب (بلا تكرار منطق)، مكدّسة بعمود واحد (نموذج→منتجات→نتيجة، بلا sticky) مطابقة لـpricing-calculator-mobile.html (تحقّق بصري Playwright). عدّلت switcher test ليفرّق ببنية العمودين (lg:grid-cols) بدل نص العنوان لأن كلا الملفين صار يشترك بعنوان "بيانات الشحنة" نفسه بعد التوحيد البصري. **نهاية المرحلة 5 المتعلقة بالتصميم — T5.3 (ربط الـAPI) متبقية.** 107/107 اختبار ناجح، tsc نظيف، curl عبر Vite يعيد 200. |
 
