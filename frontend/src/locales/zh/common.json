@@ -24,6 +24,15 @@
     "settings": "设置",
     "logout": "退出登录"
   },
+  "bottomNav": {
+    "home": "首页",
+    "incoming": "收件箱",
+    "myReels": "短视频",
+    "chat": "消息",
+    "account": "我的",
+    "discover": "发现",
+    "reels": "短视频"
+  },
   "common": {
     "loading": "加载中...",
     "error": "出现错误",

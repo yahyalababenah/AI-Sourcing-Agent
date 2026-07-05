@@ -20,6 +20,7 @@ export const ROUTES = {
   },
   CLIENT: {
     DASHBOARD: "/client/dashboard",
+    REELS: "/client/reels",
   },
   // Generic gateway — resolves to the role-scoped dashboard above at render time.
   DASHBOARD: "/dashboard",

@@ -5,6 +5,7 @@ import { AgentDashboard } from "@/pages/dashboard/AgentDashboard";
 import { ClientDashboard } from "@/pages/dashboard/ClientDashboard";
 import { AdminDashboard } from "@/pages/dashboard/AdminDashboard";
 import { ReelsStudioPage } from "@/pages/reels/ReelsStudioPage";
+import { ClientReelsPage } from "@/pages/reels/ClientReelsPage";
 import { MarketplacePage } from "@/pages/catalog/MarketplacePage";
 import { SupplierShowroomPage } from "@/pages/catalog/SupplierShowroomPage";
 import { SupplierProductsPage } from "@/pages/catalog/SupplierProductsPage";
@@ -76,6 +77,16 @@ export const sharedRoutes: RouteObject[] = [
     element: (
       <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
         <ReelsStudioPage />
+      </RoleGuard>
+    ),
+  },
+
+  // ── Client: Reels feed (client only) ──
+  {
+    path: ROUTES.CLIENT.REELS,
+    element: (
+      <RoleGuard roles={["client"]} redirectTo={ROUTES.DASHBOARD}>
+        <ClientReelsPage />
       </RoleGuard>
     ),
   },

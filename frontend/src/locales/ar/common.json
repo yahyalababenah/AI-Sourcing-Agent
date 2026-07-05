@@ -24,6 +24,15 @@
     "settings": "الإعدادات",
     "logout": "تسجيل الخروج"
   },
+  "bottomNav": {
+    "home": "الرئيسية",
+    "incoming": "الواردة",
+    "myReels": "اللقطات",
+    "chat": "محادثات",
+    "account": "حسابي",
+    "discover": "اكتشف",
+    "reels": "ريلز"
+  },
   "common": {
     "loading": "جاري التحميل...",
     "error": "حدث خطأ",

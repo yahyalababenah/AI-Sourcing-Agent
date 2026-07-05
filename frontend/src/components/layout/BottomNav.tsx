@@ -1,8 +1,8 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  LayoutDashboard, ClipboardList, Globe, Truck, MessageCircle,
-  Package, Store, Activity, ShieldCheck, type LucideIcon,
+  LayoutDashboard, Users, Clapperboard, MessageCircle, UserCircle,
+  Compass, Activity, ShieldCheck, type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import type { UserRole } from "@/types/auth";
@@ -13,21 +13,23 @@ interface Tab {
   icon: LucideIcon;
 }
 
-// Max 5 items per role, per CLAUDE.md's mandatory mobile bottom-nav rule.
+// Max 5 items per role, matching CLAUDE.md's mandatory mobile bottom-nav
+// lists literally: agent = home/incoming/reels/chat/account,
+// client = home/discover/reels/chat/account.
 const CLIENT_TABS: Tab[] = [
-  { to: ROUTES.CLIENT.DASHBOARD,   labelKey: "nav.home",          icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,           labelKey: "nav.myRequests",    icon: ClipboardList },
-  { to: ROUTES.CATALOG.MARKETPLACE,labelKey: "nav.marketplace",   icon: Globe },
-  { to: ROUTES.ORDERS.LIST,        labelKey: "nav.shipmentTracking", icon: Truck },
-  { to: ROUTES.CHAT.LIST,          labelKey: "nav.chat",          icon: MessageCircle },
+  { to: ROUTES.CLIENT.DASHBOARD,    labelKey: "bottomNav.home",     icon: LayoutDashboard },
+  { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "bottomNav.discover", icon: Compass },
+  { to: ROUTES.CLIENT.REELS,        labelKey: "bottomNav.reels",    icon: Clapperboard },
+  { to: ROUTES.CHAT.LIST,           labelKey: "bottomNav.chat",     icon: MessageCircle },
+  { to: ROUTES.PROFILE,             labelKey: "bottomNav.account",  icon: UserCircle },
 ];
 
 const AGENT_TABS: Tab[] = [
-  { to: ROUTES.AGENT.DASHBOARD,     labelKey: "nav.home",       icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,            labelKey: "nav.purchaseRequests", icon: ClipboardList },
-  { to: ROUTES.SUPPLIER.MY_PRODUCTS,labelKey: "nav.myProducts", icon: Package },
-  { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "nav.marketplace",icon: Store },
-  { to: ROUTES.CHAT.LIST,           labelKey: "nav.chat",       icon: MessageCircle },
+  { to: ROUTES.AGENT.DASHBOARD,   labelKey: "bottomNav.home",     icon: LayoutDashboard },
+  { to: ROUTES.RFQ.SUPPLIER_INBOX,labelKey: "bottomNav.incoming", icon: Users },
+  { to: ROUTES.AGENT.REELS,       labelKey: "bottomNav.myReels",  icon: Clapperboard },
+  { to: ROUTES.CHAT.LIST,         labelKey: "bottomNav.chat",     icon: MessageCircle },
+  { to: ROUTES.PROFILE,           labelKey: "bottomNav.account",  icon: UserCircle },
 ];
 
 const ADMIN_TABS: Tab[] = [
@@ -59,7 +61,7 @@ export function BottomNav({ role }: BottomNavProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-30 flex items-start justify-around bg-white border-t border-slate-200 lg:hidden"
+      className="fixed bottom-0 start-0 end-0 z-30 flex items-start justify-around bg-white border-t border-slate-200 lg:hidden"
       style={{ height: "64px", paddingTop: "8px", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {tabs.map((tab) => (

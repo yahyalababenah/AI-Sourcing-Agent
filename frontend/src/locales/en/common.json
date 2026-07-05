@@ -24,6 +24,15 @@
     "settings": "Settings",
     "logout": "Log Out"
   },
+  "bottomNav": {
+    "home": "Home",
+    "incoming": "Inbox",
+    "myReels": "Reels",
+    "chat": "Chat",
+    "account": "Account",
+    "discover": "Discover",
+    "reels": "Reels"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Something went wrong",
