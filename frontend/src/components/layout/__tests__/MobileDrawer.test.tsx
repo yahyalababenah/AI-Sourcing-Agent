@@ -75,4 +75,13 @@ describe("MobileDrawer", () => {
     const drawer = container.querySelector(".start-0")!;
     expect(drawer).not.toHaveClass("end-0");
   });
+
+  it("stays truly viewport-fixed — must not also carry `relative`, which Tailwind emits later in the stylesheet and silently overrides `fixed` at equal specificity, turning the drawer into an in-flow element that no longer overlays the page", () => {
+    useUIStore.setState({ drawerOpen: true });
+    const { container } = renderWithProviders(<MobileDrawer role="agent" />);
+
+    const drawer = container.querySelector(".start-0")!;
+    expect(drawer).toHaveClass("fixed");
+    expect(drawer).not.toHaveClass("relative");
+  });
 });
