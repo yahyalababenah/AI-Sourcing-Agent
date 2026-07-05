@@ -867,8 +867,52 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     بلا أخطاء تحويل، لا `text-left/right` ولا `primary-*`/`gray-*`/indigo
     متبقية بالملفات الجديدة. لا يوجد backend/DB بهذه البيئة فتعذّر تسجيل
     دخول حي. ✅
-- [ ] **T8.3 — عروض الأسعار (agent)**: جدول العروض المرسلة
+- [x] **T8.3 — عروض الأسعار (agent)**: جدول العروض المرسلة
   بحالاتها (StatusPill) + قيمها + تاريخها.
+  - `QuotationListPage.tsx` (`/quotes`، بلا `RoleGuard` — كل الأدوار)
+    كان ملفاً واحداً بجدول حقيقي وظيفي (رقم العرض/العميل/المبلغ/الحالة/
+    تتبع الشحنة/التاريخ/إجراءات) لكن غير مقسّم Desktop/Mobile، بثيم قديم
+    `primary-*`/`gray-*`، وبشارات حالة يدوية (`STATUS_COLORS`/
+    `STATUS_LABELS` محلية) بدل `StatusPill` المشترك كما يطلب النص صراحة.
+  - **فجوة حقيقية في `StatusPill`**: حالات العرض الفعلية (`draft, pending,
+    finalized, sent, accepted, rejected`) لا تملك مقابلاً لـ"مرفوض" في
+    `OrderStatus` الحالي (`pending|under_review|negotiating|in_progress|
+    completed`). أضفت قيمة `rejected` جديدة للنوع + `LABELS`/`FIXED_CLASSES`
+    (أحمر) — إضافة توافقية للخلف بلا كسر أي استخدام قائم (تحقّق: كل
+    اختبارات `atoms.test.tsx` القديمة استمرت بالنجاح + اختبار جديد
+    للحالة المضافة). باقي التخطيط: `draft/pending→pending`،
+    `finalized→under_review` (جاهز، لم يُرسَل بعد)، `sent→negotiating`
+    (بانتظار قرار العميل)، `accepted→completed`، `rejected→rejected`.
+  - قسمت الملف بنفس نمط ProfilePage.tsx/RFQCreatePage.tsx:
+    `useQuotationListData.ts` (خطاف مشترك: الجلب عبر `quotationService.list`
+    + دالتا `quoteStatusPill`/`quoteTrackingStatus` + `TRACKING_LABELS`) +
+    `QuotationListPageDesktop.tsx` (جدول مُعاد تلوينه بـ`supplier-*`/
+    `slate-*` + `StatusPill` + `EmptyState`/`Skeleton` المشتركين بدل
+    الكتل اليدوية، وأُزيلت `text-right` الثابتة من الجدول) +
+    `QuotationListPageMobile.tsx` (بطاقات مكدّسة عمودياً بدل جدول عريض
+    لا يناسب الموبايل) + `QuotationListPage.tsx` (بوابة دور: `role ===
+    'agent'` → مبدّل `useMediaQuery` بين الجديدين؛ بقية الأدوار →
+    `LegacyQuotationList` الجدول القديم كما هو تماماً، بلا تعديل سلوكي —
+    لحين T8.4 التي ستبني واجهة المستورد على نفس الراوت).
+    `(q as any).tracking_status` أُبقي كما كان (نفس النمط المستخدم أصلاً
+    بـ`QuotationDetailPage.tsx`/`OrdersListPage.tsx` — الحقل حقيقي من
+    الباك إند لكن غير مُعرَّف بنوع `Quotation`؛ تصحيح النوع خارج نطاق
+    T8.3 ويلمس ملفات أخرى لم تُطلب).
+  - قبول: تحقّق فعلي — 3 اختبارات (`QuotationListPage.switcher.test.tsx`):
+    مندوب/ديسكتوب يعرض زر تحديث نصي (الجدول القديم بلا زر تحديث إطلاقاً،
+    فهو المائز الحقيقي)، مندوب/موبايل زر تحديث أيقوني، دور غير مندوب يبقى
+    على الجدول القديم بلا زر تحديث. 4 اختبارات
+    (`QuotationListPageDesktop.test.tsx`): حالة فراغ صادقة، عرض رقم/عميل/
+    مبلغ/`StatusPill` لحالة "sent"→"جارٍ التفاوض"، زر "🚚 تتبع" يظهر فقط
+    للعروض المقبولة، فتح تفاصيل عرض. 2 اختبار
+    (`QuotationListPageMobile.test.tsx`): حالة فراغ، بطاقة بحالة "مكتمل"
+    + زر تتبع للعرض المقبول. `npx tsc --noEmit` نظيف، 173/173 اختبار
+    ناجح بالمشروع كاملاً (`--no-file-parallelism`)، فحص curl عبر Vite
+    dev server لكل الملفات الجديدة/المعدَّلة يعيد 200 بلا أخطاء تحويل،
+    لا `primary-*`/`gray-*`/indigo ولا `text-left/right` ثابتة بالملفات
+    الجديدة (الجدول القديم `LegacyQuotationList` يحتفظ بـ`text-right`
+    القديمة عمداً — كود قديم غير مُلمَّس، نفس نهج `LegacyProfileForm`/
+    `LegacyRFQCreateForm`). ✅
 - [ ] **T8.4 — طلباتي (client)**: نفس الجدول من زاوية المستورد.
 - [ ] **T8.5 — السوق العالمي (client + agent)**: شبكة بطاقات
   (صورة/سعر/مصنع/توثيق/زر طلب عرض) + فلاتر (فئة، بلد المنشأ،
@@ -977,4 +1021,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T7.2 | لا يوجد supplier-profile-*.html مرجعي (نفس فجوة T6.3) — بُني بنفس لغة ClientProfileDesktop/Mobile (T7.1) بتوكنز supplier-*. أكملت بوابة ProfilePage.tsx: role==='agent' يعرض SupplierProfilePage الجديدة الآن (بدل LegacyProfileForm)، admin وحده يبقى على النموذج القديم. useSupplierProfileData.ts يعيد استخدام useReelsStudioData (T6.1) لجلب المنتجات/الهوية بلا تكرار، ويضيف إحصاءات حقيقية: "صفقة مكتملة" (عدّ RFQs closed) و"متوسط زمن الرد" (فرق ساعات بين إنشاء RFQ وأول عرض قدّمه هذا المورد، نفس منطق لوحة العميل معكوساً). "دقة 0.82%" أُعيدت كرقم أخضر (نفس الشارة الثابتة من PricingResultCard T5.1، ليست إحصاءة لكل مورد) و"ISO 9001" شارة منصّة ثابتة (بنفس سابقة شاشة الدخول T2.1) — بعكسهما "مورد موثّق" مشروط فعلياً بـverification_status الحقيقي فيختفي للموردين pending (تحقّق باختبار). تبويب "المنتجات" يستخدم SupplierProductTile جديد (زر "طلب عرض" صريح لكل بلاطة → RFQ.SUPPLIER_INBOX، نفس منطق T6.1) وتبويب "لقطات المصنع" يعيد استخدام ReelTile المشترك بـrfqCount=0 صادق. **نهاية المرحلة 7 كاملةً.** 148/148 اختبار ناجح (`--no-file-parallelism`)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات الجديدة. |
 | 2026-07-05 | T8.1 | بدأت المرحلة 8. RFQCreatePage.tsx (`/rfq/create`، مربوط أصلاً بزر "طلب عرض سعر جديد" بلوحة العميل) كان ملفاً واحداً غير مقسّم بحقل وصف حر فقط، بلا حقول منتج/كمية منفصلة وبلا معاينة تكلفة. اكتشفت تعارضاً مع عقد الباك إند: RFQCreate يقبل نصاً حراً فقط — حللته بتركيب الحقول المهيكلة الجديدة في client_request_arabic + حفظها كاملة أيضاً بـextracted_entities (بلا تعديل باك إند ولا فقدان بيانات). معاينة التكلفة تستخدم calculateLocalFallback (نفس محرك T5.3 المحلي) لأن RFQ لم يُحفظ بعد فلا يمكن استدعاء pricingService.calculate الحقيقي — شارة كهرمانية دائمة "تقدير تقريبي أولي" (صادقة بطبيعتها لا بشرط فشل شبكة). حقل الصور تبديل واجهة صادق بلا endpoint حقيقي (لا يوجد رفع صور RFQ بالمشروع). قسمت الملف بنفس نمط ProfilePage.tsx: role==='client' → RFQCreatePageDesktop/Mobile الجديدين (زر importer-500) عبر useClientRfqCreate.ts المشترك؛ بقية الأدوار → LegacyRFQCreateForm (النموذج القديم، بلا تغيير). 157/157 اختبار ناجح (`--no-file-parallelism`، 10 اختبارات جديدة، اختبار دور العميل القديم أُزيل لأنه يختبر واجهة مختلفة الآن)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات. لا backend/DB بهذه البيئة فتعذّر تسجيل دخول حي. |
 | 2026-07-06 | T8.2 | SupplierRfqInbox.tsx (`/rfq/supplier-inbox`) كان ملفاً واحداً وظيفياً حقيقياً (710 سطر، تبويبا مباريات حصرية/سوق عام، عدّاد تنازلي لمهلة الرد، قبول/رفض) لكن غير مقسّم Desktop/Mobile وبثيم قديم primary-*/gray-* بدل supplier-*، وبلا أي عدّاد "منذ الوصول" (كان تاريخاً ثابتاً فقط). استخرجت useSupplierRfqInboxData.ts (كل منطق الجلب/المطابقة الدفعية/mutation القبول-الرفض + نبضة now كل 60 ثانية) و SupplierInboxCards.tsx (MatchCard/PublicRfqCard/CountdownTimer معاد تلوينها + ElapsedTimeBadge جديد يحسب الوقت منذ created_at بتلوين حسب الضغط الزمني: slate/كهرماني/أحمر)، ثم SupplierRfqInboxDesktop.tsx (شبكة بطاقات + EmptyState/Skeleton المشتركين) و SupplierRfqInboxMobile.tsx (عمود واحد مكدّس بتبويبات مضغوطة) + مبدّل SupplierRfqInbox.tsx. أبقيت زر "قدّم عرضاً" يفتح QuoteBuilderPage (BUILD_QUOTE) بدل تحويله للحاسبة العامة رغم أنها تدعم rfq_id كـquery param فعلياً — القرار وتفصيله تحت T8.2 أعلاه (عدم فقدان منطق بانٍ عروض حقيقي، نفس مبدأ T5.1/T8.1). أبقيت تبويبَي مباريات حصرية/سوق عام كوظيفة حقيقية موجودة أصلاً رغم أن نص الخطة يصف "قائمة" واحدة مبسّطة. 164/164 اختبار ناجح (`--no-file-parallelism`، 7 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات الجديدة، لا primary-*/gray-*/indigo متبقية. **نهاية المرحلة 8 جزئياً — T8.3 إلى T8.7 متبقية.** |
+| 2026-07-06 | T8.3 | QuotationListPage.tsx (`/quotes`، بلا RoleGuard) كان جدولاً واحداً وظيفياً حقيقياً غير مقسّم Desktop/Mobile، بثيم قديم primary-*/gray-*، وبشارات حالة يدوية بدل StatusPill المشترك كما يطلب النص. اكتشفت فجوة حقيقية: حالات العرض الفعلية (draft/pending/finalized/sent/accepted/rejected) لا تملك مقابل "مرفوض" في OrderStatus — أضفت قيمة rejected جديدة لـStatusPill.tsx (إضافة توافقية للخلف، كل الاختبارات القديمة استمرت + اختبار جديد). بنيت useQuotationListData.ts (خطاف مشترك: الجلب + quoteStatusPill/quoteTrackingStatus/TRACKING_LABELS) + QuotationListPageDesktop.tsx (جدول supplier-*/slate-* بـStatusPill/EmptyState/Skeleton) + QuotationListPageMobile.tsx (بطاقات مكدّسة بدل جدول عريض) + بوابة دور بـQuotationListPage.tsx: agent → الجديد، بقية الأدوار → LegacyQuotationList القديم كما هو (لحين T8.4 التي تبني واجهة المستورد على نفس الراوت). أبقيت (q as any).tracking_status كما هو (نفس نمط QuotationDetailPage/OrdersListPage، تصحيح النوع خارج نطاق المهمة). 173/173 اختبار ناجح (`--no-file-parallelism`، 9 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200، لا primary-*/gray-*/indigo أو text-left/right ثابتة بالملفات الجديدة (الجدول القديم يحتفظ بـtext-right عمداً — كود غير مُلمَّس). |
 

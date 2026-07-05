@@ -36,6 +36,9 @@ describe("StatusPill", () => {
 
     render(<StatusPill status="completed" role="agent" />);
     expect(screen.getByText("مكتمل")).toHaveClass("bg-emerald-50");
+
+    render(<StatusPill status="rejected" role="agent" />);
+    expect(screen.getByText("مرفوض")).toHaveClass("bg-red-50");
   });
 
   it("colors in_progress with the viewer's own role — supplier for agent, importer for client", () => {

@@ -2,7 +2,26 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ROUTES } from "@/constants/routes";
 import { quotationService } from "@/services/quotationService";
+import { useAuthStore } from "@/stores/authStore";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { QuotationListPageDesktop } from "./QuotationListPageDesktop";
+import { QuotationListPageMobile } from "./QuotationListPageMobile";
 import type { Quotation } from "@/types/quotes";
+
+// Role gateway (T8.3): agents get the rebuilt StatusPill-based table
+// (QuotationListPageDesktop/Mobile). Clients/admins keep this legacy table
+// unchanged for now — same pattern as ProfilePage.tsx/RFQCreatePage.tsx —
+// until T8.4 builds the importer-facing view on this same /quotes route.
+export function QuotationListPage() {
+  const role = useAuthStore((s) => s.role);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+
+  if (role === "agent") {
+    return isDesktop ? <QuotationListPageDesktop /> : <QuotationListPageMobile />;
+  }
+
+  return <LegacyQuotationList />;
+}
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -31,7 +50,7 @@ const TRACKING_LABELS: Record<string, string> = {
   delivered: "تم التسليم",
 };
 
-export function QuotationListPage() {
+function LegacyQuotationList() {
   const navigate = useNavigate();
 
   const { data, isLoading, error } = useQuery({
