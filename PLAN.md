@@ -349,9 +349,24 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     من المرجع عبر Playwright screenshot لـ`importer-home-desktop.html`
     وقارنته ببنية الصفحة الجديدة سطراً بسطر (ترتيب: ترحيب+CTA، 4 KPI،
     شبكة الريلز بتسمية المصنع تحتها، قائمة الطلبات بالسعر/الحالة). ✅
-- [ ] **T4.2 — الموبايل**: 3 KPI + نفس المحتوى مكدّساً + التنقل
+- [x] **T4.2 — الموبايل**: 3 KPI + نفس المحتوى مكدّساً + التنقل
   المزدوج.
-  - commit.
+  - `ClientDashboardMobile.tsx` كان نقلاً حرفياً للملف القديم (بطاقة
+    تكلفة هبوط + نموذج RFQ سريع مضمّن) — بديل مؤقت من T4.1. أُعيد
+    بناؤه بالكامل مطابقاً لـ`importer-home-mobile.html` ونمط
+    `AgentDashboardMobile`: ترحيب + زر CTA بعرض كامل + 3 KPI فقط
+    (`stats.slice(0, 3)`، إسقاط "صفقات مكتملة هذا الشهر" — القاعدة
+    الذهبية للموبايل) + شبكة ريلز `grid-cols-3` (3 منتجات بدل 4) بنفس
+    نهج الكتالوج الحقيقي/الصادق + قائمة "طلباتي الأخيرة" بنفس منطق
+    الديسكتوب (`StatusPill` + سعر عرض السعر الحقيقي). TopBar/BottomNav/
+    Drawer موجودة أصلاً عالمياً في `ClientLayout` فبقيت كما هي بلا لمس.
+  - قبول: تحقّق فعلي — `npx tsc --noEmit` نظيف، 101/101 اختبار ناجح
+    (`--no-file-parallelism`)، فحص curl عبر Vite dev server لكل من
+    `ClientDashboardMobile.tsx`/`ClientDashboard.tsx` يعيد 200 بلا
+    أخطاء تحويل من جانب السيرفر. تعذّر تسجيل دخول حي (لا backend/DB في
+    هذه البيئة) فتحقّقت بصرياً من المرجع عبر Playwright screenshot
+    لـ`importer-home-mobile.html` وقارنته ببنية الصفحة الجديدة. ✅ —
+    **نهاية المرحلة 4.**
 
 ---
 
@@ -530,4 +545,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T3.1 | تأكدت الملاحظة السابقة: AgentDashboard.tsx كان نفس مخالفة LoginPage (ملف واحد responsive + ثيم CSS-variables قديم)، قسمته لنفس نمط Desktop/Mobile/switcher + useAgentDashboardData.ts مشترك. Kanban صار يستخدم StatusPill المشترك (تطابق حرفي بين حالات RFQ وتصنيف CLAUDE.md). قسم الريلز الجديد صادق: لا يوجد backend لعدّاد RFQ لكل لقطة بالمشروع كله، فاستُخدم نفس نهج ReelsStudioPage (منتجات كتالوج حقيقية + rfqCount=0 + تنويه أصفر) بدل اختلاق أرقام. AgentDashboardMobile.tsx حالياً نقل حرفي للتطبيق القديم فقط (بديل مؤقت) — إعادة بنائه الفعلية هي T3.2. 91/91 اختبار ناجح (تعطّل التوازي الافتراضي بسبب بيئة العمل — نجح بـ`--no-file-parallelism`)، tsc نظيف، dev server يعمل بلا أخطاء. |
 | 2026-07-05 | T3.2 | أعدت بناء AgentDashboardMobile.tsx بالكامل مطابقاً لـsupplier-home-mobile.html (تحقّق بصري عبر Playwright screenshot لأن ملف الـHTML المرجعي حزمة JS مصغّرة). صار يستخدم StatusPill/StatCard/ReelTile المشتركة بدل الأنماط المحلية، 3 KPI فقط (لا 4)، شريط "تنتظر ردّك" بخلفية supplier-900، ونفس نهج الريلز الصادق (rfqCount=0 حقيقي، لا تلفيق لتقييم "4.8" الذي بالمرجع). عدّلت AgentDashboard.switcher.test.tsx لأن نقطة تفريقه القديمة (غياب قسم الريلز بالموبايل) لم تعد صحيحة بعد بناء الريلز الحقيقي — بدّلتها لغياب زر "+ طلب جديد" الحصري بالديسكتوب. 101/101 اختبار ناجح، tsc نظيف، Vite يترجم الملف بلا أخطاء. **نهاية المرحلة 3.** |
 | 2026-07-05 | T4.1 | ClientDashboard.tsx كان نفس مخالفة LoginPage/AgentDashboard (ملف واحد responsive) لكن بمحتوى مختلف كلياً عن المرجع/المواصفة (بطاقة تكلفة هبوط + نموذج RFQ سريع، بلا 4 KPI ولا قسم "جديد اليوم من المصانع"). قسمته لنفس نمط Desktop/Mobile/switcher + useClientDashboardData.ts مشترك. الـ4 KPI والريلز وقائمة الطلبات كلها بيانات حقيقية مشتقة (لا أرقام ملفّقة) — راجع تفاصيل الحساب تحت T4.1 أعلاه. ClientDashboardMobile.tsx حالياً نقل حرفي للملف القديم (بديل مؤقت) — إعادة بنائه الفعلية هي T4.2. لا يوجد backend/DB في هذه البيئة (بلا docker) فتعذّر تسجيل دخول حي؛ تحقّق بصري عبر Playwright screenshot لـimporter-home-desktop/mobile.html + فحص curl لتحويل Vite بلا أخطاء. 101/101 اختبار ناجح، tsc نظيف. |
+| 2026-07-05 | T4.2 | أعدت بناء ClientDashboardMobile.tsx بالكامل مطابقاً لـimporter-home-mobile.html (نفس نهج T3.2 لـAgentDashboardMobile): 3 KPI فقط (لا 4)، شبكة ريلز grid-cols-3، قائمة طلبات بنفس منطق الديسكتوب. استبدل النقل الحرفي المؤقت من T4.1. **نهاية المرحلة 4.** لا يوجد backend/DB بهذه البيئة فتحقّق بصري عبر Playwright screenshot + فحص curl لتحويل Vite. 101/101 اختبار ناجح، tsc نظيف. |
 
