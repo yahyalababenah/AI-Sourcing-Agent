@@ -132,6 +132,9 @@ export interface CalculatePriceResponse {
   service_flat_fee_301_total: number;
   custom_fees_total: number;
   custom_rules_applied: AppliedCustomRule[];
+  /** Set only by the frontend's local fallback (see localPricingFallback.ts)
+   * when POST /pricing/calculate fails — never sent by the real backend. */
+  is_local_fallback?: boolean;
 }
 
 export interface QuickEstimateResponse {

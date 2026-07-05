@@ -26,6 +26,7 @@ interface PricingResultCardProps {
  * engine actually returned them — not folded away for the sake of matching
  * the reference's simpler shape. */
 export function PricingResultCard({ result, onViewRfq, onCreateQuote, isCreatingQuote }: PricingResultCardProps) {
+  const isFallback = result.is_local_fallback === true;
   const items = result.line_items;
   const totalQuantity = sum(items, "quantity");
   const fobTotal = items.reduce((acc, item) => acc + item.unit_price_converted * item.quantity, 0);
@@ -40,9 +41,15 @@ export function PricingResultCard({ result, onViewRfq, onCreateQuote, isCreating
     <div className="card p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-900">التكلفة الواصلة المتوقعة</h2>
-        <span className="inline-flex items-center rounded-full bg-supplier-50 px-2 py-0.5 text-[11px] font-medium text-supplier-600">
-          دقة 0.82%
-        </span>
+        {isFallback ? (
+          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            ⚠️ تقدير محلي — غير متصل بالخادم
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-supplier-50 px-2 py-0.5 text-[11px] font-medium text-supplier-600">
+            دقة 0.82%
+          </span>
+        )}
       </div>
       <p className="mt-1 text-xs text-slate-400">
         {items.length} منتج — <span dir="ltr">{totalQuantity}</span> وحدة
@@ -88,7 +95,8 @@ export function PricingResultCard({ result, onViewRfq, onCreateQuote, isCreating
       <div className="mt-4 flex flex-col gap-2">
         <button
           onClick={onCreateQuote}
-          disabled={isCreatingQuote}
+          disabled={isCreatingQuote || isFallback}
+          title={isFallback ? "أعد الاتصال بالخادم لإرسال عرض سعر دقيق" : undefined}
           className="btn-primary w-full"
         >
           {isCreatingQuote ? "جاري الإنشاء..." : "📄 إرسال كعرض سعر للعميل"}

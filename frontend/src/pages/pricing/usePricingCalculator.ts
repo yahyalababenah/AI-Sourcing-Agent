@@ -5,7 +5,12 @@ import { intakeService } from "@/services/intakeService";
 import { pricingService } from "@/services/pricingService";
 import { quotationService } from "@/services/quotationService";
 import { ROUTES } from "@/constants/routes";
+import { calculateLocalFallback } from "./localPricingFallback";
 import type { CalculatePriceResponse, PriceProductInput } from "@/types/pricing";
+
+// Thrown for client-side input problems (no RFQ/port/products) — distinct
+// from a failed network call so onError knows not to fall back for these.
+class PricingValidationError extends Error {}
 
 // Only JOD/USD are actually supported by the pricing engine — any other
 // currency silently falls back to JOD math (see engine.py's currency branch).
@@ -80,25 +85,28 @@ export function usePricingCalculator() {
     }
   }
 
+  const buildProductsPayload = (): PriceProductInput[] =>
+    Object.entries(productInputs).map(([productId, vals]) => {
+      const prod = products?.find((p) => p.id === productId);
+      return {
+        product_id: productId,
+        name: prod?.name || productId,
+        quantity: vals.quantity,
+        unit_price_cny: vals.unit_price_cny,
+        weight_kg: vals.weight_kg,
+        hs_code: vals.hs_code.trim() || undefined,
+        has_license: vals.has_license,
+      };
+    });
+
   const calculateMutation = useMutation({
     mutationFn: () => {
       if (!selectedRfqId || !destinationPort.trim()) {
-        throw new Error("يرجى اختيار طلب عرض السعر وتعبئة ميناء الوصول");
+        throw new PricingValidationError("يرجى اختيار طلب عرض السعر وتعبئة ميناء الوصول");
       }
-      const productsPayload: PriceProductInput[] = Object.entries(productInputs).map(([productId, vals]) => {
-        const prod = products?.find((p) => p.id === productId);
-        return {
-          product_id: productId,
-          name: prod?.name || productId,
-          quantity: vals.quantity,
-          unit_price_cny: vals.unit_price_cny,
-          weight_kg: vals.weight_kg,
-          hs_code: vals.hs_code.trim() || undefined,
-          has_license: vals.has_license,
-        };
-      });
+      const productsPayload = buildProductsPayload();
       if (productsPayload.length === 0) {
-        throw new Error("لا توجد منتجات للحساب");
+        throw new PricingValidationError("لا توجد منتجات للحساب");
       }
       return pricingService.calculate({
         rfq_id: selectedRfqId,
@@ -112,8 +120,22 @@ export function usePricingCalculator() {
       setError(null);
     },
     onError: (err: Error) => {
-      setError(err.message);
-      setResult(null);
+      if (err instanceof PricingValidationError) {
+        setError(err.message);
+        setResult(null);
+        return;
+      }
+      // Backend unreachable/failed — compute a local approximate estimate
+      // instead of just erroring, so disconnecting the backend doesn't break
+      // the calculator (see localPricingFallback.ts).
+      const productsPayload = buildProductsPayload();
+      if (productsPayload.length > 0 && destinationPort.trim()) {
+        setResult(calculateLocalFallback(productsPayload, targetCurrency, destinationPort.trim(), selectedRfqId));
+        setError(null);
+      } else {
+        setError(err.message);
+        setResult(null);
+      }
     },
   });
 

@@ -117,4 +117,22 @@ describe("PricingCalcPageDesktop", () => {
     expect(screen.getByText("الإجمالي النهائي")).toBeInTheDocument();
     expect(await screen.findByText("753.60 JOD")).toBeInTheDocument();
   });
+
+  it("falls back to a local estimate (and disables sending it as a quote) when the backend call fails", async () => {
+    vi.mocked(pricingService.calculate).mockRejectedValue(new Error("Network Error"));
+    const user = userEvent.setup();
+    renderWithProviders(<PricingCalcPageDesktop />);
+
+    const select = await screen.findByDisplayValue("-- اختر طلب عرض سعر --");
+    await user.selectOptions(select, "rfq-1");
+    await screen.findByText("Industrial LED Floodlight");
+
+    const portInput = screen.getByPlaceholderText("مثال: Aqaba, Jordan");
+    await user.type(portInput, "Aqaba");
+    await user.click(screen.getByRole("button", { name: /حساب التسعير/ }));
+
+    expect(await screen.findByText("⚠️ تقدير محلي — غير متصل بالخادم")).toBeInTheDocument();
+    expect(screen.getByText("التكلفة الواصلة المتوقعة")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /إرسال كعرض سعر للعميل/ })).toBeDisabled();
+  });
 });

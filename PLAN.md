@@ -454,10 +454,43 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     107/107 اختبار ناجح بالمشروع كاملاً (`--no-file-parallelism`)، فحص
     curl عبر Vite dev server لملف `PricingCalcPageMobile.tsx` يعيد 200
     بلا أخطاء تحويل، لا `text-left/right` ثابتة بالملف الجديد. ✅
-- [ ] **T5.3 — ربط `POST /api/v1/pricing/calculate/`** مع fallback
+- [x] **T5.3 — ربط `POST /api/v1/pricing/calculate/`** مع fallback
   محلي عند فشل الطلب.
-  - قبول: تغيير أي حقل يحدّث النتيجة، وفصل الباك إند لا يكسرها.
-  - commit.
+  - كان الربط الحقيقي بـ`POST /pricing/calculate` موجوداً أصلاً (منذ
+    T5.1) عبر `usePricingCalculator`/`pricingService.calculate` —
+    الناقص فعلياً هو "fallback محلي عند فشل الطلب" فقط. بحثت أولاً في
+    الباك إند الحقيقي (`app/modules/pricing/engine.py`) بدل اختلاق
+    معادلة: استخرجت الثوابت الحقيقية (`exchange_rate_cny_usd=0.14`,
+    `exchange_rate_cny_jod=0.1047`, كثافة الحجم 500كغ/CBM بحد أدنى
+    0.1 CBM، أسعار شحن العقبة/جدة/افتراضي 75/60/80 دولار للـCBM،
+    تأمين 1%، جمارك عامة احتياطية 5% (بلا جدول HS)، رسوم تخليص ثابتة
+    150$، عمولة 3%، ضريبة 16%) وبنيتها في ملف جديد مستقل
+    `localPricingFallback.ts` (`calculateLocalFallback`) — تقدير
+    تقريبي فقط، بلا جدول رسوم HS ولا خصومات MOQ/دفع مبكر ولا رسوم
+    070/301/018 (تحتاج الجدول الحقيقي غير المتوفر أوفلاين).
+  - في `usePricingCalculator.ts`: فصلت أخطاء التحقق المحلي (لا RFQ/لا
+    ميناء/لا منتجات) بصنف `PricingValidationError` جديد عن أخطاء
+    الشبكة/الباك إند الحقيقية — فقط الأخيرة تُفعّل الـfallback
+    (`onError` يستدعي `calculateLocalFallback` ويملأ `result` بدلاً
+    من إظهار خطأ فقط، فلا ينكسر تدفق الحاسبة عند انقطاع الباك إند).
+    استُخرج بناء `productsPayload` لدالة مشتركة `buildProductsPayload`
+    لتفادي تكراره بين `mutationFn` و`onError`.
+  - أضفت حقل `is_local_fallback?: boolean` لـ`CalculatePriceResponse`
+    (اختياري، الباك إند الحقيقي لا يرسله أبداً). `PricingResultCard`
+    يعرض شارة كهرمانية "⚠️ تقدير محلي — غير متصل بالخادم" بدل "دقة
+    0.82%" ويعطّل زر "إرسال كعرض سعر للعميل" (تعطيل صريح مع tooltip)
+    عند التقدير المحلي — إرسال عرض سعر فعلي يحتاج الباك إند بأي حال.
+    الديسكتوب والموبايل يستفيدان تلقائياً بلا أي لمس لملفيهما (كل
+    المنطق في الخطاف والمكوّن المشترك).
+  - قبول: تحقّق فعلي — `localPricingFallback.test.tsx` جديد (5
+    اختبارات: العلم `is_local_fallback`، سعر الصرف 0.1047، شحن العقبة
+    + إجمالي موجب، الحد الأدنى 0.1 CBM بلا وزن، غياب رسوم HS)، واختبار
+    جديد في `PricingCalcPageDesktop.test.tsx` يحاكي فشل
+    `pricingService.calculate` ويتحقق من ظهور الشارة الكهرمانية وتعطيل
+    زر الإرسال. `npx tsc --noEmit` نظيف، 113/113 اختبار ناجح
+    (`--no-file-parallelism`)، فحص curl عبر Vite dev server لكل
+    الملفات الجديدة/المعدَّلة يعيد 200 بلا أخطاء تحويل. **نهاية
+    المرحلة 5.** ✅
 
 ---
 
@@ -620,4 +653,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T4.2 | أعدت بناء ClientDashboardMobile.tsx بالكامل مطابقاً لـimporter-home-mobile.html (نفس نهج T3.2 لـAgentDashboardMobile): 3 KPI فقط (لا 4)، شبكة ريلز grid-cols-3، قائمة طلبات بنفس منطق الديسكتوب. استبدل النقل الحرفي المؤقت من T4.1. **نهاية المرحلة 4.** لا يوجد backend/DB بهذه البيئة فتحقّق بصري عبر Playwright screenshot + فحص curl لتحويل Vite. 101/101 اختبار ناجح، tsc نظيف. |
 | 2026-07-05 | T5.1 | اكتُشف تعارض جوهري بين المرجع البصري (حاسبة بسيطة منتج واحد بحقول يدوية) والصفحة الحقيقية الموجودة `/agent/calculator` (تدفق RFQ متعدد المنتجات + محرك تسعير حقيقي بالباك إند: HS codes/VAT/formula rules/إنشاء عرض سعر فعلي، تستخدمه QuoteBuilderPage أيضاً). استشرت المستخدم — اختار الحفاظ على المنطق الحقيقي وإعادة التصميم البصري فقط (تفاصيل القرار والتنفيذ تحت T5.1 أعلاه). قسمت PricingCalcPage.tsx (ملف responsive قديم) لـDesktop/Mobile/switcher بنفس نمط كل الصفحات السابقة، مع مكوّنات مشتركة جديدة (PricingResultCard، ProductsInputTable، PricingDetailBreakdown) ووسّعت LineRow.value لـReactNode. PricingCalcPageMobile.tsx حالياً نقل حرفي مؤقت (بديل لحين T5.2). 105/105 اختبار ناجح (`--no-file-parallelism`)، tsc نظيف، dev server نظيف. |
 | 2026-07-05 | T5.2 | استبدلت النقل الحرفي المؤقت من T5.1 بإعادة بناء PricingCalcPageMobile.tsx فعلياً: نفس usePricingCalculator/ProductsInputTable/PricingResultCard/PricingDetailBreakdown المستخدمة بالديسكتوب (بلا تكرار منطق)، مكدّسة بعمود واحد (نموذج→منتجات→نتيجة، بلا sticky) مطابقة لـpricing-calculator-mobile.html (تحقّق بصري Playwright). عدّلت switcher test ليفرّق ببنية العمودين (lg:grid-cols) بدل نص العنوان لأن كلا الملفين صار يشترك بعنوان "بيانات الشحنة" نفسه بعد التوحيد البصري. **نهاية المرحلة 5 المتعلقة بالتصميم — T5.3 (ربط الـAPI) متبقية.** 107/107 اختبار ناجح، tsc نظيف، curl عبر Vite يعيد 200. |
+| 2026-07-05 | T5.3 | الربط الحقيقي بـ`POST /pricing/calculate` كان موجوداً أصلاً منذ T5.1 — الناقص كان fallback محلي فقط. بحثت أولاً في محرك الباك إند الحقيقي `app/modules/pricing/engine.py` (عبر Explore agent) لاستخراج الثوابت الحقيقية بدل اختلاق معادلة (أسعار الصرف 0.14/0.1047، كثافة CBM، أسعار شحن العقبة/جدة، تأمين 1%، جمارك عامة 5%، تخليص 150$، عمولة 3%، ضريبة 16%). بنيتها في `localPricingFallback.ts` مستقل، وفصلت أخطاء التحقق المحلي (`PricingValidationError`) عن أخطاء الشبكة الحقيقية في `usePricingCalculator` — فقط الأخيرة تُفعّل الـfallback. أضفت `is_local_fallback` لنوع الاستجابة + شارة كهرمانية وتعطيل زر إرسال العرض في `PricingResultCard` عند التقدير المحلي (إرسال عرض فعلي يحتاج الباك إند بأي حال). **نهاية المرحلة 5 كاملةً.** 113/113 اختبار ناجح (`--no-file-parallelism`)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات الجديدة/المعدَّلة. |
 
