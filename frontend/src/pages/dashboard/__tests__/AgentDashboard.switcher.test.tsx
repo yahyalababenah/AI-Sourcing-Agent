@@ -40,7 +40,7 @@ describe("AgentDashboard — desktop/mobile file switcher", () => {
     expect(screen.getByText("أستوديو لقطات المصنع")).toBeInTheDocument();
   });
 
-  it("renders the mobile layout (no factory-reels section) when the viewport doesn't match desktop", () => {
+  it("renders the mobile layout (its own reels section, no desktop quick-create header) when the viewport doesn't match desktop", () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
       matches: false, media: "", onchange: null,
       addEventListener: vi.fn(), removeEventListener: vi.fn(),
@@ -48,7 +48,10 @@ describe("AgentDashboard — desktop/mobile file switcher", () => {
     } as any);
 
     renderWithProviders(<AgentDashboard />);
-    expect(screen.queryByText("أستوديو لقطات المصنع")).not.toBeInTheDocument();
+    // T3.2 gives mobile its own real reels section (not absent) — the file
+    // switcher is verified instead by the desktop-only quick-create header.
+    expect(screen.getByText("أستوديو لقطات المصنع")).toBeInTheDocument();
+    expect(screen.queryByText("+ طلب جديد")).not.toBeInTheDocument();
     expect(screen.getByText("إدارة الطلبات")).toBeInTheDocument();
   });
 });

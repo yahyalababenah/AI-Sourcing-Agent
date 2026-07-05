@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Clock, Video } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
+import { catalogService } from "@/services/catalogService";
 import { ROUTES } from "@/constants/routes";
+import { StatCard } from "@/components/ui/StatCard";
+import { StatusPill, type OrderStatus } from "@/components/ui/StatusPill";
+import { ReelTile } from "@/components/ui/ReelTile";
 import { useAgentDashboardData, type AgentRfqStatus } from "./useAgentDashboardData";
 import type { Product, RFQ } from "@/types/intake";
 
-// Straight carry-over of the pre-split AgentDashboard implementation — kept
-// as-is (legacy CSS-variable theme included) so small viewports don't break
-// while this file waits for its real rebuild in T3.2.
-
-// ── tiny helpers ──────────────────────────────────────────────────────────────
+// Reference: handoff-designs/supplier-home-mobile.html
 
 function useCountdown(targetMs: number | null) {
   const [remaining, setRemaining] = useState(() => (targetMs ? Math.max(0, targetMs - Date.now()) : 0));
@@ -25,108 +27,60 @@ function useCountdown(targetMs: number | null) {
   return `${h}:${m}:${s}`;
 }
 
-function todayArabic() {
-  return new Date().toLocaleDateString("ar-JO", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+const formatPrice = (price: number | null) => (price == null ? "—" : `¥${price.toLocaleString()}`);
 
-const STATUS_AR: Record<AgentRfqStatus, string> = {
-  open: "قيد الانتظار",
-  processing: "تحت المراجعة",
-  quoted: "جارٍ التفاوض",
-  closed: "مكتمل",
+// Same mapping as AgentDashboardDesktop — RFQ statuses line up 1:1 with
+// StatusPill's four CLAUDE.md labels.
+const STATUS_PILL: Record<AgentRfqStatus, OrderStatus> = {
+  open: "pending",
+  processing: "under_review",
+  quoted: "negotiating",
+  closed: "completed",
 };
 
-const COL_COLORS: Record<AgentRfqStatus, string> = {
-  open: "#7a91a8",
-  processing: "#4a7ab8",
-  quoted: "#d97706",
-  closed: "#0F6E56",
-};
+const COL_ORDER: AgentRfqStatus[] = ["open", "processing", "quoted", "closed"];
 
-// ── Kanban Card ───────────────────────────────────────────────────────────────
-
-function KanbanCard({
-  rfq,
-  products,
-  onClick,
-}: {
-  rfq: RFQ;
-  products: Product[];
-  onClick: () => void;
-}) {
+function KanbanCard({ rfq, products, onClick }: { rfq: RFQ; products: Product[]; onClick: () => void }) {
   const deadlineMs = rfq.exclusive_deadline ? new Date(rfq.exclusive_deadline).getTime() : null;
   const isUrgent = !!deadlineMs && deadlineMs > Date.now();
   const countdown = useCountdown(isUrgent ? deadlineMs : null);
 
   const quantity = products.reduce((sum, p) => sum + (p.quantity ?? 0), 0);
-  const estimatedValue = products.reduce(
-    (sum, p) => sum + (p.quantity ?? 0) * (p.target_price ?? 0),
-    0
-  );
+  const estimatedValue = products.reduce((sum, p) => sum + (p.quantity ?? 0) * (p.target_price ?? 0), 0);
 
   return (
     <div
       onClick={onClick}
-      className="rounded-lg p-3 cursor-pointer transition-all hover:-translate-y-[1px]"
-      style={{
-        background: "var(--surface-2)",
-        border: isUrgent ? "1px solid var(--amber-border)" : "1px solid var(--border)",
-        borderRight: isUrgent ? "3px solid #d97706" : undefined,
-      }}
+      className={`w-[150px] shrink-0 rounded-lg border p-3 cursor-pointer transition-all duration-150 active:scale-[0.98] ${
+        isUrgent ? "border-amber-200 bg-amber-50/40 border-e-4 border-e-amber-500" : "border-slate-200 bg-white"
+      }`}
     >
       <div className="flex items-center justify-between mb-1">
-        <div className="text-[12px] font-bold" style={{ color: "var(--text-dim)" }}>
+        <div className="text-[12px] font-bold text-slate-700">
           {rfq.client_request_arabic?.split("\n")[0]?.replace("المنتج: ", "") || "طلب توريد"}
         </div>
-        {isUrgent && (
-          <div
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: "#d97706", animation: "dotPulse 1.2s ease infinite" }}
-          />
-        )}
+        {isUrgent && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
       </div>
-      <div className="text-[10px] mb-2" style={{ color: "var(--text-2)" }}>
-        {rfq.client_name || "العميل"}
-      </div>
+      <div className="text-[10px] mb-2 text-slate-400">{rfq.client_name || "العميل"}</div>
 
       {isUrgent && (
-        <div
-          className="rounded-md px-2.5 py-1.5 mb-2 flex items-center justify-between"
-          style={{ background: "var(--amber-surface-2)", border: "1px solid var(--amber-surface)" }}
-        >
-          <span className="text-[10px]" style={{ color: "#d97706" }}>ينتهي خلال</span>
-          <span
-            className="text-[17px] font-black font-mono"
-            style={{ color: "#d97706", fontVariantNumeric: "tabular-nums" }}
-            dir="ltr"
-          >
+        <div className="rounded-md border border-amber-200 bg-amber-100 px-2.5 py-1.5 mb-2 flex items-center justify-between">
+          <span className="text-[10px] text-amber-700">ينتهي خلال</span>
+          <span className="text-[15px] font-black font-mono text-amber-700 tabular-nums" dir="ltr">
             {countdown}
           </span>
         </div>
       )}
 
       <div className="flex justify-between items-center">
-        <span
-          className="text-[11px] font-bold font-mono"
-          style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}
-          dir="ltr"
-        >
+        <span className="text-[11px] font-bold font-mono text-slate-900 tabular-nums" dir="ltr">
           {estimatedValue > 0
             ? `${rfq.target_currency ?? "JOD"} ${Math.round(estimatedValue).toLocaleString()}`
             : "—"}
         </span>
         {quantity > 0 && (
           <div
-            className="text-[9px] px-1.5 py-0.5 rounded"
-            style={{
-              background: isUrgent ? "var(--amber-surface)" : "var(--surface-3)",
-              color: isUrgent ? "#d97706" : "var(--text-4)",
-            }}
+            className={`text-[9px] px-1.5 py-0.5 rounded ${isUrgent ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}
           >
             {quantity.toLocaleString()} وحدة
           </div>
@@ -135,8 +89,6 @@ function KanbanCard({
     </div>
   );
 }
-
-// ── Column ────────────────────────────────────────────────────────────────────
 
 function KanbanColumn({
   status,
@@ -149,34 +101,18 @@ function KanbanColumn({
   productsMap: Record<string, Product[]>;
   onCardClick: (rfq: RFQ) => void;
 }) {
-  const color = COL_COLORS[status] ?? "#7a91a8";
-  const isDone = status === "closed";
-
   return (
-    <div className="flex-1 flex flex-col min-w-0" style={{ opacity: isDone ? 0.55 : 1 }}>
-      <div className="flex items-center gap-2 py-2.5 mb-2" dir="rtl">
-        <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
-        <span className="text-[12px] font-bold" style={{ color }}>
-          {STATUS_AR[status]}
-        </span>
-        <div className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "var(--surface-3)", color: "var(--text-2)" }}>
-          {rfqs.length}
-        </div>
+    <div className={`flex flex-col shrink-0 ${status === "closed" ? "opacity-60" : ""}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <StatusPill status={STATUS_PILL[status]} role="agent" />
+        <span className="text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">{rfqs.length}</span>
       </div>
       <div className="flex flex-col gap-2">
         {rfqs.map((rfq) => (
-          <KanbanCard
-            key={rfq.id}
-            rfq={rfq}
-            products={productsMap[rfq.id] ?? []}
-            onClick={() => onCardClick(rfq)}
-          />
+          <KanbanCard key={rfq.id} rfq={rfq} products={productsMap[rfq.id] ?? []} onClick={() => onCardClick(rfq)} />
         ))}
         {rfqs.length === 0 && (
-          <div
-            className="rounded-lg p-4 text-center text-[11px]"
-            style={{ border: "1px dashed var(--border)", color: "var(--text-3)" }}
-          >
+          <div className="w-[150px] rounded-lg border border-dashed border-slate-200 p-4 text-center text-[11px] text-slate-400">
             لا توجد طلبات
           </div>
         )}
@@ -185,61 +121,61 @@ function KanbanColumn({
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
-
 export function AgentDashboardMobile() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const { columns, productsMap, stats } = useAgentDashboardData();
+  const { columns, productsMap, stats, awaitingReply } = useAgentDashboardData();
+
+  const { data: reelProducts } = useQuery({
+    queryKey: ["dashboard-reel-preview", user?.id],
+    queryFn: () => catalogService.search({ supplier_id: user?.id, page_size: 4 }),
+    enabled: !!user?.id,
+  });
+  const clips = reelProducts?.items ?? [];
 
   return (
-    <div className="flex flex-col h-full" dir="rtl" style={{ color: "var(--text-1)" }}>
-      {/* Page header */}
-      <div
-        className="flex flex-col gap-3 px-4 py-4 mb-4 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:px-6"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
-        <div>
-          <h1 className="text-[18px] font-bold" style={{ color: "var(--text-1)" }}>إدارة الطلبات</h1>
-          <p className="text-[11px]" style={{ color: "var(--text-2)" }}>
-            {todayArabic()} — مرحباً {user?.full_name}
-          </p>
-        </div>
-        <button
-          onClick={() => navigate(ROUTES.RFQ.CREATE)}
-          className="w-full px-4 py-2.5 text-[13px] font-bold text-white rounded-lg transition-all bg-supplier-500 hover:bg-supplier-600 sm:w-auto sm:text-[12px] sm:py-2"
-        >
-          + طلب جديد
-        </button>
+    <div className="flex flex-col gap-4" dir="rtl">
+      {/* Welcome */}
+      <div>
+        <h1 className="text-[18px] font-bold text-slate-900">
+          {user?.full_name ? `${user.full_name}، أهلاً` : "أهلاً"}
+        </h1>
+        {awaitingReply.length > 0 && (
+          <p className="text-[12px] text-slate-500">لديك {awaitingReply.length} طلبات تنتظر ردّك</p>
+        )}
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="rounded-lg p-4"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <div className="text-[11px] mb-1" style={{ color: "var(--text-2)" }}>{s.label}</div>
-            <div
-              className="text-[26px] font-black leading-none font-mono"
-              style={{ color: s.accent ? "#10B981" : "var(--text-1)", fontVariantNumeric: "tabular-nums" }}
-              dir="ltr"
-            >
-              {typeof s.value === "string" ? <span className="text-[22px]">{s.value}</span> : s.value}
+      {/* Awaiting-reply banner */}
+      {awaitingReply.length > 0 && (
+        <div className="rounded-lg bg-supplier-900 px-4 py-4 text-white">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h2 className="text-[13px] font-bold">طلبات تنتظر ردّك</h2>
+              <p className="text-[11px] text-supplier-100">كل ساعة تأخير تقلل فرصة الفوز</p>
             </div>
+            <Clock className="h-4 w-4 shrink-0 text-white/80" />
           </div>
+          <button
+            onClick={() => navigate(ROUTES.RFQ.SUPPLIER_INBOX)}
+            className="w-full rounded-lg bg-white px-3 py-2.5 text-[12px] font-bold text-supplier-600 transition-all duration-150 hover:bg-supplier-50 active:scale-[0.98]"
+          >
+            عرض الطلبات الواردة
+          </button>
+        </div>
+      )}
+
+      {/* KPI stats — 3 on mobile per CLAUDE.md's dual-pattern rule */}
+      <div className="grid grid-cols-3 gap-3">
+        {stats.slice(0, 3).map((s) => (
+          <StatCard key={s.label} value={s.value} label={s.label} />
         ))}
       </div>
 
-      {/* Kanban board */}
-      <div
-        className="flex-1 overflow-hidden rounded-lg p-4"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
-        <div className="flex gap-4 h-full overflow-x-auto">
-          {(["open", "processing", "quoted", "closed"] as const).map((status) => (
+      {/* Kanban board — horizontal scroll, 150px cards */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-[14px] font-bold text-slate-900">إدارة الطلبات</h2>
+        <div className="flex gap-4 overflow-x-auto pb-1">
+          {COL_ORDER.map((status) => (
             <KanbanColumn
               key={status}
               status={status}
@@ -248,6 +184,43 @@ export function AgentDashboardMobile() {
               onCardClick={(rfq) => navigate(ROUTES.RFQ.DETAIL(rfq.id))}
             />
           ))}
+        </div>
+      </div>
+
+      {/* Factory reels studio preview */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[14px] font-bold text-slate-900">أستوديو لقطات المصنع</h2>
+          <button
+            onClick={() => navigate(ROUTES.AGENT.REELS)}
+            className="rounded-lg bg-supplier-500 px-3 py-1.5 text-[12px] font-bold text-white transition-all duration-150 hover:bg-supplier-600 active:scale-[0.98]"
+          >
+            ارفع +
+          </button>
+        </div>
+
+        {/* Same honest note as the desktop dashboard — no reels/video
+            backend exists yet, so this reuses real catalog products. */}
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+          <Video className="h-4 w-4 shrink-0" />
+          رفع الفيديو غير متاح بعد — القياس عروض الأسعار الناتجة لا المشاهدات
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {clips.map((p) => (
+            <ReelTile
+              key={p.id}
+              price={formatPrice(p.unit_price_rmb)}
+              product={p.product_name ?? "منتج بدون اسم"}
+              rfqCount={0}
+              onClick={() => navigate(ROUTES.AGENT.REELS)}
+            />
+          ))}
+          {clips.length === 0 && (
+            <div className="col-span-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-[12px] text-slate-400">
+              لا توجد منتجات بعد — ارفع كتالوجاً لتظهر بلاطاته هنا
+            </div>
+          )}
         </div>
       </div>
     </div>
