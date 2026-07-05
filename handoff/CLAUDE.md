@@ -42,7 +42,7 @@ AI-Sourcing Hub منصة B2B تقنية تربط المستوردين الأرد
 | الدور | الـroute | اللون | الجرعة |
 |-------|---------|-------|--------|
 | مندوب مبيعات (Agent) | `/agent/*` | `supplier-*` زمردي | LinkedIn غالب |
-| مستورد (Client) | `/client/*` | `importer-*` نيلي | متوازن |
+| مستورد (Client) | `/client/*` | `importer-*` أزرق بحري | متوازن |
 | أدمن (Admin) | `/admin/*` | slate محايد | LinkedIn بحت |
 
 ---
@@ -81,12 +81,12 @@ export const colors = {
     900: "#04342C",   // cover/header
   },
   importer: {          // المستورد
-    50:  "#E0E7FF",
-    100: "#C7D2FE",
-    400: "#6366F1",
-    500: "#4F46E5",   // CTA الأساسي
-    600: "#4338CA",   // hover
-    900: "#312E81",   // cover/header
+    50:  "#E8F1F8",
+    100: "#C5DDF0",
+    400: "#3B82C4",
+    500: "#1D6FB8",   // CTA الأساسي
+    600: "#15568F",   // hover
+    900: "#0B2E4F",   // cover/header
   },
   brand: {             // هوية المنصة — سايد بار، لوجو، عناصر مشتركة
     50:  "#ECFDF5",
@@ -351,3 +351,41 @@ GET  /api/v1/admin/users/
 | `supplier-reels-desktop/mobile.html` | أستوديو الريلز |
 | `importer-profile.html` | ملف المستورد (ديسكتوب) |
 | `importer-profile-mobile.html` | ملف المستورد (موبايل) |
+
+---
+
+## ⚠️ لون محظور نهائياً
+
+**#4F46E5 (indigo) وكل تدرجاته ممنوعة تماماً** بقرار مالك المشروع.
+لوحة المستورد هي الأزرق البحري أعلاه (#1D6FB8 وعائلته) — مستوحاة من
+التجارة البحرية وميناء العقبة. أي indigo/بنفسجي تجده في الملفات
+المرجعية `handoff-designs/*.html` هو من نسخة قديمة: **اقرأه دائماً
+كمقابله من عائلة الأزرق البحري الجديدة** (نفس المواضع، اللون الجديد).
+
+---
+
+## الحركة والتفاعل (Motion) — إلزامي لكل عنصر تفاعلي
+
+كل عنصر قابل للنقر له ثلاث حالات مرئية: default / hover / active.
+
+```
+الأزرار:        transition-all duration-150 hover:{يغمق درجة} active:scale-[0.98]
+بطاقات قابلة للنقر: transition-all duration-150 hover:shadow-md hover:-translate-y-0.5
+عناصر القوائم:   transition-colors duration-150 hover:bg-slate-50
+الـDrawer:       ينزلق من اليمين 200ms ease-out + overlay يتلاشى fade
+Dropdown/Modal:  fade + scale-95→100 خلال 200ms
+Skeleton:        animate-pulse
+الريلز:          انتقال بين المقاطع 250ms (fade أو slide عمودي)
+Kanban:          hover على البطاقة = ظل خفيف + رفع 2px
+الإشعارات:       العدّاد يظهر بـ scale bounce خفيف
+```
+
+قواعد الحركة:
+- **سريعة وخافتة**: لا حركة تتجاوز 250ms، ولا حركة استعراضية.
+- **الشاشات المالية** (الحاسبة، الفواتير): حركة أقل — انتقال الأرقام
+  عند التحديث يكون فورياً أو fade خاطف فقط. الوضوح قبل كل شيء.
+- **التقنية**: Tailwind transitions أولاً. `framer-motion` مسموح فقط
+  للـDrawer والريلز والModals إن احتجت staggering.
+- **احترم** `prefers-reduced-motion`: عطّل الحركات غير الضرورية.
+- زر الـCTA الرئيسي بكل صفحة يستحق حالة hover مميزة (غمقان اللون +
+  ظل خفيف) — هو أهم عنصر تفاعلي.
