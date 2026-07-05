@@ -5,11 +5,13 @@ import { ProfilePage } from "../ProfilePage";
 import { api } from "@/lib/api";
 import { intakeService } from "@/services/intakeService";
 import { quotationService } from "@/services/quotationService";
+import { catalogService } from "@/services/catalogService";
 import { useAuthStore } from "@/stores/authStore";
 
 vi.mock("@/lib/api");
 vi.mock("@/services/intakeService");
 vi.mock("@/services/quotationService");
+vi.mock("@/services/catalogService");
 
 describe("ProfilePage role gateway", () => {
   afterEach(() => {
@@ -17,7 +19,7 @@ describe("ProfilePage role gateway", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the new importer showcase (ClientProfilePage) for the client role", async () => {
+  it("renders the importer showcase (ClientProfilePage, T7.1) for the client role", async () => {
     useAuthStore.setState({
       user: {
         id: "client-1",
@@ -38,7 +40,7 @@ describe("ProfilePage role gateway", () => {
     expect(screen.getByText("مستورد موثّق")).toBeInTheDocument();
   });
 
-  it("keeps the legacy settings-style form for the agent role (T7.2 not built yet)", async () => {
+  it("renders the supplier showcase (SupplierProfilePage, T7.2) for the agent role", async () => {
     useAuthStore.setState({
       user: {
         id: "agent-1",
@@ -47,23 +49,31 @@ describe("ProfilePage role gateway", () => {
         role: "agent",
         is_active: true,
         created_at: "2026-01-01T00:00:00Z",
-        profile: { factory_name: "Future Factory Ltd", location_in_china: "Shenzhen", verification_status: "pending" },
+        profile: { factory_name: "Future Factory Ltd", location_in_china: "Shenzhen", verification_status: "verified" },
       } as any,
       role: "agent",
     });
+    vi.mocked(intakeService.list).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 });
+    vi.mocked(quotationService.list).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(catalogService.search).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 24, total_pages: 0 });
+
+    renderWithProviders(<ProfilePage />);
+    expect(await screen.findByText("Future Factory Ltd")).toBeInTheDocument();
+    expect(screen.getByText("مورد موثّق")).toBeInTheDocument();
+    expect(screen.queryByText("بيانات المورد")).not.toBeInTheDocument(); // legacy form heading, no longer shown
+  });
+
+  it("keeps the legacy settings-style form for the admin role (no showcase spec exists)", async () => {
+    useAuthStore.setState({
+      user: { id: "admin-1", email: "admin@example.com", full_name: "مدير", role: "admin" } as any,
+      role: "admin",
+    });
     vi.mocked(api.get).mockResolvedValue({
-      data: {
-        id: "agent-1",
-        email: "agent@example.com",
-        full_name: "أحمد",
-        role: "agent",
-        is_active: true,
-        profile: { factory_name: "Future Factory Ltd", location_in_china: "Shenzhen", verification_status: "pending" },
-      },
+      data: { id: "admin-1", email: "admin@example.com", full_name: "مدير", role: "admin", is_active: true },
     } as any);
 
     renderWithProviders(<ProfilePage />);
-    expect(await screen.findByText("بيانات المورد")).toBeInTheDocument();
+    expect(await screen.findByText("المعلومات الأساسية")).toBeInTheDocument();
     expect(screen.queryByText("مستورد موثّق")).not.toBeInTheDocument();
   });
 });

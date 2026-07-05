@@ -6,6 +6,7 @@ import { stringToColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
 import { Loader2, Save, User, Building2, Package } from "lucide-react";
 import { ClientProfilePage } from "./ClientProfilePage";
+import { SupplierProfilePage } from "./SupplierProfilePage";
 
 interface ProfileData {
   id: string;
@@ -27,13 +28,14 @@ async function patchMe(data: Record<string, string | null>): Promise<ProfileData
   return res.data;
 }
 
-// Role gateway for the shared /profile route: importers get the new
-// showcase page (T7.1, ClientProfilePage — cover, stats, saved/follow list).
-// Agents/admins still get this legacy settings-style form below until T7.2
-// (supplier profile showcase) replaces it.
+// Role gateway for the shared /profile route: importers get the T7.1
+// showcase (ClientProfilePage) and suppliers get the T7.2 showcase
+// (SupplierProfilePage) — cover, stats, catalog tabs. Admins still get this
+// legacy settings-style form below (no showcase spec exists for admin).
 export function ProfilePage() {
   const role = useAuthStore((s) => s.role);
   if (role === "client") return <ClientProfilePage />;
+  if (role === "agent") return <SupplierProfilePage />;
   return <LegacyProfileForm />;
 }
 
