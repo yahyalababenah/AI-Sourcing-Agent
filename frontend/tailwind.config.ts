@@ -39,12 +39,12 @@ const config: Config = {
         },
         // Client/importer screens
         importer: {
-          50:  "#E0E7FF",
-          100: "#C7D2FE",
-          400: "#6366F1",
-          500: "#4F46E5",
-          600: "#4338CA",
-          900: "#312E81",
+          50:  "#E8F1F8",
+          100: "#C5DDF0",
+          400: "#3B82C4",
+          500: "#1D6FB8",
+          600: "#15568F",
+          900: "#0B2E4F",
         },
         // Platform-wide identity — sidebar, logo, shared chrome
         brand: {

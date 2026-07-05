@@ -44,7 +44,7 @@ const TABS_BY_ROLE: Record<UserRole, Tab[]> = {
 
 const ACTIVE_COLOR: Record<UserRole, string> = {
   agent: "#0F6E56",
-  client: "#4338CA",
+  client: "#15568F",
   admin: "#0f172a",
 };
 

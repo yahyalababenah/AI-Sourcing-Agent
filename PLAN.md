@@ -60,30 +60,32 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 
 ## المرحلة 0 — الأمان والأساس
 
-- [ ] **T0.1 — نقطة رجوع آمنة**
-  - `git add -A && git commit -m "checkpoint: before design migration"`
-  - إن وُجدت تغييرات مكسورة من محاولات سابقة: **اسأل المستخدم** هل
-    يريد العودة لآخر commit سليم (`git reset --hard <hash>`) —
-    لا تقرر بالنيابة عنه.
-  - قبول: `git log` يظهر الـcheckpoint.
+- [x] **T0.1 — نقطة رجوع آمنة**
+  - checkpoint سليم موجود مسبقاً (`1757e64`). لا تغييرات معلّقة أخرى
+    في شجرة العمل (باستثناء `ai-sourcing-hub/` — مجلد فرعي غريب
+    مُتتبَّع كـ gitlink منذ commit `f195c2c` الأول، بلا `.gitmodules`؛
+    ليس له علاقة بهذه المهمة ولم يُلمس).
+  - قبول: `git log` يظهر الـcheckpoint. ✅
 
-- [ ] **T0.2 — توكنز الألوان في Tailwind**
-  - انسخ `supplier / importer / brand` من `lib/tokens.ts` إلى
-    `tailwind.config.ts` تحت `theme.extend.colors`.
-  - أضف `fontFamily: { cairo: ["Cairo","sans-serif"], inter:
-    ["Inter","sans-serif"], noto: ["Noto Sans SC","sans-serif"] }`.
-  - **لا تحذف الألوان القديمة الآن** (تُزال في T9.2) — أضف الجديدة
-    جنبها كي لا تنكسر الصفحات القائمة.
-  - قبول: عنصر تجريبي بـ`bg-supplier-500` يظهر `#10B981` وبـ
-    `bg-importer-500` يظهر `#1D6FB8`.
+- [x] **T0.2 — توكنز الألوان في Tailwind**
+  - `tailwind.config.ts` و`fontFamily` كانا موجودين مسبقاً من commit
+    سابق، لكن ألوان `importer` كانت لا تزال البنفسجي/indigo المحظور
+    (`#4F46E5` وعائلته) في **أربعة مواضع**: `frontend/tailwind.config.ts`،
+    `frontend/src/lib/tokens.ts`، `BottomNav.tsx` (ACTIVE_COLOR.client)،
+    و`ClientDashboard.tsx` (STATUS_BADGES). تم تصحيحها كلها للأزرق
+    البحري الصحيح من `lib/tokens.ts` الجذري (`#1D6FB8` وعائلته).
+  - قبول: تحقّق فعلي عبر curl لـCSS المولّد من Vite —
+    `.bg-importer-500 { background-color: rgb(29 111 184) }` (=#1D6FB8) و
+    `.bg-supplier-500 { background-color: rgb(16 185 129) }` (=#10B981). ✅
+  - `npx tsc --noEmit` نظيف بعد التعديل.
 
-- [ ] **T0.3 — Cairo + RTL افتراضي**
-  - Google Fonts Cairo (400/500/600/700) في الـlayout الجذري.
-  - `<html lang="ar" dir="rtl">`.
-  - قبول: نص عربي يظهر بـCairo واتجاه RTL في كل الصفحات.
+- [x] **T0.3 — Cairo + RTL افتراضي**
+  - موجود مسبقاً: `<html lang="ar" dir="rtl">` + رابط Google Fonts
+    Cairo/Inter/Noto Sans SC في `index.html`. تحقّق عبر curl. ✅
 
-- [ ] **T0.4 — تشغيل نظيف + commit**
-  - `npm run dev` بلا أخطاء console حمراء.
+- [x] **T0.4 — تشغيل نظيف + commit**
+  - `npm run dev` (Vite) يعمل بلا أخطاء، HMR طبّق التعديلات بلا
+    console errors (راجع devlog). ✅
 
 ---
 
@@ -333,5 +335,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 
 | التاريخ | المهام المنجزة | ملاحظات / BLOCKED |
 |---------|----------------|---------------------|
-| — | — | — |
+| 2026-07-05 | T0.1, T0.2, T0.3, T0.4 | T0.1/T0.3/T0.4 كانت مستوفاة مسبقاً (تحقّق فقط). T0.2 كشفت indigo محظور متبقٍ في 4 ملفات (tailwind.config.ts، lib/tokens.ts، BottomNav.tsx، ClientDashboard.tsx) — تم تصحيحها للأزرق البحري. مجلد `ai-sourcing-hub/` الفرعي (gitlink غريب، 1.1GB) لوحظ لكن لم يُلمس — خارج نطاق الخطة. |
 

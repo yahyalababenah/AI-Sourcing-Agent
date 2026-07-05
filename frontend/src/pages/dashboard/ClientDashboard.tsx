@@ -21,9 +21,9 @@ function useCountdown(targetMs: number) {
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 const STATUS_BADGES: Record<string, { bg: string; border: string; text: string }> = {
-  open:       { bg: "#E0E7FF", border: "#C7D2FE", text: "#4338CA"  },
+  open:       { bg: "#E8F1F8", border: "#C5DDF0", text: "#15568F"  },
   processing: { bg: "var(--amber-surface)",  border: "var(--amber-border)",  text: "#d97706"  },
-  quoted:     { bg: "#E0E7FF", border: "#C7D2FE", text: "#4338CA"  },
+  quoted:     { bg: "#E8F1F8", border: "#C5DDF0", text: "#15568F"  },
   closed:     { bg: "var(--surface-3)",      border: "var(--border)",        text: "var(--text-2)" },
 };
 const STATUS_LABELS: Record<string, string> = {
