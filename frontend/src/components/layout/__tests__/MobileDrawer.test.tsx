@@ -59,4 +59,12 @@ describe("MobileDrawer", () => {
     fireEvent.click(screen.getByText("تسجيل الخروج"));
     expect(logout).toHaveBeenCalled();
   });
+
+  it("closes when a nav link is tapped, instead of staying open after navigating", () => {
+    useUIStore.setState({ drawerOpen: true });
+    renderWithProviders(<MobileDrawer role="agent" />);
+
+    fireEvent.click(screen.getByText("السوق العالمي"));
+    expect(useUIStore.getState().drawerOpen).toBe(false);
+  });
 });

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { AppLogo } from "@/components/AppLogo";
 import { useAuthStore } from "@/stores/authStore";
+import { useUIStore } from "@/stores/uiStore";
 import type { UserRole } from "@/types/auth";
 
 interface NavItem {
@@ -72,6 +73,7 @@ interface SidebarProps {
 export function Sidebar({ role, bare = false }: SidebarProps) {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  const closeDrawer = useUIStore((s) => s.closeDrawer);
   const items = NAV_BY_ROLE[role];
   const accent = ACCENT_BY_ROLE[role];
 
@@ -96,6 +98,7 @@ export function Sidebar({ role, bare = false }: SidebarProps) {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={closeDrawer}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] transition-colors",
@@ -113,6 +116,7 @@ export function Sidebar({ role, bare = false }: SidebarProps) {
       <div className="border-t border-slate-100 px-2 py-2 space-y-0.5">
         <NavLink
           to={ROUTES.PROFILE}
+          onClick={closeDrawer}
           className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-slate-600 hover:bg-slate-50"
         >
           <UserCircle className="h-4 w-4 shrink-0" />
@@ -120,6 +124,7 @@ export function Sidebar({ role, bare = false }: SidebarProps) {
         </NavLink>
         <NavLink
           to={ROUTES.SETTINGS}
+          onClick={closeDrawer}
           className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-slate-600 hover:bg-slate-50"
         >
           <Settings className="h-4 w-4 shrink-0" />
