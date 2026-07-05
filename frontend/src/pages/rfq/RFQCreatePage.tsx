@@ -5,8 +5,27 @@ import { ROUTES } from "@/constants/routes";
 import { intakeService } from "@/services/intakeService";
 import type { RFQCreate } from "@/types/intake";
 import { useAuthStore } from "@/stores/authStore";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { RFQCreatePageDesktop } from "./RFQCreatePageDesktop";
+import { RFQCreatePageMobile } from "./RFQCreatePageMobile";
 
+// Role gateway (T8.1): importers get the structured product/quantity/specs
+// form with a live cost-estimate preview (RFQCreatePageDesktop/Mobile, via
+// useMediaQuery — same thin-switcher convention as every other phase).
+// Agents/admins keep this free-text form below (renamed internally,
+// unchanged) — same pattern as ProfilePage.tsx's LegacyProfileForm gate.
 export function RFQCreatePage() {
+  const role = useAuthStore((s) => s.role);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+
+  if (role === "client") {
+    return isDesktop ? <RFQCreatePageDesktop /> : <RFQCreatePageMobile />;
+  }
+
+  return <LegacyRFQCreateForm />;
+}
+
+function LegacyRFQCreateForm() {
   const navigate = useNavigate();
   const role = useAuthStore((s) => s.role);
   const user = useAuthStore((s) => s.user);

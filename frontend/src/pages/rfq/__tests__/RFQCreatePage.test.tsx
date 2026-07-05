@@ -6,7 +6,6 @@ import { RFQCreatePage } from "../RFQCreatePage";
 import { intakeService } from "@/services/intakeService";
 import { useAuthStore } from "@/stores/authStore";
 import type { RFQ } from "@/types/intake";
-import type { User } from "@/types/auth";
 
 vi.mock("@/services/intakeService");
 
@@ -123,38 +122,11 @@ describe("RFQCreatePage", () => {
     expect(await screen.findByText("Network Error")).toBeInTheDocument();
   });
 
-  it("hides the client name/phone fields and prefills them from the account for a client role", async () => {
-    useAuthStore.setState({
-      role: "client",
-      user: {
-        id: "u1",
-        email: "importer@example.com",
-        full_name: "محمد المستورد",
-        role: "client",
-        phone: "+962799999999",
-      } as User,
-    });
-    vi.mocked(intakeService.create).mockResolvedValue(CREATED_RFQ);
-    const user = userEvent.setup();
-    renderWithProviders(<RFQCreatePage />);
-
-    expect(screen.queryByPlaceholderText("أحمد محمد")).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("+962791234567")).not.toBeInTheDocument();
-
-    await user.type(
-      screen.getByPlaceholderText("اكتب وصف المنتجات المطلوبة بالتفصيل..."),
-      "أحتاج 100 كشاف إضاءة صناعي",
-    );
-    await user.click(screen.getByRole("button", { name: "إنشاء طلب عرض السعر" }));
-
-    await waitFor(() => {
-      expect(intakeService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          client_name: "محمد المستورد",
-          client_phone: "+962799999999",
-          client_request_arabic: "أحتاج 100 كشاف إضاءة صناعي",
-        }),
-      );
-    });
-  });
+  // NOTE: the "client role" case used to be covered here, but as of T8.1 a
+  // client-role render of <RFQCreatePage /> shows the new structured form
+  // (RFQCreatePageDesktop/Mobile) instead of this free-text legacy form —
+  // see RFQCreatePageDesktop.test.tsx / RFQCreatePageMobile.test.tsx and
+  // RFQCreatePage.switcher.test.tsx for that coverage. All tests above still
+  // exercise this legacy form because the default (unset) role in tests
+  // falls through to it, same as agent/admin accounts do in production.
 });
