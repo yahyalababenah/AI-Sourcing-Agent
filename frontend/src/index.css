@@ -130,6 +130,17 @@ html.dark {
   .dir-ltr {
     direction: ltr;
   }
+
+  /* Respect prefers-reduced-motion globally (CLAUDE.md motion rules) —
+     collapse all transitions/animations to instant for users who ask for it. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
@@ -211,11 +222,11 @@ html.dark {
   /* ── Buttons ── */
   .btn-primary {
     @apply rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm
-           transition-all hover:bg-emerald-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50;
+           transition-all duration-150 hover:bg-emerald-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
     @apply rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm
-           transition-all hover:bg-slate-50 hover:shadow-md disabled:opacity-50;
+           transition-all duration-150 hover:bg-slate-50 hover:shadow-md active:scale-[0.98] disabled:opacity-50;
   }
 }

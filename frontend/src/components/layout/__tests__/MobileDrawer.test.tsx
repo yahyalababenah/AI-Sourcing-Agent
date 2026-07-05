@@ -11,15 +11,28 @@ vi.mock("@/hooks/useAuth", () => ({
 }));
 
 describe("MobileDrawer", () => {
-  it("renders nothing when closed", () => {
+  it("is translated off-screen and non-interactive when closed (not abruptly unmounted)", () => {
     useUIStore.setState({ drawerOpen: false });
-    renderWithProviders(<MobileDrawer role="agent" />);
-    expect(screen.queryByRole("button", { name: "إغلاق" })).not.toBeInTheDocument();
+    const { container } = renderWithProviders(<MobileDrawer role="agent" />);
+
+    const drawer = container.querySelector(".end-0")!;
+    expect(drawer).toHaveClass("translate-x-full", "pointer-events-none");
+    expect(drawer).toHaveAttribute("aria-hidden", "true");
+
+    const overlay = container.querySelector(".inset-0")!;
+    expect(overlay).toHaveClass("opacity-0", "pointer-events-none");
   });
 
-  it("shows the sidebar content, a close button, and logout when open", () => {
+  it("slides in and shows the sidebar content, a close button, and logout when open", () => {
     useUIStore.setState({ drawerOpen: true });
-    renderWithProviders(<MobileDrawer role="agent" />);
+    const { container } = renderWithProviders(<MobileDrawer role="agent" />);
+
+    const drawer = container.querySelector(".end-0")!;
+    expect(drawer).toHaveClass("translate-x-0");
+    expect(drawer).toHaveAttribute("aria-hidden", "false");
+
+    const overlay = container.querySelector(".inset-0")!;
+    expect(overlay).toHaveClass("opacity-100");
 
     expect(screen.getByRole("button", { name: "إغلاق" })).toBeInTheDocument();
     expect(screen.getByText("السوق العالمي")).toBeInTheDocument();
@@ -30,7 +43,7 @@ describe("MobileDrawer", () => {
     useUIStore.setState({ drawerOpen: true });
     const { container } = renderWithProviders(<MobileDrawer role="agent" />);
 
-    fireEvent.click(container.querySelector('[aria-hidden="true"]')!);
+    fireEvent.click(container.querySelector(".inset-0")!);
     expect(useUIStore.getState().drawerOpen).toBe(false);
 
     useUIStore.setState({ drawerOpen: true });

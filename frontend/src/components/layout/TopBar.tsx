@@ -28,7 +28,7 @@ export function TopBar() {
       <div className="flex items-center gap-2.5 lg:hidden">
         <button
           onClick={openDrawer}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition-colors duration-150 hover:bg-slate-100 active:scale-[0.98]"
           aria-label="menu"
         >
           <Menu className="h-5 w-5" />
@@ -50,7 +50,7 @@ export function TopBar() {
 
         <button
           onClick={() => navigate(ROUTES.PROFILE)}
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-900"
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-slate-900 transition-colors duration-150 hover:bg-slate-100 active:scale-[0.98]"
           title={t("nav.profile")}
         >
           <div
@@ -68,7 +68,7 @@ export function TopBar() {
 
         <button
           onClick={logout}
-          className="hidden lg:flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600"
+          className="hidden lg:flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors duration-150 hover:bg-red-50 hover:text-red-600 active:scale-[0.98]"
           title={t("nav.logout")}
         >
           <LogOut className="h-4 w-4" />

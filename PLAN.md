@@ -174,15 +174,33 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     `Skeleton.test.tsx`) تغطي العرض الأساسي، إخفاء الزر حين لا يوجد
     action، تفعيل الزر، ودعم className مخصص للـskeleton. 79/79
     اختبار ناجح بالمشروع كاملاً. ✅
-- [ ] **T1.7 — نظام الحركة الموحّد**
+- [x] **T1.7 — نظام الحركة الموحّد**
   - طبّق قسم "الحركة والتفاعل" من `CLAUDE.md`: أنشئ classes/أنماط
     موحّدة (زر، بطاقة، عنصر قائمة) بحالات hover/active المحددة،
     وأضف دعم `prefers-reduced-motion`.
   - كل مكوّنات المرحلة 1 (Sidebar، Drawer، BottomNav، الذرّية)
     تستخدم هذه الأنماط — الـDrawer ينزلق 200ms والoverlay يتلاشى.
-  - قبول: hover على أي زر يغمق لونه، الضغط يصغّره scale-[0.98]،
-    والـdrawer ينزلق بسلاسة لا يظهر فجأة.
-  - commit بعد إتمام المرحلة.
+  - أهم خلل مُصلَح: `MobileDrawer` كان يُركَّب/يُفكَّك بـ
+    `if (!drawerOpen) return null` بلا أي انتقال — يظهر/يختفي فجأة
+    (مخالف مباشر لقبول T1.7). أُعيد بناؤه ليبقى مثبّتاً دائماً
+    ويتحكم بالظهور عبر classes (`translate-x-full`↔`translate-x-0`
+    على الدرج، `opacity-0`↔`opacity-100` على الـoverlay) مع
+    `transition duration-200`.
+  - أُضيف `active:scale-[0.98]` لكل الأزرار التفاعلية التي كانت
+    تفتقده (☰ في TopBar، زر البروفايل، زر تسجيل الخروج، جرس
+    الإشعارات، X وتسجيل الخروج في الـDrawer، تبويبات BottomNav)
+    + `duration-150` على انتقالات الألوان الناقصة.
+  - `btn-primary`/`btn-secondary` في `index.css` كانا بلا
+    `active:scale-[0.98]` — أُضيف.
+  - دعم `prefers-reduced-motion` أُضيف كقاعدة CSS عامة في
+    `index.css` (تُصفّر مدة كل transition/animation لمن يطلبه) بدل
+    تكرار `motion-reduce:` على كل عنصر.
+  - قبول: تحقّق فعلي — 3 اختبارات Vitest محدَّثة في
+    `MobileDrawer.test.tsx` تتحقق من classes الإخفاء/الإظهار الفعلية
+    (translate/opacity/aria-hidden) بدل مجرد وجود العنصر في DOM، +
+    فحص curl لـCSS المولّد يؤكد وجود قاعدة `prefers-reduced-motion`
+    و`.translate-x-full` فعلياً. 79/79 اختبار ناجح بالمشروع كاملاً.
+    ✅ — **نهاية المرحلة 1**.
 
 ---
 
@@ -406,4 +424,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T1.4 | TopBar.tsx كان مكتملاً وصحيحاً مسبقاً بلا اختبارات — أضفت TopBar.test.tsx للتحقق الفعلي. |
 | 2026-07-05 | T1.5 | بنيت StatCard/LineRow/StatusPill/ReelTile من الصفر في components/ui/ (لم تكن موجودة). أضفت T6.2.1 لدمج ReelTile المشترك في ReelsStudioPage لاحقاً بدل نسخته المحلية الناقصة لعدّاد RFQ. |
 | 2026-07-05 | T1.6 | بنيت EmptyState/Skeleton من الصفر (8 صفحات لديها نسخ يدوية مكررة بنفس النمط تقريباً). دمج الصفحات القائمة مؤجّل لـT10.3 كما هو مخطط أصلاً. |
+| 2026-07-05 | T1.7 | أهم إصلاح: MobileDrawer كان يظهر/يختفي فجأة بلا انتقال (return null) — أعدت بناءه بانزلاق CSS فعلي 200ms. أضفت active:scale-[0.98] لكل الأزرار الناقصة له، وقاعدة prefers-reduced-motion عامة. نهاية المرحلة 1 — كل مهام T1.x مكتملة. |
 

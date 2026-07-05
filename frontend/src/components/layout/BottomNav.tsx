@@ -65,11 +65,21 @@ export function BottomNav({ role }: BottomNavProps) {
       style={{ height: "64px", paddingTop: "8px", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {tabs.map((tab) => (
-        <NavLink key={tab.to} to={tab.to} className="flex flex-col items-center gap-0.5 px-3 py-1">
+        <NavLink
+          key={tab.to}
+          to={tab.to}
+          className="flex flex-col items-center gap-0.5 px-3 py-1 transition-transform duration-150 active:scale-[0.98]"
+        >
           {({ isActive }) => (
             <>
-              <tab.icon className="h-5 w-5 shrink-0" style={{ color: isActive ? activeColor : "#94a3b8" }} />
-              <span className="text-[9px] font-semibold" style={{ color: isActive ? activeColor : "#94a3b8" }}>
+              <tab.icon
+                className="h-5 w-5 shrink-0 transition-colors duration-150"
+                style={{ color: isActive ? activeColor : "#94a3b8" }}
+              />
+              <span
+                className="text-[9px] font-semibold transition-colors duration-150"
+                style={{ color: isActive ? activeColor : "#94a3b8" }}
+              >
                 {t(tab.labelKey)}
               </span>
             </>
