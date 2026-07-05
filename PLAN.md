@@ -312,10 +312,43 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 
 > المرجع: `importer-home-desktop.html` / `importer-home-mobile.html`.
 
-- [ ] **T4.1 — الديسكتوب**: Sidebar(client) + ترحيب + CTA
+- [x] **T4.1 — الديسكتوب**: Sidebar(client) + ترحيب + CTA
   "طلب عرض سعر جديد" (importer-500) + 4 KPI + "جديد اليوم من
   المصانع" (ReelTiles بأسعار + أسماء المصانع) + "طلباتي الأخيرة"
   (StatusPill لكل طلب).
+  - `ClientDashboard.tsx` كان (كـ`LoginPage`/`AgentDashboard` القديمين)
+    ملفاً واحداً responsive بمحتوى مختلف تماماً عن هذه المواصفة/المرجع
+    البصري: بطاقة "تكلفة الهبوط" + نموذج إنشاء RFQ سريع مضمّن، بلا 4
+    KPI وبلا قسم "جديد اليوم من المصانع" إطلاقاً. قُسّم على نفس نمط
+    Login/AgentDashboard: `ClientDashboardDesktop.tsx` (بناء جديد مطابق
+    لـ`importer-home-desktop.html` + هذه المواصفة) + `ClientDashboardMobile.tsx`
+    (نقل حرفي للمحتوى القديم، بديل مؤقت لحين T4.2) + `ClientDashboard.tsx`
+    (مبدّل رفيع عبر `useMediaQuery`). منطق الجلب المشترك استُخرج لـ
+    `useClientDashboardData.ts`.
+  - الـ4 KPI كلها مُشتقة من بيانات حقيقية (لا أرقام ملفّقة): متوسط زمن
+    الرد = معدّل الفرق بالساعات بين إنشاء كل RFQ وأول عرض سعر وصله
+    (فقط للطلبات التي فعلاً استلمت عرضاً، وإلا "—")، بانتظار الرد =
+    عدد RFQs بحالة `open`، طلبات نشطة = `open`+`processing`، صفقات
+    مكتملة هذا الشهر = `closed` بـ`updated_at` ضمن الشهر الحالي.
+  - "جديد اليوم من المصانع": نفس نهج `AgentDashboardDesktop` الصادق —
+    منتجات كتالوج حقيقية عبر `catalogService.search` مع `ReelTile`
+    المشترك (`rfqCount={0}` صريح، لا يوجد backend لعدّاد RFQ لكل
+    منتج)، واسم المصنع الحقيقي (`factory_name`/`supplier_name`) تحت كل
+    بلاطة.
+  - "طلباتي الأخيرة": `StatusPill` بنفس تخطيط حالات RFQ المستخدم في
+    Kanban المندوب (`open→pending، processing→under_review،
+    quoted→negotiating، closed→completed`) + سعر عرض السعر الأخير
+    الحقيقي لكل طلب (map عبر `quotesByRfq`) بدل الكود القديم الذي كان
+    يعرض `rfq.client_name` (خطأ نسخ من نسخة المندوب — يساوي اسم
+    المستخدم نفسه لكل صفوفه، بلا فائدة) — استُبدل بالكمية الحقيقية من
+    `productsMap` (نفس أسلوب Kanban المندوب).
+  - قبول: تحقّق فعلي — `npx tsc --noEmit` نظيف، 101/101 اختبار ناجح
+    بالمشروع كاملاً (`--no-file-parallelism`)، فحص curl لكل الملفات
+    الأربعة عبر Vite dev server يعيد 200 بلا أخطاء تحويل. تعذّر تسجيل
+    دخول حي (لا backend/DB في هذه البيئة — بلا docker) فتحقّقت بصرياً
+    من المرجع عبر Playwright screenshot لـ`importer-home-desktop.html`
+    وقارنته ببنية الصفحة الجديدة سطراً بسطر (ترتيب: ترحيب+CTA، 4 KPI،
+    شبكة الريلز بتسمية المصنع تحتها، قائمة الطلبات بالسعر/الحالة). ✅
 - [ ] **T4.2 — الموبايل**: 3 KPI + نفس المحتوى مكدّساً + التنقل
   المزدوج.
   - commit.
@@ -496,4 +529,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T2.1, T2.2 | LoginPage.tsx كان ملفاً واحداً responsive (مخالفة صريحة لقاعدة الملفين) وزر الدخول لم يكن يتغيّر لونه بالدور إطلاقاً رغم أنه معيار القبول. قسمتها لـLoginPageDesktop/Mobile.tsx + useLoginForm.ts المشترك + useMediaQuery hook جديد. **ملاحظة مهمة للمراحل القادمة**: لم أتحقق بعد إن كانت صفحات أخرى موجودة (AgentDashboard وغيرها) تعاني نفس مخالفة "ملف responsive وحيد" — يجب فحص كل صفحة عند الوصول لمهامها (T3+) والانقسام إن لزم، بنفس نمط useLoginForm/useMediaQuery. |
 | 2026-07-05 | T3.1 | تأكدت الملاحظة السابقة: AgentDashboard.tsx كان نفس مخالفة LoginPage (ملف واحد responsive + ثيم CSS-variables قديم)، قسمته لنفس نمط Desktop/Mobile/switcher + useAgentDashboardData.ts مشترك. Kanban صار يستخدم StatusPill المشترك (تطابق حرفي بين حالات RFQ وتصنيف CLAUDE.md). قسم الريلز الجديد صادق: لا يوجد backend لعدّاد RFQ لكل لقطة بالمشروع كله، فاستُخدم نفس نهج ReelsStudioPage (منتجات كتالوج حقيقية + rfqCount=0 + تنويه أصفر) بدل اختلاق أرقام. AgentDashboardMobile.tsx حالياً نقل حرفي للتطبيق القديم فقط (بديل مؤقت) — إعادة بنائه الفعلية هي T3.2. 91/91 اختبار ناجح (تعطّل التوازي الافتراضي بسبب بيئة العمل — نجح بـ`--no-file-parallelism`)، tsc نظيف، dev server يعمل بلا أخطاء. |
 | 2026-07-05 | T3.2 | أعدت بناء AgentDashboardMobile.tsx بالكامل مطابقاً لـsupplier-home-mobile.html (تحقّق بصري عبر Playwright screenshot لأن ملف الـHTML المرجعي حزمة JS مصغّرة). صار يستخدم StatusPill/StatCard/ReelTile المشتركة بدل الأنماط المحلية، 3 KPI فقط (لا 4)، شريط "تنتظر ردّك" بخلفية supplier-900، ونفس نهج الريلز الصادق (rfqCount=0 حقيقي، لا تلفيق لتقييم "4.8" الذي بالمرجع). عدّلت AgentDashboard.switcher.test.tsx لأن نقطة تفريقه القديمة (غياب قسم الريلز بالموبايل) لم تعد صحيحة بعد بناء الريلز الحقيقي — بدّلتها لغياب زر "+ طلب جديد" الحصري بالديسكتوب. 101/101 اختبار ناجح، tsc نظيف، Vite يترجم الملف بلا أخطاء. **نهاية المرحلة 3.** |
+| 2026-07-05 | T4.1 | ClientDashboard.tsx كان نفس مخالفة LoginPage/AgentDashboard (ملف واحد responsive) لكن بمحتوى مختلف كلياً عن المرجع/المواصفة (بطاقة تكلفة هبوط + نموذج RFQ سريع، بلا 4 KPI ولا قسم "جديد اليوم من المصانع"). قسمته لنفس نمط Desktop/Mobile/switcher + useClientDashboardData.ts مشترك. الـ4 KPI والريلز وقائمة الطلبات كلها بيانات حقيقية مشتقة (لا أرقام ملفّقة) — راجع تفاصيل الحساب تحت T4.1 أعلاه. ClientDashboardMobile.tsx حالياً نقل حرفي للملف القديم (بديل مؤقت) — إعادة بنائه الفعلية هي T4.2. لا يوجد backend/DB في هذه البيئة (بلا docker) فتعذّر تسجيل دخول حي؛ تحقّق بصري عبر Playwright screenshot لـimporter-home-desktop/mobile.html + فحص curl لتحويل Vite بلا أخطاء. 101/101 اختبار ناجح، tsc نظيف. |
 
