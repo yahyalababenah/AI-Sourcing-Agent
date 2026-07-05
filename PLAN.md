@@ -248,11 +248,39 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 
 > المرجع: `supplier-home-desktop.html` / `supplier-home-mobile.html`.
 
-- [ ] **T3.1 — الديسكتوب**: Sidebar(agent) + ترحيب/تاريخ + شريط
+- [x] **T3.1 — الديسكتوب**: Sidebar(agent) + ترحيب/تاريخ + شريط
   "طلبات تنتظر ردّك" (supplier-600، بطاقات واردة، زر أبيض، رسالة
   الضغط الزمني) + 4 KPI + لوحة Kanban بأربعة أعمدة (StatusPill
   للنقاط) + "أستوديو لقطات المصنع" (زر رفع + شبكة، تحت كل مقطع:
   مشاهدات باهتة + "N طلب سعر" supplier-600 بارز).
+  - `AgentDashboard.tsx` كان ملفاً واحداً responsive (308 سطر) —
+    مخالفة مباشرة لقاعدة CLAUDE.md الرابعة، ونمط CSS-variables قديم
+    (`var(--surface)`...) بدل توكنز slate/supplier، وKanban محلي لا
+    يستخدم `StatusPill` المشترك، وبلا شريط "تنتظر ردّك" ولا أستوديو
+    لقطات إطلاقاً. قُسّم على نمط LoginPage تماماً:
+    `AgentDashboard.tsx` (مبدّل رفيع عبر `useMediaQuery`) +
+    `AgentDashboardDesktop.tsx` (البناء الفعلي الجديد) +
+    `AgentDashboardMobile.tsx` (نقل حرفي للتطبيق القديم، بديل مؤقت
+    لحين T3.2 الحقيقية). استُخرج منطق الجلب المشترك (RFQs/إحصاءات/
+    عروض مقبولة/منتجات) إلى `useAgentDashboardData.ts` ليشترك فيه
+    الملفان بلا تكرار.
+  - Kanban الجديد يستخدم `StatusPill` مباشرة لعناوين الأعمدة — حالات
+    الطلب (`open/processing/quoted/closed`) تطابق حرفياً تصنيف
+    CLAUDE.md (`pending/under_review/negotiating/completed`).
+  - قسم الريلز: لا يوجد أي backend لعدّاد RFQ لكل لقطة في المشروع
+    كله (تحقّقت من ذلك) — بدل اختلاق أرقام، اتُّبع نفس نهج
+    `ReelsStudioPage.tsx` الصادق: يعرض منتجات حقيقية من
+    `catalogService` عبر `ReelTile` المشترك مع `rfqCount={0}` صريح
+    + تنويه أصفر "رفع الفيديو غير متاح بعد" (نفس نص الصفحة الأخرى).
+  - قبول: تحقّق فعلي — `AgentDashboardDesktop.test.tsx` (5 اختبارات:
+    KPI، شريط تنتظر ردّك يظهر/يختفي بشرط، Kanban بأعمدة StatusPill
+    الأربعة، تنويه الريلز + عدّاد صفر صادق) و
+    `AgentDashboard.switcher.test.tsx` (2 اختبار يتحققان من اختيار
+    الملف الصحيح حسب `matchMedia`). `npx tsc --noEmit` نظيف،
+    91/91 اختبار ناجح بالمشروع كاملاً (تعطّل تشغيل الاختبارات
+    بالتوازي الافتراضي بسبب قيود بيئة العمل — أعيد التشغيل بـ
+    `--no-file-parallelism` بنجاح). `npm run dev` (منفذ بديل) يعمل
+    بلا أخطاء console. ✅
 - [ ] **T3.2 — الموبايل**: TopBar + 3 KPI + شريط الواردة + Kanban
   أفقي scrollable (بطاقات 150px) + الأستوديو + BottomNav + Drawer.
   - commit.
@@ -445,4 +473,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T1.6 | بنيت EmptyState/Skeleton من الصفر (8 صفحات لديها نسخ يدوية مكررة بنفس النمط تقريباً). دمج الصفحات القائمة مؤجّل لـT10.3 كما هو مخطط أصلاً. |
 | 2026-07-05 | T1.7 | أهم إصلاح: MobileDrawer كان يظهر/يختفي فجأة بلا انتقال (return null) — أعدت بناءه بانزلاق CSS فعلي 200ms. أضفت active:scale-[0.98] لكل الأزرار الناقصة له، وقاعدة prefers-reduced-motion عامة. نهاية المرحلة 1 — كل مهام T1.x مكتملة. |
 | 2026-07-05 | T2.1, T2.2 | LoginPage.tsx كان ملفاً واحداً responsive (مخالفة صريحة لقاعدة الملفين) وزر الدخول لم يكن يتغيّر لونه بالدور إطلاقاً رغم أنه معيار القبول. قسمتها لـLoginPageDesktop/Mobile.tsx + useLoginForm.ts المشترك + useMediaQuery hook جديد. **ملاحظة مهمة للمراحل القادمة**: لم أتحقق بعد إن كانت صفحات أخرى موجودة (AgentDashboard وغيرها) تعاني نفس مخالفة "ملف responsive وحيد" — يجب فحص كل صفحة عند الوصول لمهامها (T3+) والانقسام إن لزم، بنفس نمط useLoginForm/useMediaQuery. |
+| 2026-07-05 | T3.1 | تأكدت الملاحظة السابقة: AgentDashboard.tsx كان نفس مخالفة LoginPage (ملف واحد responsive + ثيم CSS-variables قديم)، قسمته لنفس نمط Desktop/Mobile/switcher + useAgentDashboardData.ts مشترك. Kanban صار يستخدم StatusPill المشترك (تطابق حرفي بين حالات RFQ وتصنيف CLAUDE.md). قسم الريلز الجديد صادق: لا يوجد backend لعدّاد RFQ لكل لقطة بالمشروع كله، فاستُخدم نفس نهج ReelsStudioPage (منتجات كتالوج حقيقية + rfqCount=0 + تنويه أصفر) بدل اختلاق أرقام. AgentDashboardMobile.tsx حالياً نقل حرفي للتطبيق القديم فقط (بديل مؤقت) — إعادة بنائه الفعلية هي T3.2. 91/91 اختبار ناجح (تعطّل التوازي الافتراضي بسبب بيئة العمل — نجح بـ`--no-file-parallelism`)، tsc نظيف، dev server يعمل بلا أخطاء. |
 
