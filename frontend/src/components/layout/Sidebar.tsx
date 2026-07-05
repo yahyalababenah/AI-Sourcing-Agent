@@ -24,7 +24,7 @@ const AGENT_NAV: NavItem[] = [
   { to: ROUTES.RFQ.SUPPLIER_INBOX,   labelKey: "nav.incomingClientRequests",icon: Users },
   { to: ROUTES.CATALOG.MARKETPLACE,  labelKey: "nav.marketplace",           icon: Store },
   { to: ROUTES.SUPPLIER.MY_PRODUCTS, labelKey: "nav.myProducts",            icon: Package },
-  { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.myProducts",            icon: ClipboardCheck },
+  { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.productReview",         icon: ClipboardCheck },
   { to: ROUTES.PRICING.CALCULATE,    labelKey: "nav.calculator",            icon: Calculator },
   { to: ROUTES.QUOTES.LIST,          labelKey: "nav.quotes",                icon: FileText },
   { to: ROUTES.ORDERS.LIST,          labelKey: "nav.shipmentTracking",      icon: Truck },
@@ -56,7 +56,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   admin: ADMIN_NAV,
 };
 
-// Active-state accent per role — supplier(green)/importer(indigo)/slate(admin).
+// Active-state accent per role — supplier(green)/importer(navy blue)/slate(admin).
 const ACCENT_BY_ROLE: Record<UserRole, { text: string; bg: string }> = {
   agent:  { text: "text-supplier-600", bg: "bg-supplier-50" },
   client: { text: "text-importer-600", bg: "bg-importer-50" },
