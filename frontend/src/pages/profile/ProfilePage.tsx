@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { API } from "@/constants/api";
 import { stringToColor } from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
 import { Loader2, Save, User, Building2, Package } from "lucide-react";
+import { ClientProfilePage } from "./ClientProfilePage";
 
 interface ProfileData {
   id: string;
@@ -25,7 +27,17 @@ async function patchMe(data: Record<string, string | null>): Promise<ProfileData
   return res.data;
 }
 
+// Role gateway for the shared /profile route: importers get the new
+// showcase page (T7.1, ClientProfilePage — cover, stats, saved/follow list).
+// Agents/admins still get this legacy settings-style form below until T7.2
+// (supplier profile showcase) replaces it.
 export function ProfilePage() {
+  const role = useAuthStore((s) => s.role);
+  if (role === "client") return <ClientProfilePage />;
+  return <LegacyProfileForm />;
+}
+
+function LegacyProfileForm() {
   const qc = useQueryClient();
 
   const { data: user, isLoading } = useQuery<ProfileData>({
