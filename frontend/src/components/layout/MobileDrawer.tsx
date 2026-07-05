@@ -30,7 +30,7 @@ export function MobileDrawer({ role }: MobileDrawerProps) {
       <div
         dir="rtl"
         aria-hidden={!drawerOpen}
-        className={`fixed top-0 end-0 bottom-0 w-[270px] z-50 flex flex-col bg-white shadow-xl lg:hidden relative transition-transform duration-200 ease-out ${
+        className={`fixed top-0 start-0 bottom-0 w-[270px] z-50 flex flex-col bg-white shadow-xl lg:hidden relative transition-transform duration-200 ease-out ${
           drawerOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         }`}
       >

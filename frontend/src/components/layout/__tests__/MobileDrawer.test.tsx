@@ -15,7 +15,7 @@ describe("MobileDrawer", () => {
     useUIStore.setState({ drawerOpen: false });
     const { container } = renderWithProviders(<MobileDrawer role="agent" />);
 
-    const drawer = container.querySelector(".end-0")!;
+    const drawer = container.querySelector(".start-0")!;
     expect(drawer).toHaveClass("translate-x-full", "pointer-events-none");
     expect(drawer).toHaveAttribute("aria-hidden", "true");
 
@@ -27,7 +27,7 @@ describe("MobileDrawer", () => {
     useUIStore.setState({ drawerOpen: true });
     const { container } = renderWithProviders(<MobileDrawer role="agent" />);
 
-    const drawer = container.querySelector(".end-0")!;
+    const drawer = container.querySelector(".start-0")!;
     expect(drawer).toHaveClass("translate-x-0");
     expect(drawer).toHaveAttribute("aria-hidden", "false");
 
@@ -66,5 +66,13 @@ describe("MobileDrawer", () => {
 
     fireEvent.click(screen.getByText("السوق العالمي"));
     expect(useUIStore.getState().drawerOpen).toBe(false);
+  });
+
+  it("docks to the inline-start edge, which is the physical right side under the app's dir=\"rtl\" (not `end-*`, which resolves to the left in RTL and would open the drawer from the wrong side)", () => {
+    useUIStore.setState({ drawerOpen: true });
+    const { container } = renderWithProviders(<MobileDrawer role="agent" />);
+
+    const drawer = container.querySelector(".start-0")!;
+    expect(drawer).not.toHaveClass("end-0");
   });
 });
