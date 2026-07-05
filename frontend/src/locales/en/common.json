@@ -29,6 +29,7 @@
     "error": "Something went wrong",
     "retry": "Retry",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   }
 }

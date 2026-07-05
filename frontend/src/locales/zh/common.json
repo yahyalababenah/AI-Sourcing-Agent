@@ -29,6 +29,7 @@
     "error": "出现错误",
     "retry": "重试",
     "save": "保存",
-    "cancel": "取消"
+    "cancel": "取消",
+    "close": "关闭"
   }
 }
