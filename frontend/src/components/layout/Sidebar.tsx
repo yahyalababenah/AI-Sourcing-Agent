@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  LayoutDashboard, ClipboardList, PlusCircle, Users, Store, Package,
+  LayoutDashboard, ClipboardList, PlusCircle, Users, Store, Package, Upload,
   ClipboardCheck, FileText, Calculator, Truck, MessageCircle, Clapperboard,
   Globe, Activity, ShieldCheck, DollarSign, ReceiptText, Settings, UserCircle,
   type LucideIcon,
@@ -25,6 +25,7 @@ const AGENT_NAV: NavItem[] = [
   { to: ROUTES.RFQ.SUPPLIER_INBOX,   labelKey: "nav.incomingClientRequests",icon: Users },
   { to: ROUTES.CATALOG.MARKETPLACE,  labelKey: "nav.marketplace",           icon: Store },
   { to: ROUTES.SUPPLIER.MY_PRODUCTS, labelKey: "nav.myProducts",            icon: Package },
+  { to: ROUTES.DOCUMENTS.UPLOAD,     labelKey: "nav.uploadDocument",        icon: Upload },
   { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.productReview",         icon: ClipboardCheck },
   { to: ROUTES.PRICING.CALCULATE,    labelKey: "nav.calculator",            icon: Calculator },
   { to: ROUTES.QUOTES.LIST,          labelKey: "nav.quotes",                icon: FileText },
