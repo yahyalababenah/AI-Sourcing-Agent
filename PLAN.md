@@ -1008,9 +1008,56 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     فحص curl عبر Vite dev server لكل الملفات الجديدة/المعدَّلة يعيد 200
     بلا أخطاء تحويل، لا hex يدوية/indigo/CSS-variables قديمة بالملفات
     الجديدة. **نهاية المرحلة 8 جزئياً — T8.6/T8.7 متبقيتان.** ✅
-- [ ] **T8.6 — المحادثات**: قائمة غرف + نافذة رسائل، فقاعات
+- [x] **T8.6 — المحادثات**: قائمة غرف + نافذة رسائل، فقاعات
   المستخدم الحالي بلون دوره، زر مرفق "أرسل عرض سعر" داخل المحادثة
   (يربط الشات بالـRFQ — كل محادثة تقود لصفقة).
+  - `ChatRoomListPage.tsx` (`/chat`) و`ChatRoomDetailPage.tsx` (`/chat/:id`،
+    بلا `RoleGuard` — كل الأدوار المسجَّلة) كانا صفحتين حقيقيتين وظيفيتين
+    فعلاً (قائمة غرف حقيقية + نافذة رسائل بـSSE حي عبر `useRoomSSE`
+    محلي — fetch/ReadableStream مع إعادة اتصال تلقائية، إرسال رسائل
+    فعلي) — ليستا stub، لكن مخالفة صريحة لقاعدة الملفين، بثيم قديم
+    `primary-*`/`gray-*`، **وفقاعة المستخدم الحالي بلون ثابت واحد
+    (`primary-600`) بغضّ النظر عن دوره** (مخالفة مباشرة لنص المهمة)،
+    **وبلا أي زر "أرسل عرض سعر"** رغم أن `ChatRoom.rfq_id` حقل حقيقي
+    مُعرَّف بالنوع (بعكس فجوات `tracking_status`/`verification_status`
+    بمراحل سابقة) ويُعرَض بالفعل بعنوان المحادثة — الربط بالـRFQ موجود،
+    فقط بلا فعل ينتقل به لصفقة.
+  - قسمت كل صفحة بنفس نمط كل المراحل: `useChatRoomListData.ts` +
+    `ChatRoomListPageDesktop.tsx` (شبكة عمودين أوسع) +
+    `ChatRoomListPageMobile.tsx` (قائمة عمود واحد، مطابقة تقريباً
+    للسلوك القديم) + مبدّل `ChatRoomListPage.tsx`؛ و`useChatRoomDetailData.ts`
+    (كل منطق الجلب/SSE/الإرسال المشترك، خُطاف `useRoomSSE` انتقل معه
+    حرفياً) + `ChatMessageBubble.tsx` (فقاعة مشتركة) +
+    `ChatRoomDetailPageDesktop.tsx` (عمود أعرض `max-w-4xl` ببطاقة) +
+    `ChatRoomDetailPageMobile.tsx` (ملء الشاشة كالسابق تقريباً) + مبدّل
+    `ChatRoomDetailPage.tsx`. لا يوجد مرجع `chat-*.html` لهذه المرحلة
+    (كسائر مهام المرحلة 8) — الفرق بين الملفين تباعد/عرض فقط، لا
+    إعادة تخطيط بنيوية، لغياب أي مرجع بصري يفرض ذلك.
+  - **فقاعة الدور**: خريطة جديدة `SELF_BUBBLE_CLASSES` في
+    `useChatRoomDetailData.ts` (`agent→supplier-600`, `client→importer-600`,
+    `admin→slate-700`) — فقاعات *المستخدم الحالي فقط* تتلوّن بدوره هو
+    (وليس دور الطرف الآخر)، بنفس منطق `ROLE_IN_PROGRESS_CLASSES` بمكوّن
+    `StatusPill`. فقاعة الطرف الآخر تبقى محايدة (أبيض/حدود slate).
+  - **"أرسل عرض سعر"**: زر جديد بترويسة المحادثة، يظهر فقط عندما
+    `room.rfq_id` حقيقي موجود **و** دور المستخدم الحالي `agent`/`admin`
+    (`ROUTES.RFQ.BUILD_QUOTE` نفسه محصور بهذين الدورين بالراوتر —
+    لا معنى لعميل يبني عرض سعر). ينتقل لـ`ROUTES.RFQ.BUILD_QUOTE(rfq_id)`
+    (بانٍ عروض حقيقي موجود أصلاً منذ T8.2، لا صفحة جديدة). لا زر مزيَّف
+    حين لا يوجد `rfq_id` فعلي بالغرفة.
+  - قبول: تحقّق فعلي — كل الاختبارات الستة القديمة لـ`ChatRoomDetailPage`
+    (تحميل رسائل، SSE حي، إزالة تكرار، إرسال، خطأ تحميل، إعادة اتصال)
+    استمرت بالنجاح دون أي تعديل (تعمل ضد Mobile افتراضياً عبر المبدّل).
+    2 اختبار (`ChatRoomDetailPage.switcher.test.tsx`): عمود أعرض بالديسكتوب
+    (`max-w-4xl`)، غيابه بالموبايل. 3 اختبارات جديدة
+    (`ChatRoomDetailPageMobile.test.tsx`): فقاعة المندوب الحالي تتلوّن
+    `bg-supplier-600` فعلياً، زر "أرسل عرض سعر" يظهر للمندوب حين توجد
+    `rfq_id` حقيقية، ويختفي للعميل رغم وجود نفس الربط. 2 اختبار
+    (`ChatRoomListPage.switcher.test.tsx`): شبكة عمودين بالديسكتوب،
+    عمود واحد بالموبايل. `npx tsc --noEmit` نظيف، 192/192 اختبار ناجح
+    بالمشروع كاملاً (`--no-file-parallelism`)، فحص curl عبر Vite dev
+    server لكل الملفات الجديدة/المعدَّلة يعيد 200 بلا أخطاء تحويل، لا
+    `primary-*`/`gray-*`/indigo ولا `text-left/right` ثابتة بالملفات
+    الجديدة. ✅
 - [ ] **T8.7 — تتبّع الشحنات**: خط زمني عمودي (تم الشحن → في البحر
   → وصل الميناء → التخليص → التسليم) بنقاط ملوّنة وحالة نشطة.
   - commit بعد كل صفحة.
@@ -1115,4 +1162,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-06 | T8.3 | QuotationListPage.tsx (`/quotes`، بلا RoleGuard) كان جدولاً واحداً وظيفياً حقيقياً غير مقسّم Desktop/Mobile، بثيم قديم primary-*/gray-*، وبشارات حالة يدوية بدل StatusPill المشترك كما يطلب النص. اكتشفت فجوة حقيقية: حالات العرض الفعلية (draft/pending/finalized/sent/accepted/rejected) لا تملك مقابل "مرفوض" في OrderStatus — أضفت قيمة rejected جديدة لـStatusPill.tsx (إضافة توافقية للخلف، كل الاختبارات القديمة استمرت + اختبار جديد). بنيت useQuotationListData.ts (خطاف مشترك: الجلب + quoteStatusPill/quoteTrackingStatus/TRACKING_LABELS) + QuotationListPageDesktop.tsx (جدول supplier-*/slate-* بـStatusPill/EmptyState/Skeleton) + QuotationListPageMobile.tsx (بطاقات مكدّسة بدل جدول عريض) + بوابة دور بـQuotationListPage.tsx: agent → الجديد، بقية الأدوار → LegacyQuotationList القديم كما هو (لحين T8.4 التي تبني واجهة المستورد على نفس الراوت). أبقيت (q as any).tracking_status كما هو (نفس نمط QuotationDetailPage/OrdersListPage، تصحيح النوع خارج نطاق المهمة). 173/173 اختبار ناجح (`--no-file-parallelism`، 9 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200، لا primary-*/gray-*/indigo أو text-left/right ثابتة بالملفات الجديدة (الجدول القديم يحتفظ بـtext-right عمداً — كود غير مُلمَّس). |
 | 2026-07-06 | T8.4 | صحّحت افتراضاً خاطئاً من T8.3 (تعليقاتي فيه ادّعت أن T8.4 ستبني واجهة المستورد على /quotes) — الفحص الفعلي لـSidebar.tsx أظهر أن عنصر "طلباتي" بقائمة العميل يؤدي لراوت مختلف تماماً: ROUTES.RFQ.LIST (/rfq)، نفس الراوت الذي يستخدمه المندوب كـ"طلبات الشراء". صحّحت التعليقات المضلِّلة في ملفات quotes. RFQListPage.tsx كان جدولاً واحداً مشتركاً حرفياً بين المندوب والعميل، بثيم قديم وبلا أي عمود قيمة عرض. بنيت useClientRfqListData.ts (فلاتر/ترقيم + quotesByRfq، نفس نمط الدمج الدفعي من useClientDashboardData T4.1 + خريطة rfqStatusPill بنفس تخطيط لوحة العميل + cancelled→rejected جديد) + RFQListPageDesktop.tsx (عمود "قيمة العرض" جديد + StatusPill + EmptyState/Skeleton) + RFQListPageMobile.tsx (بطاقات + فلاتر أفقية) + بوابة دور: client → الجديد، بقية الأدوار → LegacyRFQList كما هو (المندوب ما زال يرى نفس الجدول القديم لـ"طلبات الشراء"، خارج نطاق هذه المهمة). 181/181 اختبار ناجح (`--no-file-parallelism`، 8 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200. **نهاية المرحلة 8 جزئياً — T8.5 إلى T8.7 متبقية.** |
 | 2026-07-06 | T8.5 | MarketplacePage.tsx (694 سطر) كان صفحة حقيقية وظيفية (بحث/فلاتر/RfqModal بتقدير تكلفة حي وإنشاء RFQ فعلي) لكن ملفاً واحداً بثيم CSS-variables قديم وhex يدوية، وبيانات مُلفَّقة صريحة: isVerified=true ثابت لكل منتج (تعليق "demo" بالكود)، تقييم نجوم Math.random() غير حتمي، شارات CE/ISO وهمية، صورة placeholder باسم/أبعاد مزيّفة، وشريط فلاتر زخرفي بلا onClick فعلي. فحصت CatalogProduct/catalogService فعلياً: لا image_url ولا verification_status ولا country_of_origin (ولا معامل بحث لها) — حذفت فلتر "بلد المنشأ" عمداً (قيمته الوحيدة "الصين" دائماً بمرحلة المشروع الحالية، لا تصفية حقيقية) بدل اختلاقه، وأزلت كل البيانات المزيّفة (لا verified badge/rating/certs) بدل نقلها كما هي. قسمت الملف لـuseMarketplaceData.ts + MarketplaceProductCard.tsx (بطاقة صادقة) + MarketplaceRfqModal.tsx (نفس منطق RfqModal الحقيقي، إعادة تلوين فقط) + MarketplacePageDesktop.tsx (سايدبار فلاتر دائم + شرائح فلترة نشطة حقيقية تحل محل الزخرفية) + MarketplacePageMobile.tsx (overlay فلاتر) + مبدّل MarketplacePage.tsx (بلا تفريع دور، محتوى مطابق للأدوار الثلاثة). أصلحت أيضاً CatalogFilters.tsx نفسه الذي كان يخالف قاعدة الملفين داخلياً (hidden lg:block/lg:hidden) بإضافة variant sidebar/overlay. كل الاختبارات الثمانية القديمة استمرت بالنجاح دون تعديل (تعمل ضد Mobile افتراضياً عبر المبدّل). 185/185 اختبار ناجح (`--no-file-parallelism`، 4 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200. **نهاية المرحلة 8 جزئياً — T8.6/T8.7 متبقيتان.** |
+| 2026-07-06 | T8.6 | ChatRoomListPage.tsx/ChatRoomDetailPage.tsx كانا صفحتين حقيقيتين وظيفيتين (قائمة غرف + نافذة رسائل بـSSE حي فعلي، إرسال رسائل حقيقي) لكن ملفين غير مقسّمين، بثيم primary-*/gray-* قديم، وفقاعة المستخدم الحالي بلون ثابت واحد بغضّ النظر عن دوره (مخالفة مباشرة لنص المهمة)، وبلا أي زر "أرسل عرض سعر" رغم أن ChatRoom.rfq_id حقل حقيقي مُعرَّف بالنوع ويُعرَض بالفعل بعنوان المحادثة. قسمت كل صفحة: useChatRoomListData.ts + ChatRoomListPageDesktop/Mobile.tsx + مبدّل، وuseChatRoomDetailData.ts (منطق SSE/الجلب/الإرسال المشترك) + ChatMessageBubble.tsx + ChatRoomDetailPageDesktop/Mobile.tsx + مبدّل. أضفت SELF_BUBBLE_CLASSES (agent→supplier-600, client→importer-600, admin→slate-700) لتلوين فقاعات المستخدم الحالي بدوره فقط، وزر "أرسل عرض سعر" بترويسة المحادثة يظهر فقط لمندوب/أدمن حين توجد rfq_id حقيقية بالغرفة، ينتقل لـROUTES.RFQ.BUILD_QUOTE الموجود أصلاً منذ T8.2. كل الاختبارات الستة القديمة لـChatRoomDetailPage استمرت بالنجاح دون تعديل. 192/192 اختبار ناجح (`--no-file-parallelism`، 7 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200. **نهاية المرحلة 8 جزئياً — T8.7 متبقية.** |
 
