@@ -17,7 +17,7 @@ export function ProductsInputTable({ products, productInputs, setProductInputs }
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full text-right">
+        <table className="w-full text-end">
           <thead className="border-b border-slate-100 bg-slate-50">
             <tr>
               <th className="px-4 py-3 text-xs font-medium text-slate-500">المنتج</th>

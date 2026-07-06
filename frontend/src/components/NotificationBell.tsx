@@ -70,7 +70,7 @@ export function NotificationBell() {
                 <button
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
-                  className={`w-full border-b border-gray-50 px-4 py-3 text-right transition-colors last:border-0 hover:bg-gray-50 ${
+                  className={`w-full border-b border-gray-50 px-4 py-3 text-end transition-colors last:border-0 hover:bg-gray-50 ${
                     !n.read ? "bg-primary-50/40" : ""
                   }`}
                 >

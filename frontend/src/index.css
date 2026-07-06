@@ -13,52 +13,14 @@
   --text-1:             #1a2433;
   --text-2:             #5a7088;
   --text-3:             #8a9aaa;
-  --text-dim:           #2a3a4a;
   --text-4:             #6a7a8a;
-  --hover-bg:           rgba(0, 0, 0, 0.04);
   --accent-surface:     #ecfdf5;
   --accent-border:      #a7f3d0;
-  --accent-surface-deep:#d1fae5;
   --amber-surface:      #fef3c7;
   --amber-border:       #fde68a;
   --amber-surface-2:    #fffbeb;
   --error-surface:      #fee2e2;
   --error-border:       #fca5a5;
-  --avatar-bg:          #dbeafe;
-  --avatar-text:        #1e40af;
-  --sidebar-bg:         #1e293b;
-  --sidebar-text:       #f1f5f9;
-  --sidebar-muted:      #94a3b8;
-  --sidebar-border:     rgba(255,255,255,0.06);
-}
-
-html.dark {
-  /* Dark mode */
-  --app-bg:             #111518;
-  --surface:            #161b21;
-  --surface-2:          #1a1f26;
-  --surface-3:          #252c34;
-  --border:             #252c34;
-  --text-1:             #dde8f5;
-  --text-2:             #5a7088;
-  --text-3:             #3d5570;
-  --text-dim:           #c8d8e8;
-  --text-4:             #7a91a8;
-  --hover-bg:           rgba(255, 255, 255, 0.05);
-  --accent-surface:     #0d2a1f;
-  --accent-border:      #1a4030;
-  --accent-surface-deep:#0a1910;
-  --amber-surface:      #2a1f08;
-  --amber-border:       #3a2810;
-  --amber-surface-2:    #1a1508;
-  --error-surface:      #1e0f0f;
-  --error-border:       #3a1818;
-  --avatar-bg:          #1e3a5f;
-  --avatar-text:        #7aabdd;
-  --sidebar-bg:         #0f172a;
-  --sidebar-text:       #f1f5f9;
-  --sidebar-muted:      #64748b;
-  --sidebar-border:     rgba(255,255,255,0.05);
 }
 
 @layer base {
@@ -123,14 +85,6 @@ html.dark {
     100% { background-position: 0% 50%; }
   }
 
-  .dir-rtl {
-    direction: rtl;
-  }
-
-  .dir-ltr {
-    direction: ltr;
-  }
-
   /* Respect prefers-reduced-motion globally (CLAUDE.md motion rules) —
      collapse all transitions/animations to instant for users who ask for it. */
   @media (prefers-reduced-motion: reduce) {
@@ -144,73 +98,9 @@ html.dark {
 }
 
 @layer components {
-  /* ── Sidebar nav links ── */
-  .sidebar-link {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 border-s-2;
-  }
-
-  .sidebar-link-active {
-    background: var(--accent-surface);
-    color: #059669;
-    border-color: #059669;
-  }
-
-  html.dark .sidebar-link-active {
-    color: #34d399;
-    border-color: #34d399;
-  }
-
-  .sidebar-link-inactive {
-    color: var(--sidebar-muted);
-    border-color: transparent;
-  }
-
-  .sidebar-link-inactive:hover {
-    background: var(--hover-bg);
-    color: var(--sidebar-text);
-  }
-
-  /* ── Page typography ── */
-  .page-title {
-    @apply text-2xl font-bold text-slate-900 tracking-tight;
-  }
-
   /* ── Cards ── */
   .card {
     @apply rounded-xl border border-slate-200/80 bg-white shadow-sm;
-  }
-
-  .card-header {
-    @apply border-b border-slate-100 px-6 py-4;
-  }
-
-  .card-body {
-    @apply px-6 py-4;
-  }
-
-  /* ── Status badges ── */
-  .status-badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
-  }
-
-  .status-badge-pending {
-    @apply bg-amber-50 text-amber-700 ring-1 ring-amber-200/60;
-  }
-
-  .status-badge-processing {
-    @apply bg-sky-50 text-sky-700 ring-1 ring-sky-200/60;
-  }
-
-  .status-badge-completed {
-    @apply bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60;
-  }
-
-  .status-badge-failed {
-    @apply bg-red-50 text-red-700 ring-1 ring-red-200/60;
-  }
-
-  .status-badge-cancelled {
-    @apply bg-slate-100 text-slate-600 ring-1 ring-slate-200/60;
   }
 
   /* ── Form controls ── */

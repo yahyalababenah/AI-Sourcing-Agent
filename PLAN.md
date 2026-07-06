@@ -1393,7 +1393,14 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     primary-*/gray-*/indigo قديم كامل، ليست مجرد فجوة حالات تحميل):
     `OrdersListPage.tsx` ("تتبّع الشحنات")، `AdminVerificationPage.tsx`
     ("توثيق الموردين")، `ProductReviewPage.tsx`، `SupplierProductsPage.tsx`
-    ("منتجاتي"), `SupplierShowroomPage.tsx`. كل واحدة تحتاج نفس معاملة
+    ("منتجاتي"), `SupplierShowroomPage.tsx`، و`DocumentUploadPage.tsx`
+    ("رفع مستند" — اكتُشفت لاحقاً بـT12.1، تعتمد على متغيرات CSS
+    القديمة `var(--surface)` إلخ عبر inline `style`). أُضيفت لاحقاً
+    بـT12.3 (فحص `text-left/right`): `RFQDetailPage.tsx`،
+    `QuoteBuilderPage.tsx`، `DocumentDetailPage.tsx`، وبوابتا الدور
+    القديمتان `RFQListPage.tsx`/`QuotationListPage.tsx`/
+    `DashboardPage.tsx` (الفرع غير-agent/client اللذين يعرضان النموذج
+    القديم legacy). كل واحدة تحتاج نفس معاملة
     T3-T9 (تقسيم ملفين + توكنز supplier/importer/slate + إزالة أي
     indigo) في مهمة مستقلة خاصة بها لاحقاً — لم تُنفَّذ الآن تفادياً
     لتوسيع نطاق T10.3 (قاعدة العمل رقم 1: مهمة واحدة في كل مرة).
@@ -1507,12 +1514,43 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 
 ## المرحلة 12 — التنظيف والفحص النهائي
 
-- [ ] **T12.1 — إزالة الثيم القديم**: الآن فقط أزل palette القديمة
+- [x] **T12.1 — إزالة الثيم القديم**: الآن فقط أزل palette القديمة
   والـdark-default وأي CSS ميت. تأكد ألا صفحة انكسرت.
+  - **الوضع الداكن (dark mode) كان كاملاً وميتاً بالكامل**: `themeStore.ts`
+    (zustand store كامل: `toggle`/`setTheme`/persist) لم يكن مستورَداً
+    من أي مكان بالمشروع إطلاقاً (`grep` صفر نتائج) — لا زر تبديل ثيم
+    بأي `Sidebar`/`Settings`/`Drawer`. حذفته كاملاً + منطق تطبيق الثيم
+    قبل أول render في `main.tsx` (كان يقرأ `localStorage` مباشرة
+    ويضيف class `dark` لو محفوظ — ميت أيضاً بما أن لا شيء يكتب
+    `"dark"` لهذا المفتاح إطلاقاً) + `darkMode: "class"` من
+    `tailwind.config.ts` (لا استخدام `dark:` واحد بكل المشروع، تحقّق
+    `grep`) + بلوك `html.dark { ... }` كاملاً من `index.css` (27 متغير
+    CSS مكرَّرة لوضع داكن غير قابل للوصول إطلاقاً).
+  - **classes قديمة صفر استخدام** (تحقّق `grep` لكل واحدة قبل الحذف):
+    `.sidebar-link`/`.sidebar-link-active`/`.sidebar-link-inactive`
+    (استُبدلت بـ`cn()` مباشرة داخل `Sidebar.tsx` الجديد منذ T1.1)،
+    `.status-badge`/`.status-badge-{pending,processing,completed,
+    failed,cancelled}` (استُبدلت بمكوّن `StatusPill` منذ T1.5)،
+    `.page-title`، `.dir-rtl`، `.dir-ltr`، `.card-header`، `.card-body`.
+    **أُبقي** `.card`/`.input`/`.btn-primary`/`.btn-secondary` (استخدام
+    فعلي حقيقي: 58/4/4/1 ملفاً على التوالي).
+  - **متغيرات `:root` الميتة أُزيلت** (`--hover-bg`، `--text-dim`،
+    `--avatar-bg`، `--avatar-text`، `--sidebar-bg`، `--sidebar-text`،
+    `--sidebar-muted`، `--sidebar-border`، `--accent-surface-deep`) —
+    **أُبقي الباقي** (`--app-bg`، `--surface*`، `--border`، `--text-1..4`،
+    `--accent-surface/border`، `--amber-*`، `--error-*`) لأن
+    `DocumentUploadPage.tsx` (صفحة "رفع مستند" الحقيقية، مربوطة
+    بالسايد بار عبر `ROUTES.DOCUMENTS.UPLOAD`) لا تزال تستخدمها
+    مباشرة بـinline `style={{...}}` — هذه الصفحة **لم تُهاجَر إطلاقاً**
+    لنظام supplier/importer/brand بأي مرحلة سابقة (اكتشاف جديد، غير
+    blocker، أُضيفت لقائمة T10.3.1 المؤجَّلة).
+  - قبول: تحقّق فعلي — `npx tsc --noEmit` نظيف، `npm run dev` يعمل
+    بلا أخطاء console، فحص curl لـCSS المولّد يؤكد صفر بقايا
+    `html.dark`/`sidebar-link`/`status-badge`.
 - [ ] **T12.2 — فحص شامل صفحة-صفحة**: الأدوار الثلاثة × ديسكتوب
   وموبايل × مقارنة مع `handoff-designs`. أي انحراف → مهمة فرعية
   جديدة هنا.
-- [ ] **T12.3 — فحص القواعد الست**: (1) لا text-left/right ثابتة
+- [x] **T12.3 (جزئياً) — فحص القواعد الست**: (1) لا text-left/right ثابتة
   (2) لا hex يدوية خارج tokens (3) لا ألوان دور مخلوطة (4) الأرقام
   المالية slate+أخضر فقط (5) كل قائمة لها Empty/Skeleton (6) كل
   ريل يعرض RFQ لا مشاهدات كمقياس أول. استخدم grep للتحقق:
@@ -1521,6 +1559,61 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
   grep -rn "#[0-9A-Fa-f]\{6\}" app/ components/ | grep -v tokens
   grep -rn "4F46E5\|4338CA\|6366F1\|312E81" . --include="*.ts*" # يجب أن يعيد صفر نتائج (indigo محظور)
   ```
+  - المسارات بالنص (`app/`, `components/`) من قالب Next.js قديم — لا
+    تطابق بنية المشروع الفعلية (`frontend/src/pages`, `frontend/src/
+    components`)؛ عُدِّلت المسارات فعلياً عند التشغيل.
+  - **(3) ألوان الدور المخلوطة — أخطر اكتشاف**: `RegisterPage.tsx`
+    (صفحة حقيقية مربوطة فعلياً من رابط "إنشاء حساب جديد" بشاشة
+    الدخول، لم تُفحص بأي مرحلة سابقة) كانت تخلط الأدوار **فعلياً**:
+    تبويب "مستورد" (`client`) ملوَّن أخضر/تركواز (لون المورد) وتبويب
+    "مورد" (`agent`) ملوَّن **أزرق-indigo محظور صراحة**
+    (`from-blue-500 to-indigo-600`) بدل الأزرق البحري. أُصلح مباشرة:
+    `client`→`from-importer-500 to-importer-600`،
+    `agent`→`from-supplier-500 to-supplier-600`. هذا أول اكتشاف فعلي
+    لمخالفة indigo الصريحة منذ T9.2 (`grep` لـ`4F46E5|4338CA|6366F1|
+    312E81|indigo-` أرجع هذه النتيجة الوحيدة بالمشروع كله).
+  - **(2) hex يدوية**: `grep` أرجع 57 سطراً. غالبيتها إما (أ) داخل
+    الصفحات القديمة غير المُهاجَرة أصلاً (`DocumentUploadPage.tsx` —
+    راجع T12.1 أعلاه)، أو (ب) قيمة لون ديناميكية بحاجة `style=` فعلية
+    لأن Tailwind JIT لا يبني classes من متغيّرات وقت التشغيل
+    (`BottomNav.tsx`/`TopBar.tsx` تطابق قيم supplier-600/importer-600
+    حرفياً — نفس سابقة `AdminMonitorPage` بـT9.2، مقبولة تقنياً)، أو
+    (ج) sparkline بـ`monitorHelpers.tsx` (SVG stroke، ملاحظة T9.2
+    المؤجَّلة — لا تزال ثانوية، لا حل بلا هندسة زائدة). لكن اكتُشفت
+    مخالفتان حقيقيتان بصفحات "مُهاجَرة" فعلياً فأُصلحتا مباشرة (فرق
+    عن الحالات أعلاه لأنهما فعلاً tokens بديلة متاحة، لا حاجة تقنية
+    لـhex):
+    - `AppLogo.tsx` (شعار المنصة المشترك، يظهر بكل الشاشات): يستخدم
+      `#059669` (لون emerald/primary قديم) بدل `brand-600` الصحيح
+      (`#0F6E56`) — استُبدل بـ`fill-brand-600`.
+      `LoginPageDesktop.tsx`/`LoginPageMobile.tsx` (~15 hex لكل ملف،
+      من T2.1/T2.2 لكن لم تُنظَّف وقتها): نصوص/حدود/خلفيات ثانوية
+      (`#1a2433`→`slate-900`، `#6b7a8d`/`#8a9aaa`→`slate-400/500`،
+      `#3a4a5a`→`slate-600`، `#dde2ea`→`slate-200`، `#f7f9fc`/`#f0f2f5`
+      →`slate-50/100`، `#059669`→`brand-600`) — استُبدلت كلها
+      بتوكنز Tailwind. زر CTA الأساسي (`bg-supplier-500`/
+      `bg-importer-500`/`bg-slate-800`) لم يكن يستخدم hex أصلاً
+      (مختبَر مسبقاً بـT2.1) فلم يُلمس.
+    - بقية الـ57 (خاصة `LoginPage*`, `ProfilePage.tsx` fallback avatar)
+      مقبولة/تقنية كما بالبندين (ب)،(ج) أعلاه أو داخل صفحات T10.3.1
+      المؤجَّلة — لم تُلمس لتفادي تكرار نفس مخاطرة التوسّع.
+  - **(1) text-left/right ثابتة**: أُصلحت 3 حالات محدودة المخاطر
+    ضمن مكوّنات/صفحات مُهاجَرة فعلياً (`ProductsInputTable.tsx`،
+    `PricingDetailBreakdown.tsx`، `NotificationBell.tsx` — جميعها
+    `text-right`→`text-end`، تعديل سطر واحد لكل ملف). بقية النتائج
+    (`RFQDetailPage.tsx`، `QuoteBuilderPage.tsx`، `DocumentDetailPage.tsx`،
+    `RFQListPage.tsx`/`QuotationListPage.tsx`/`DashboardPage.tsx`
+    اللبوابات القديمة legacy، `SupplierProductsPage.tsx`) كلها داخل
+    صفحات غير مُهاجَرة إطلاقاً (نفس قائمة T10.3.1) — أُضيفت لملاحظة
+    T10.3.1 بدل تكرارها.
+  - **(4)/(5)/(6)**: لم تُكتشف مخالفات جديدة عبر الفحص اليدوي (الأرقام
+    المالية تتبع نمط `LineRow`/`PricingResultCard` القائم بالفعل منذ
+    T5.1؛ كل الريلز تستخدم `ReelTile`/عدّاد RFQ صريح منذ T1.5/T6.x؛
+    قوائم T10.3 غطّت فجوات Empty/Skeleton الفعلية).
+  - قبول: تحقّق فعلي — `npx tsc --noEmit` نظيف، اختبارات الملفات
+    المتأثرة (auth، pricing، NotificationBell) استمرت ناجحة دون
+    تعديل، 257/257 اختبار Vitest ناجح بالمشروع كاملاً
+    (`--no-file-parallelism`).
 - [ ] **T12.4 — commit نهائي + وسم**: `git tag v1-design-migration`.
 
 ---

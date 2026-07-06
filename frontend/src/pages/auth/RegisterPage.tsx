@@ -21,7 +21,7 @@ const ROLE_TABS: RoleConfig[] = [
     labelEn: "Importer",
     icon: "🛒",
     description: "أريد شراء المنتجات من الصين",
-    color: "from-emerald-500 to-teal-600",
+    color: "from-importer-500 to-importer-600",
   },
   {
     role: "agent",
@@ -29,7 +29,7 @@ const ROLE_TABS: RoleConfig[] = [
     labelEn: "Supplier",
     icon: "🤝",
     description: "أريد تقديم خدمات التوريد",
-    color: "from-blue-500 to-indigo-600",
+    color: "from-supplier-500 to-supplier-600",
   },
 ];
 

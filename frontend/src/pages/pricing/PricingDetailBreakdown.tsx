@@ -18,7 +18,7 @@ export function PricingDetailBreakdown({ result, productInputs }: PricingDetailB
     <div className="card p-6">
       <h3 className="mb-3 text-sm font-semibold text-slate-700">تفاصيل المنتجات</h3>
       <div className="overflow-x-auto">
-        <table className="w-full text-right">
+        <table className="w-full text-end">
           <thead className="border-b border-slate-100 bg-slate-50">
             <tr>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">المنتج</th>
