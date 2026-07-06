@@ -954,9 +954,60 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     `primary-*`/`gray-*`/indigo ولا `text-left/right` ثابتة بالملفات
     الجديدة (`LegacyRFQList` يحتفظ بـ`text-right` القديمة عمداً، كود غير
     مُلمَّس). **نهاية المرحلة 8 جزئياً — T8.5 إلى T8.7 متبقية.** ✅
-- [ ] **T8.5 — السوق العالمي (client + agent)**: شبكة بطاقات
+- [x] **T8.5 — السوق العالمي (client + agent)**: شبكة بطاقات
   (صورة/سعر/مصنع/توثيق/زر طلب عرض) + فلاتر (فئة، بلد المنشأ،
   نطاق سعر) + بحث.
+  - `MarketplacePage.tsx` (`/marketplace`، `RoleGuard` بالفعل يشمل الأدوار
+    الثلاثة) كان ملفاً واحداً ضخماً (694 سطر) وظيفياً حقيقياً (بحث مؤجَّل +
+    فلاتر فئة/سعر/مورّد + `RfqModal` بتقدير تكلفة حي + إنشاء RFQ فعلي) —
+    ليس stub، لكن مخالفة صريحة لقاعدة الملفين، بثيم CSS-variables قديم
+    (`var(--surface)`...) وhex يدوية (`#059669`) خارج `tokens.ts`، **وبيانات
+    مُلفَّقة**: `isVerified = true` ثابتة لكل منتج (تعليق بالكود:
+    `// demo: all products are verified`)، تقييم نجوم عشوائي
+    (`4.5 + Math.random()*0.4`، غير حتمي)، شارات `["CE","ISO"]` وهمية بلا
+    مصدر بيانات، وحتى صورة placeholder تدّعي اسم ملف/أبعاد وهميين
+    ("600×400px"). شريط "فلاتر" أسفل الرأس كان أيضاً زخرفياً بحتاً (4 شرائح
+    ثابتة بلا `onClick` تفعّل أي تصفية فعلية).
+  - **فحص فعلي لـ`CatalogProduct`/`catalogService`**: لا يوجد حقل
+    `image_url` ولا `verification_status` ولا `country_of_origin` على
+    النوع، ولا معامل `country_of_origin` بـ`catalogService.search` (فقط
+    `q/category/min_price/max_price/supplier_id`). "بلد المنشأ" حُذف من
+    الفلاتر عمداً (بدل فلتر زائف قيمته الوحيدة دائماً "الصين" — المنصة
+    بمرحلتها الحالية صين→العقبة حصراً فقط، فلا قيمة تصفية حقيقية) —
+    أُبقي فلتر "المورد" الحقيقي الموجود أصلاً بدلاً منه. الصورة استُبدلت
+    بأيقونة `Package` صادقة بدل اسم ملف/أبعاد مزيّفة، وشارة "مُعتمَد"/
+    التقييم/الشهادات أُزيلت بالكامل (لا حقل بيانات حقيقي يدعمها، نفس نهج
+    T6.3 مع `CatalogProduct` — بدل جلب `verification_status` من
+    `monitoringService.listUsers` وهو endpoint إداري (`/admin/users`) لا
+    يُتوقع نجاحه لحسابات عميل/مندوب أصلاً).
+  - قسمت الملف بنفس نمط كل المراحل: `useMarketplaceData.ts` (خطاف مشترك:
+    بحث مؤجَّل/فلاتر/ترقيم/اختيار منتج للـRFQ) + `MarketplaceProductCard.tsx`
+    (بطاقة مشتركة صادقة بلا بيانات ملفّقة) + `MarketplaceRfqModal.tsx`
+    (نفس منطق `RfqModal` الحقيقي حرفياً — تقدير تكلفة حي + إنشاء RFQ فعلي
+    — مُعاد تلوينه فقط بتوكنز `brand-*`/slate بدل CSS-variables/hex يدوية)
+    + `MarketplacePageDesktop.tsx` (سايدبار فلاتر دائم الظهور + شرائح
+    فلترة نشطة **حقيقية** قابلة للمسح تحل محل الشرائح الزخرفية القديمة)
+    + `MarketplacePageMobile.tsx` (بحث + زر "فلاتر" يفتح نفس اللوحة كـ
+    overlay) + `MarketplacePage.tsx` (مبدّل رفيع `useMediaQuery`، بلا
+    تفريع حسب الدور لأن المحتوى مطابق للأدوار الثلاثة، فقط تبديل الجهاز).
+  - **إصلاح إضافي بمكوّن `CatalogFilters.tsx` المشترك**: كان هو نفسه
+    يخالف قاعدة الملفين داخلياً (يعرض كتلتي sidebar/overlay معاً دائماً،
+    متحكَّماً بالظهور عبر `hidden lg:block`/`lg:hidden`) — أضفت
+    `variant: "sidebar" | "overlay"` ليعرض كل ملف (Desktop/Mobile) الشكل
+    الذي يحتاجه فقط بدل تركيب كليهما خلف تبديل CSS.
+  - قبول: تحقّق فعلي — كل اختبارات `MarketplacePage.test.tsx` الثمانية
+    القديمة (بحث مؤجَّل، تقدير تكلفة حي، إنشاء RFQ فعلي، حالات فراغ/خطأ)
+    استمرت بالنجاح دون أي تعديل (تعمل ضد `MarketplacePageMobile` تلقائياً
+    عبر المبدّل — نفس نص/سلوك). 2 اختبار جديد
+    (`MarketplacePage.switcher.test.tsx`): سايدبار الفلاتر ظاهر دائماً
+    بالديسكتوب بلا زر "فلاتر"، والموبايل يخفيها خلف الزر. 2 اختبار جديد
+    (`MarketplacePageDesktop.test.tsx`): غياب شارة "مُعتمَد"/"CE"/"ISO"
+    المزيّفة عن البطاقة، تصفية الفئة تستدعي `catalogService.search`
+    بالمعامل الصحيح + شريحة فلتر نشطة حقيقية قابلة للمسح. `npx tsc --noEmit`
+    نظيف، 185/185 اختبار ناجح بالمشروع كاملاً (`--no-file-parallelism`)،
+    فحص curl عبر Vite dev server لكل الملفات الجديدة/المعدَّلة يعيد 200
+    بلا أخطاء تحويل، لا hex يدوية/indigo/CSS-variables قديمة بالملفات
+    الجديدة. **نهاية المرحلة 8 جزئياً — T8.6/T8.7 متبقيتان.** ✅
 - [ ] **T8.6 — المحادثات**: قائمة غرف + نافذة رسائل، فقاعات
   المستخدم الحالي بلون دوره، زر مرفق "أرسل عرض سعر" داخل المحادثة
   (يربط الشات بالـRFQ — كل محادثة تقود لصفقة).
@@ -1063,4 +1114,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-06 | T8.2 | SupplierRfqInbox.tsx (`/rfq/supplier-inbox`) كان ملفاً واحداً وظيفياً حقيقياً (710 سطر، تبويبا مباريات حصرية/سوق عام، عدّاد تنازلي لمهلة الرد، قبول/رفض) لكن غير مقسّم Desktop/Mobile وبثيم قديم primary-*/gray-* بدل supplier-*، وبلا أي عدّاد "منذ الوصول" (كان تاريخاً ثابتاً فقط). استخرجت useSupplierRfqInboxData.ts (كل منطق الجلب/المطابقة الدفعية/mutation القبول-الرفض + نبضة now كل 60 ثانية) و SupplierInboxCards.tsx (MatchCard/PublicRfqCard/CountdownTimer معاد تلوينها + ElapsedTimeBadge جديد يحسب الوقت منذ created_at بتلوين حسب الضغط الزمني: slate/كهرماني/أحمر)، ثم SupplierRfqInboxDesktop.tsx (شبكة بطاقات + EmptyState/Skeleton المشتركين) و SupplierRfqInboxMobile.tsx (عمود واحد مكدّس بتبويبات مضغوطة) + مبدّل SupplierRfqInbox.tsx. أبقيت زر "قدّم عرضاً" يفتح QuoteBuilderPage (BUILD_QUOTE) بدل تحويله للحاسبة العامة رغم أنها تدعم rfq_id كـquery param فعلياً — القرار وتفصيله تحت T8.2 أعلاه (عدم فقدان منطق بانٍ عروض حقيقي، نفس مبدأ T5.1/T8.1). أبقيت تبويبَي مباريات حصرية/سوق عام كوظيفة حقيقية موجودة أصلاً رغم أن نص الخطة يصف "قائمة" واحدة مبسّطة. 164/164 اختبار ناجح (`--no-file-parallelism`، 7 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات الجديدة، لا primary-*/gray-*/indigo متبقية. **نهاية المرحلة 8 جزئياً — T8.3 إلى T8.7 متبقية.** |
 | 2026-07-06 | T8.3 | QuotationListPage.tsx (`/quotes`، بلا RoleGuard) كان جدولاً واحداً وظيفياً حقيقياً غير مقسّم Desktop/Mobile، بثيم قديم primary-*/gray-*، وبشارات حالة يدوية بدل StatusPill المشترك كما يطلب النص. اكتشفت فجوة حقيقية: حالات العرض الفعلية (draft/pending/finalized/sent/accepted/rejected) لا تملك مقابل "مرفوض" في OrderStatus — أضفت قيمة rejected جديدة لـStatusPill.tsx (إضافة توافقية للخلف، كل الاختبارات القديمة استمرت + اختبار جديد). بنيت useQuotationListData.ts (خطاف مشترك: الجلب + quoteStatusPill/quoteTrackingStatus/TRACKING_LABELS) + QuotationListPageDesktop.tsx (جدول supplier-*/slate-* بـStatusPill/EmptyState/Skeleton) + QuotationListPageMobile.tsx (بطاقات مكدّسة بدل جدول عريض) + بوابة دور بـQuotationListPage.tsx: agent → الجديد، بقية الأدوار → LegacyQuotationList القديم كما هو (لحين T8.4 التي تبني واجهة المستورد على نفس الراوت). أبقيت (q as any).tracking_status كما هو (نفس نمط QuotationDetailPage/OrdersListPage، تصحيح النوع خارج نطاق المهمة). 173/173 اختبار ناجح (`--no-file-parallelism`، 9 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200، لا primary-*/gray-*/indigo أو text-left/right ثابتة بالملفات الجديدة (الجدول القديم يحتفظ بـtext-right عمداً — كود غير مُلمَّس). |
 | 2026-07-06 | T8.4 | صحّحت افتراضاً خاطئاً من T8.3 (تعليقاتي فيه ادّعت أن T8.4 ستبني واجهة المستورد على /quotes) — الفحص الفعلي لـSidebar.tsx أظهر أن عنصر "طلباتي" بقائمة العميل يؤدي لراوت مختلف تماماً: ROUTES.RFQ.LIST (/rfq)، نفس الراوت الذي يستخدمه المندوب كـ"طلبات الشراء". صحّحت التعليقات المضلِّلة في ملفات quotes. RFQListPage.tsx كان جدولاً واحداً مشتركاً حرفياً بين المندوب والعميل، بثيم قديم وبلا أي عمود قيمة عرض. بنيت useClientRfqListData.ts (فلاتر/ترقيم + quotesByRfq، نفس نمط الدمج الدفعي من useClientDashboardData T4.1 + خريطة rfqStatusPill بنفس تخطيط لوحة العميل + cancelled→rejected جديد) + RFQListPageDesktop.tsx (عمود "قيمة العرض" جديد + StatusPill + EmptyState/Skeleton) + RFQListPageMobile.tsx (بطاقات + فلاتر أفقية) + بوابة دور: client → الجديد، بقية الأدوار → LegacyRFQList كما هو (المندوب ما زال يرى نفس الجدول القديم لـ"طلبات الشراء"، خارج نطاق هذه المهمة). 181/181 اختبار ناجح (`--no-file-parallelism`، 8 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200. **نهاية المرحلة 8 جزئياً — T8.5 إلى T8.7 متبقية.** |
+| 2026-07-06 | T8.5 | MarketplacePage.tsx (694 سطر) كان صفحة حقيقية وظيفية (بحث/فلاتر/RfqModal بتقدير تكلفة حي وإنشاء RFQ فعلي) لكن ملفاً واحداً بثيم CSS-variables قديم وhex يدوية، وبيانات مُلفَّقة صريحة: isVerified=true ثابت لكل منتج (تعليق "demo" بالكود)، تقييم نجوم Math.random() غير حتمي، شارات CE/ISO وهمية، صورة placeholder باسم/أبعاد مزيّفة، وشريط فلاتر زخرفي بلا onClick فعلي. فحصت CatalogProduct/catalogService فعلياً: لا image_url ولا verification_status ولا country_of_origin (ولا معامل بحث لها) — حذفت فلتر "بلد المنشأ" عمداً (قيمته الوحيدة "الصين" دائماً بمرحلة المشروع الحالية، لا تصفية حقيقية) بدل اختلاقه، وأزلت كل البيانات المزيّفة (لا verified badge/rating/certs) بدل نقلها كما هي. قسمت الملف لـuseMarketplaceData.ts + MarketplaceProductCard.tsx (بطاقة صادقة) + MarketplaceRfqModal.tsx (نفس منطق RfqModal الحقيقي، إعادة تلوين فقط) + MarketplacePageDesktop.tsx (سايدبار فلاتر دائم + شرائح فلترة نشطة حقيقية تحل محل الزخرفية) + MarketplacePageMobile.tsx (overlay فلاتر) + مبدّل MarketplacePage.tsx (بلا تفريع دور، محتوى مطابق للأدوار الثلاثة). أصلحت أيضاً CatalogFilters.tsx نفسه الذي كان يخالف قاعدة الملفين داخلياً (hidden lg:block/lg:hidden) بإضافة variant sidebar/overlay. كل الاختبارات الثمانية القديمة استمرت بالنجاح دون تعديل (تعمل ضد Mobile افتراضياً عبر المبدّل). 185/185 اختبار ناجح (`--no-file-parallelism`، 4 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200. **نهاية المرحلة 8 جزئياً — T8.6/T8.7 متبقيتان.** |
 
