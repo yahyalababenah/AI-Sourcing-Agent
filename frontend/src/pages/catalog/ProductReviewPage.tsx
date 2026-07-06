@@ -45,7 +45,7 @@ export function ProductReviewPage() {
   const [editForm, setEditForm] = useState<Record<string, string | number>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery<PendingListResponse>({
+  const { data, isLoading, isError, refetch } = useQuery<PendingListResponse>({
     queryKey: ["pending-products", page],
     queryFn: () => fetchPending(page),
     staleTime: 10_000,
@@ -124,8 +124,24 @@ export function ProductReviewPage() {
         </div>
       )}
 
+      {/* Error */}
+      {!isLoading && isError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center">
+          <XCircle className="mx-auto h-10 w-10 text-red-400" />
+          <p className="mt-3 text-sm font-medium text-red-700">
+            تعذّر تحميل المنتجات قيد المراجعة
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-3 rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+          >
+            إعادة المحاولة
+          </button>
+        </div>
+      )}
+
       {/* Empty */}
-      {!isLoading && data?.items.length === 0 && (
+      {!isLoading && !isError && data?.items.length === 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <CheckCircle className="mx-auto h-10 w-10 text-green-300" />
           <p className="mt-3 text-sm font-medium text-gray-600">لا توجد منتجات تنتظر المراجعة</p>
@@ -135,7 +151,7 @@ export function ProductReviewPage() {
 
       {/* Product cards */}
       <div className="space-y-3">
-        {data?.items.map((product) => {
+        {!isError && data?.items.map((product) => {
           const isEditing = editId === product.id;
           const isExpanded = expanded === product.id;
 

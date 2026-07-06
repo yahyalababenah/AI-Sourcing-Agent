@@ -7,7 +7,7 @@ import { catalogService } from "@/services/catalogService";
  * factories. Used by both ClientReelsPageDesktop and ClientReelsPageMobile
  * so neither duplicates the fetch (mirrors useReelsStudioData's role). */
 export function useClientReelsData() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reels-marketplace-feed"],
     queryFn: () => catalogService.search({ page_size: 24 }),
   });
@@ -15,5 +15,7 @@ export function useClientReelsData() {
   return {
     products: data?.items ?? [],
     isLoading,
+    isError,
+    refetch,
   };
 }

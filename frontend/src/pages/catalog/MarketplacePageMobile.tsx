@@ -29,6 +29,7 @@ export function MarketplacePageMobile() {
     isLoading,
     isError,
     error,
+    refetch,
     debouncedQuery,
     selectedProduct,
     handleRequestQuote,
@@ -130,6 +131,12 @@ export function MarketplacePageMobile() {
           <p className="text-sm text-red-600">
             {error instanceof Error ? error.message : "فشل تحميل المنتجات. يرجى المحاولة لاحقاً."}
           </p>
+          <button
+            onClick={() => refetch()}
+            className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-700 transition-colors duration-150 hover:bg-red-50"
+          >
+            إعادة المحاولة
+          </button>
         </div>
       ) : data && data.items.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-8 text-center">

@@ -1,4 +1,4 @@
-import { Video, ChevronUp, ChevronDown } from "lucide-react";
+import { Video, ChevronUp, ChevronDown, AlertCircle } from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useReelsStudioData } from "./useReelsStudioData";
@@ -18,7 +18,7 @@ const TINTS = ["bg-supplier-600", "bg-sky-600", "bg-amber-600", "bg-supplier-400
 // duplicated between the two files (T6.2.1: the old grid's local ReelTile —
 // which never showed an RFQ count — is gone entirely, not just swapped).
 export function ReelsStudioPageDesktop() {
-  const { products, isLoading, factoryName, isVerified } = useReelsStudioData();
+  const { products, isLoading, isError, refetch, factoryName, isVerified } = useReelsStudioData();
   const {
     index,
     product,
@@ -40,6 +40,21 @@ export function ReelsStudioPageDesktop() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
         <div className="h-[420px] animate-pulse rounded-2xl bg-slate-100" />
         <div className="h-64 animate-pulse rounded-xl bg-slate-100" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="card flex flex-col items-center gap-3 p-12 text-center">
+        <AlertCircle className="h-10 w-10 text-red-500" />
+        <p className="text-sm text-red-600">تعذّر تحميل منتجاتك. حاول مرة أخرى.</p>
+        <button
+          onClick={() => refetch()}
+          className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-700 transition-colors duration-150 hover:bg-red-50"
+        >
+          إعادة المحاولة
+        </button>
       </div>
     );
   }

@@ -88,7 +88,7 @@ export function SupplierShowroomPage() {
   const pageSize = 20;
 
   // Fetch all products for this supplier
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["supplier-products", supplierId, page],
     queryFn: () =>
       catalogService.search({
@@ -148,13 +148,21 @@ export function SupplierShowroomPage() {
           <AlertCircle className="mb-3 h-10 w-10 text-red-500" />
           <h2 className="mb-2 text-lg font-semibold text-red-700">فشل في تحميل المنتجات</h2>
           <p className="mb-4 text-sm text-red-500">تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.</p>
-          <button
-            onClick={() => navigate(ROUTES.CATALOG.MARKETPLACE)}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-700"
-          >
-            <ArrowRight className="h-4 w-4" />
-            <span>العودة إلى السوق</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100"
+            >
+              إعادة المحاولة
+            </button>
+            <button
+              onClick={() => navigate(ROUTES.CATALOG.MARKETPLACE)}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-700"
+            >
+              <ArrowRight className="h-4 w-4" />
+              <span>العودة إلى السوق</span>
+            </button>
+          </div>
         </div>
       </div>
     );

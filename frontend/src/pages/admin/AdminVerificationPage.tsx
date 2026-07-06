@@ -32,7 +32,7 @@ export function AdminVerificationPage() {
   const queryClient = useQueryClient();
 
   // Fetch suppliers (agent role) with optional verification_status filter
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-users", "agent", filter],
     queryFn: () =>
       monitoringService.listUsers({
@@ -126,6 +126,12 @@ export function AdminVerificationPage() {
         <div className="card p-8 text-center">
           <XCircle className="mx-auto h-12 w-12 text-red-500" />
           <p className="mt-4 text-gray-600">حدث خطأ أثناء تحميل بيانات الموردين</p>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 rounded-lg border border-red-300 px-4 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+          >
+            إعادة المحاولة
+          </button>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { useRef, type TouchEvent } from "react";
-import { Video, ChevronUp, ChevronDown } from "lucide-react";
+import { Video, ChevronUp, ChevronDown, AlertCircle } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useReelsStudioData } from "./useReelsStudioData";
 import { useReelsPlayer } from "./useReelsPlayer";
@@ -11,7 +11,7 @@ import { ReelPlayer } from "./ReelPlayer";
 // approach as ReelsStudioPageDesktop, not fabricated engagement numbers.
 // TopBar/BottomNav/Drawer come from AgentLayout, untouched here.
 export function ReelsStudioPageMobile() {
-  const { products, isLoading, factoryName, isVerified } = useReelsStudioData();
+  const { products, isLoading, isError, refetch, factoryName, isVerified } = useReelsStudioData();
   const {
     index,
     product,
@@ -40,6 +40,21 @@ export function ReelsStudioPageMobile() {
 
   if (isLoading) {
     return <div className="h-[70vh] animate-pulse rounded-2xl bg-slate-100" />;
+  }
+
+  if (isError) {
+    return (
+      <div className="card flex flex-col items-center gap-3 p-8 text-center">
+        <AlertCircle className="h-10 w-10 text-red-500" />
+        <p className="text-sm text-red-600">تعذّر تحميل منتجاتك. حاول مرة أخرى.</p>
+        <button
+          onClick={() => refetch()}
+          className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-700 transition-colors duration-150 hover:bg-red-50"
+        >
+          إعادة المحاولة
+        </button>
+      </div>
+    );
   }
 
   if (products.length === 0) {

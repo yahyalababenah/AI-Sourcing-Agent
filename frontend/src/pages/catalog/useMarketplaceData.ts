@@ -35,7 +35,7 @@ export function useMarketplaceData() {
     setPage(1);
   }, [filters]);
 
-  const { data, isLoading, isError, error } = useQuery<CatalogListResponse>({
+  const { data, isLoading, isError, error, refetch } = useQuery<CatalogListResponse>({
     queryKey: [
       "catalog", "products",
       debouncedQuery,
@@ -95,6 +95,7 @@ export function useMarketplaceData() {
     isLoading,
     isError,
     error,
+    refetch,
     debouncedQuery,
     selectedProduct,
     handleRequestQuote,

@@ -14,7 +14,7 @@ export function useReelsStudioData() {
   const factoryName = profile?.factory_name || user?.full_name || "مصنعي";
   const isVerified = profile?.verification_status === "verified";
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reels-my-products", supplierId],
     queryFn: () => catalogService.search({ supplier_id: supplierId, page_size: 24 }),
     enabled: !!supplierId,
@@ -23,6 +23,8 @@ export function useReelsStudioData() {
   return {
     products: data?.items ?? [],
     isLoading,
+    isError,
+    refetch,
     factoryName,
     isVerified,
   };

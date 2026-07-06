@@ -1,4 +1,4 @@
-import { Video, ChevronUp, ChevronDown, ShieldCheck } from "lucide-react";
+import { Video, ChevronUp, ChevronDown, ShieldCheck, AlertCircle } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useClientReelsData } from "./useClientReelsData";
 import { useClientReelsPlayer } from "./useClientReelsPlayer";
@@ -17,7 +17,7 @@ const TINTS = ["bg-importer-600", "bg-sky-600", "bg-amber-600", "bg-importer-400
 // player). Shares useClientReelsData/useClientReelsPlayer/ClientReelPlayer
 // with ClientReelsPageMobile so neither file duplicates fetch/nav logic.
 export function ClientReelsPageDesktop() {
-  const { products, isLoading } = useClientReelsData();
+  const { products, isLoading, isError, refetch } = useClientReelsData();
   const {
     index,
     product,
@@ -40,6 +40,21 @@ export function ClientReelsPageDesktop() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
         <div className="h-[420px] animate-pulse rounded-2xl bg-slate-100" />
         <div className="h-64 animate-pulse rounded-xl bg-slate-100" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="card flex flex-col items-center gap-3 p-12 text-center">
+        <AlertCircle className="h-10 w-10 text-red-500" />
+        <p className="text-sm text-red-600">تعذّر تحميل اللقطات. حاول مرة أخرى.</p>
+        <button
+          onClick={() => refetch()}
+          className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-700 transition-colors duration-150 hover:bg-red-50"
+        >
+          إعادة المحاولة
+        </button>
       </div>
     );
   }

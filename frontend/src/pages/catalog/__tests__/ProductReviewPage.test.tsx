@@ -46,6 +46,18 @@ describe("ProductReviewPage", () => {
     expect(await screen.findByText("لا توجد منتجات تنتظر المراجعة")).toBeInTheDocument();
   });
 
+  it("shows an error message with a retry button when the fetch fails", async () => {
+    server.use(
+      http.get("*/catalog/products/pending", () => HttpResponse.error()),
+    );
+    renderWithProviders(<ProductReviewPage />);
+
+    expect(
+      await screen.findByText("تعذّر تحميل المنتجات قيد المراجعة"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "إعادة المحاولة" })).toBeInTheDocument();
+  });
+
   it("lists pending products with their key fields", async () => {
     mockPendingList([makeProduct()]);
     renderWithProviders(<ProductReviewPage />);

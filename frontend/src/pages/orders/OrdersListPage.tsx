@@ -5,6 +5,8 @@ import { useState } from "react";
 import { ROUTES } from "@/constants/routes";
 import { quotationService } from "@/services/quotationService";
 import type { Quotation } from "@/types/quotes";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const TRACKING_LABELS: Record<string, string> = {
   awaiting_payment: "بانتظار الدفع",
@@ -16,12 +18,12 @@ const TRACKING_LABELS: Record<string, string> = {
 };
 
 const TRACKING_COLORS: Record<string, string> = {
-  awaiting_payment: "bg-yellow-100 text-yellow-700",
-  production: "bg-blue-100 text-blue-700",
-  inland_freight: "bg-indigo-100 text-indigo-700",
+  awaiting_payment: "bg-amber-100 text-amber-700",
+  production: "bg-sky-100 text-sky-700",
+  inland_freight: "bg-slate-200 text-slate-700",
   sea_freight: "bg-cyan-100 text-cyan-700",
   customs: "bg-orange-100 text-orange-700",
-  delivered: "bg-green-100 text-green-700",
+  delivered: "bg-emerald-100 text-emerald-700",
 };
 
 const PIPELINE = [
@@ -37,7 +39,7 @@ export function OrdersListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["quotations"],
     queryFn: () => quotationService.list(),
   });
@@ -58,9 +60,10 @@ export function OrdersListPage() {
     return (
       <div className="space-y-6">
         <PageHeader />
-        <div className="card p-12 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
-          <p className="mt-4 text-sm text-gray-500">جاري تحميل الشحنات...</p>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          ))}
         </div>
       </div>
     );
@@ -72,6 +75,12 @@ export function OrdersListPage() {
         <PageHeader />
         <div className="card p-12 text-center">
           <p className="text-sm text-red-500">{(error as Error).message}</p>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+          >
+            إعادة المحاولة
+          </button>
         </div>
       </div>
     );
@@ -95,19 +104,13 @@ export function OrdersListPage() {
 
       {/* Empty: no accepted orders at all */}
       {orders.length === 0 && (
-        <div className="card p-12 text-center">
-          <Truck className="mx-auto h-12 w-12 text-gray-300" />
-          <h3 className="mt-4 text-lg font-medium text-gray-600">لا توجد شحنات نشطة</h3>
-          <p className="mt-2 text-sm text-gray-400">
-            ستظهر الشحنات هنا بعد قبول عروض الأسعار.
-          </p>
-          <button
-            onClick={() => navigate(ROUTES.QUOTES.LIST)}
-            className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            عرض كل العروض
-          </button>
-        </div>
+        <EmptyState
+          icon={Truck}
+          title="لا توجد شحنات نشطة"
+          description="ستظهر الشحنات هنا بعد قبول عروض الأسعار."
+          actionLabel="عرض كل العروض"
+          onAction={() => navigate(ROUTES.QUOTES.LIST)}
+        />
       )}
 
       {/* Empty search result */}
@@ -190,7 +193,7 @@ export function OrdersListPage() {
                   </div>
                 </div>
 
-                <p className="mt-2 text-left text-xs text-gray-400">
+                <p className="mt-2 text-end text-xs text-gray-400">
                   {new Date(q.created_at).toLocaleDateString("ar-SA-u-ca-gregory")}
                 </p>
               </div>
