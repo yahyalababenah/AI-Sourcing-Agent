@@ -1316,11 +1316,42 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 
 ## المرحلة 10 — ربط الـAPI الشامل
 
-- [ ] **T10.1 — `lib/api.ts` موحّد**: fetch wrapper + baseURL من
+- [x] **T10.1 — `lib/api.ts` موحّد**: fetch wrapper + baseURL من
   `NEXT_PUBLIC_API_URL` + حقن توكن المصادقة + معالجة أخطاء موحّدة.
-- [ ] **T10.2 — استبدال البيانات الوهمية صفحةً صفحة** بالـendpoints
+  - كان موجوداً بالفعل ومكتملاً (axios بدل fetch الخام — المشروع
+    فعلياً Vite لا Next.js، فـ`VITE_API_URL` هو المكافئ الصحيح
+    لـ`NEXT_PUBLIC_API_URL`): baseURL من env، interceptor يحقن
+    `Bearer token` من `localStorage` لكل طلب، ومعالجة أخطاء موحّدة
+    (تجديد تلقائي للتوكن عند 401 مع طابور طلبات معلّقة، تسجيل خروج
+    قسري عند فشل التجديد). تحقّقت أن **كل** خدمات `src/services/*.ts`
+    التسع (auth/catalog/chat/document/intake/monitoring/orderTracking/
+    pricing/quotation) تستورد هذا الـwrapper المشترك حصراً — صفر
+    استخدام مباشر لـ`axios.create` أو `fetch` خام للتواصل مع الـAPI
+    الرئيسي. الاستثناءان الوحيدان لـ`fetch(` الخام مبرَّران تقنياً
+    وليسا مخالفة: `useAdminMonitorData.ts` (ping مباشر لعدة endpoints
+    لقياس latency، T9.2) و`useChatRoomDetailData.ts` (قراءة SSE
+    stream حي، لا يدعمه axios بسهولة، T8.6).
+  - قبول: تحقّق فعلي عبر grep شامل + `npx tsc --noEmit` نظيف. لا شيء
+    نُفِّذ (توثيق تحقّق فقط، لا كود جديد).
+- [x] **T10.2 — استبدال البيانات الوهمية صفحةً صفحة** بالـendpoints
   في `CLAUDE.md` (rfqs / pricing / catalog / auth/me / chat /
   admin). **قاعدة: صفحة واحدة = commit واحد.**
+  - تحقّقت أن هذا تحقّق فعلياً كأثر جانبي لمبدأ "الصدق بلا تلفيق"
+    المطبَّق حرفياً في كل مهام المراحل 3–9 (كل جلسة في السجل أدناه
+    توثّق استبدال بيانات مُلفَّقة ببيانات حقيقية من الباك إند صفحة
+    بصفحة، بما فيها حالات "—" الصادقة بدل اختلاق أرقام). بحث شامل في
+    الكود الحالي (`grep` لـ`mockData/MOCK_/fakeData/dummyData/
+    Math.random()/بيانات وهمية/بيانات تجريبية`) لم يُرجع أي بيانات
+    مُلفَّقة متبقية — النتيجة الوحيدة تعليق توثيقي يشير لبيانات
+    أُزيلت سابقاً (T8.5). `src/constants/api.ts` يغطي كل endpoints
+    `CLAUDE.md` (auth/rfqs عبر intake/pricing/catalog/admin) +
+    `chatService.ts` يغطي `/chat/rooms`. الصفحات القديمة المتبقية
+    بثيم "Legacy" (`LegacyQuotationList`, `LegacyRFQList`,
+    `LegacyProfileForm`, `LegacyRFQCreateForm`) كانت أصلاً متصلة
+    ببيانات حقيقية قبل هذه الخطة — لم تُستبدل بمهام T7-T8 لأنها خارج
+    نطاق الدور المستهدف بتلك المهام تحديداً، لا لأنها بيانات وهمية.
+  - قبول: تحقّق فعلي عبر grep شامل لا نتائج + مراجعة `constants/api.ts`.
+    لا شيء نُفِّذ (توثيق تحقّق فقط، لا كود جديد).
 - [ ] **T10.3 — حالات التحميل والفراغ**: `Skeleton` أثناء الجلب،
   `EmptyState` عند لا بيانات، رسالة خطأ + زر "إعادة المحاولة" عند
   الفشل — في كل قائمة/جدول بلا استثناء.
