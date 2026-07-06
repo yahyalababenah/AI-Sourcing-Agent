@@ -37,7 +37,7 @@ export function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={handleOpen}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 active:scale-[0.98]"
+        className="relative flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 active:scale-[0.98]"
         aria-label="الإشعارات"
       >
         <Bell className="h-5 w-5" />

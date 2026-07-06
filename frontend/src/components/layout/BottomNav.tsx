@@ -68,7 +68,7 @@ export function BottomNav({ role }: BottomNavProps) {
         <NavLink
           key={tab.to}
           to={tab.to}
-          className="flex flex-col items-center gap-0.5 px-3 py-1 transition-transform duration-150 active:scale-[0.98]"
+          className="flex min-h-11 flex-col items-center justify-center gap-0.5 px-3 py-1 transition-transform duration-150 active:scale-[0.98]"
         >
           {({ isActive }) => (
             <>

@@ -37,7 +37,7 @@ export function MobileDrawer({ role }: MobileDrawerProps) {
         <button
           onClick={closeDrawer}
           aria-label={t("common.close")}
-          className="absolute top-3 end-3 z-10 flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors duration-150 active:scale-[0.98]"
+          className="absolute top-1 end-1 z-10 flex h-11 w-11 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors duration-150 active:scale-[0.98]"
         >
           <X className="h-4 w-4" />
         </button>
