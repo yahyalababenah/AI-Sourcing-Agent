@@ -913,7 +913,47 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     الجديدة (الجدول القديم `LegacyQuotationList` يحتفظ بـ`text-right`
     القديمة عمداً — كود قديم غير مُلمَّس، نفس نهج `LegacyProfileForm`/
     `LegacyRFQCreateForm`). ✅
-- [ ] **T8.4 — طلباتي (client)**: نفس الجدول من زاوية المستورد.
+- [x] **T8.4 — طلباتي (client)**: نفس الجدول من زاوية المستورد.
+  - **تصحيح افتراض من T8.3**: تعليقات الكود/سجل الجلسة بـT8.3 افترضا أن
+    T8.4 ستبني واجهة المستورد على نفس راوت `/quotes` — افتراض خاطئ.
+    الفحص الفعلي لـ`Sidebar.tsx` أظهر أن عنصر "طلباتي" بقائمة العميل
+    (`nav.myRequests`) يؤدي فعلياً لراوت **مختلف**: `ROUTES.RFQ.LIST`
+    (`/rfq`، نفس الراوت الذي يستخدمه المندوب كـ"طلبات الشراء"
+    `nav.purchaseRequests`) — لا علاقة له بـ`/quotes`. صحّحت التعليقات
+    المضلِّلة في `QuotationListPage.tsx`/`QuotationListPageDesktop.tsx`
+    (كانت من صياغتي في T8.3) لتوضيح هذا لأي جلسة قادمة.
+  - `RFQListPage.tsx` (`/rfq`) كان جدولاً واحداً وظيفياً حقيقياً (فلاتر
+    حالة + ترقيم صفحات عبر `intakeService.list`) مشتركاً حرفياً بين
+    المندوب والعميل بلا أي تخصيص، بثيم قديم `primary-*`/`gray-*`، بشارات
+    حالة يدوية بدل `StatusPill`، **وبلا أي عمود لقيمة العرض** — فجوة
+    حقيقية مطابقة لنص المهمة "نفس الجدول [جدول عروض T8.3] من زاوية
+    المستورد" (أي: نفس أسلوب `StatusPill`+القيمة+التاريخ، مطبَّقاً هنا).
+  - قسمت الملف بنفس نمط كل المراحل: `useClientRfqListData.ts` (خطاف
+    مشترك: فلاتر/ترقيم + `quotesByRfq` — نفس نمط الدمج الدفعي "أحدث عرض
+    لكل RFQ" المستخدم أصلاً بـ`useClientDashboardData.ts` T4.1، بلا
+    إعادة اختراع + خريطة `rfqStatusPill` بنفس تخطيط
+    `open→pending/processing→under_review/quoted→negotiating/
+    closed→completed` من لوحة العميل، مع إضافة `cancelled→rejected`
+    الجديدة من T8.3) + `RFQListPageDesktop.tsx` (جدول بعمود جديد "قيمة
+    العرض" من `quotesByRfq`، `StatusPill`، `EmptyState`/`Skeleton`
+    المشتركين، ألوان `importer-*`) + `RFQListPageMobile.tsx` (بطاقات
+    مكدّسة + شرائح فلترة أفقية قابلة للتمرير) + `RFQListPage.tsx` (بوابة
+    دور: `role === 'client'` → مبدّل `useMediaQuery`؛ بقية الأدوار →
+    `LegacyRFQList` كما هو تماماً — المندوب ما زال يرى نفس الجدول القديم
+    لـ"طلبات الشراء"، خارج نطاق T8.4 المحصور بزاوية المستورد).
+  - قبول: تحقّق فعلي — 3 اختبارات (`RFQListPage.switcher.test.tsx`):
+    عميل/ديسكتوب وعميل/موبايل يعرضان "طلباتي" الجديد، دور غير عميل يبقى
+    على "طلبات العروض" القديم. 3 اختبارات (`RFQListPageDesktop.test.tsx`):
+    حالة فراغ صادقة، قيمة عرض حقيقية بجانب RFQ مُسعَّر + شرطة صادقة
+    لـRFQ بلا عرض بعد + `StatusPill` صحيح لكل حالة، تصفية بالحالة تستدعي
+    `intakeService.list` بالمعامل الصحيح. 2 اختبار
+    (`RFQListPageMobile.test.tsx`): حالة فراغ، بطاقة بحالة `StatusPill`
+    + قيمة عرض مرتبطة. `npx tsc --noEmit` نظيف، 181/181 اختبار ناجح
+    بالمشروع كاملاً (`--no-file-parallelism`)، فحص curl عبر Vite dev
+    server لكل الملفات الجديدة/المعدَّلة يعيد 200 بلا أخطاء تحويل، لا
+    `primary-*`/`gray-*`/indigo ولا `text-left/right` ثابتة بالملفات
+    الجديدة (`LegacyRFQList` يحتفظ بـ`text-right` القديمة عمداً، كود غير
+    مُلمَّس). **نهاية المرحلة 8 جزئياً — T8.5 إلى T8.7 متبقية.** ✅
 - [ ] **T8.5 — السوق العالمي (client + agent)**: شبكة بطاقات
   (صورة/سعر/مصنع/توثيق/زر طلب عرض) + فلاتر (فئة، بلد المنشأ،
   نطاق سعر) + بحث.
@@ -1022,4 +1062,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-05 | T8.1 | بدأت المرحلة 8. RFQCreatePage.tsx (`/rfq/create`، مربوط أصلاً بزر "طلب عرض سعر جديد" بلوحة العميل) كان ملفاً واحداً غير مقسّم بحقل وصف حر فقط، بلا حقول منتج/كمية منفصلة وبلا معاينة تكلفة. اكتشفت تعارضاً مع عقد الباك إند: RFQCreate يقبل نصاً حراً فقط — حللته بتركيب الحقول المهيكلة الجديدة في client_request_arabic + حفظها كاملة أيضاً بـextracted_entities (بلا تعديل باك إند ولا فقدان بيانات). معاينة التكلفة تستخدم calculateLocalFallback (نفس محرك T5.3 المحلي) لأن RFQ لم يُحفظ بعد فلا يمكن استدعاء pricingService.calculate الحقيقي — شارة كهرمانية دائمة "تقدير تقريبي أولي" (صادقة بطبيعتها لا بشرط فشل شبكة). حقل الصور تبديل واجهة صادق بلا endpoint حقيقي (لا يوجد رفع صور RFQ بالمشروع). قسمت الملف بنفس نمط ProfilePage.tsx: role==='client' → RFQCreatePageDesktop/Mobile الجديدين (زر importer-500) عبر useClientRfqCreate.ts المشترك؛ بقية الأدوار → LegacyRFQCreateForm (النموذج القديم، بلا تغيير). 157/157 اختبار ناجح (`--no-file-parallelism`، 10 اختبارات جديدة، اختبار دور العميل القديم أُزيل لأنه يختبر واجهة مختلفة الآن)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات. لا backend/DB بهذه البيئة فتعذّر تسجيل دخول حي. |
 | 2026-07-06 | T8.2 | SupplierRfqInbox.tsx (`/rfq/supplier-inbox`) كان ملفاً واحداً وظيفياً حقيقياً (710 سطر، تبويبا مباريات حصرية/سوق عام، عدّاد تنازلي لمهلة الرد، قبول/رفض) لكن غير مقسّم Desktop/Mobile وبثيم قديم primary-*/gray-* بدل supplier-*، وبلا أي عدّاد "منذ الوصول" (كان تاريخاً ثابتاً فقط). استخرجت useSupplierRfqInboxData.ts (كل منطق الجلب/المطابقة الدفعية/mutation القبول-الرفض + نبضة now كل 60 ثانية) و SupplierInboxCards.tsx (MatchCard/PublicRfqCard/CountdownTimer معاد تلوينها + ElapsedTimeBadge جديد يحسب الوقت منذ created_at بتلوين حسب الضغط الزمني: slate/كهرماني/أحمر)، ثم SupplierRfqInboxDesktop.tsx (شبكة بطاقات + EmptyState/Skeleton المشتركين) و SupplierRfqInboxMobile.tsx (عمود واحد مكدّس بتبويبات مضغوطة) + مبدّل SupplierRfqInbox.tsx. أبقيت زر "قدّم عرضاً" يفتح QuoteBuilderPage (BUILD_QUOTE) بدل تحويله للحاسبة العامة رغم أنها تدعم rfq_id كـquery param فعلياً — القرار وتفصيله تحت T8.2 أعلاه (عدم فقدان منطق بانٍ عروض حقيقي، نفس مبدأ T5.1/T8.1). أبقيت تبويبَي مباريات حصرية/سوق عام كوظيفة حقيقية موجودة أصلاً رغم أن نص الخطة يصف "قائمة" واحدة مبسّطة. 164/164 اختبار ناجح (`--no-file-parallelism`، 7 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات الجديدة، لا primary-*/gray-*/indigo متبقية. **نهاية المرحلة 8 جزئياً — T8.3 إلى T8.7 متبقية.** |
 | 2026-07-06 | T8.3 | QuotationListPage.tsx (`/quotes`، بلا RoleGuard) كان جدولاً واحداً وظيفياً حقيقياً غير مقسّم Desktop/Mobile، بثيم قديم primary-*/gray-*، وبشارات حالة يدوية بدل StatusPill المشترك كما يطلب النص. اكتشفت فجوة حقيقية: حالات العرض الفعلية (draft/pending/finalized/sent/accepted/rejected) لا تملك مقابل "مرفوض" في OrderStatus — أضفت قيمة rejected جديدة لـStatusPill.tsx (إضافة توافقية للخلف، كل الاختبارات القديمة استمرت + اختبار جديد). بنيت useQuotationListData.ts (خطاف مشترك: الجلب + quoteStatusPill/quoteTrackingStatus/TRACKING_LABELS) + QuotationListPageDesktop.tsx (جدول supplier-*/slate-* بـStatusPill/EmptyState/Skeleton) + QuotationListPageMobile.tsx (بطاقات مكدّسة بدل جدول عريض) + بوابة دور بـQuotationListPage.tsx: agent → الجديد، بقية الأدوار → LegacyQuotationList القديم كما هو (لحين T8.4 التي تبني واجهة المستورد على نفس الراوت). أبقيت (q as any).tracking_status كما هو (نفس نمط QuotationDetailPage/OrdersListPage، تصحيح النوع خارج نطاق المهمة). 173/173 اختبار ناجح (`--no-file-parallelism`، 9 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200، لا primary-*/gray-*/indigo أو text-left/right ثابتة بالملفات الجديدة (الجدول القديم يحتفظ بـtext-right عمداً — كود غير مُلمَّس). |
+| 2026-07-06 | T8.4 | صحّحت افتراضاً خاطئاً من T8.3 (تعليقاتي فيه ادّعت أن T8.4 ستبني واجهة المستورد على /quotes) — الفحص الفعلي لـSidebar.tsx أظهر أن عنصر "طلباتي" بقائمة العميل يؤدي لراوت مختلف تماماً: ROUTES.RFQ.LIST (/rfq)، نفس الراوت الذي يستخدمه المندوب كـ"طلبات الشراء". صحّحت التعليقات المضلِّلة في ملفات quotes. RFQListPage.tsx كان جدولاً واحداً مشتركاً حرفياً بين المندوب والعميل، بثيم قديم وبلا أي عمود قيمة عرض. بنيت useClientRfqListData.ts (فلاتر/ترقيم + quotesByRfq، نفس نمط الدمج الدفعي من useClientDashboardData T4.1 + خريطة rfqStatusPill بنفس تخطيط لوحة العميل + cancelled→rejected جديد) + RFQListPageDesktop.tsx (عمود "قيمة العرض" جديد + StatusPill + EmptyState/Skeleton) + RFQListPageMobile.tsx (بطاقات + فلاتر أفقية) + بوابة دور: client → الجديد، بقية الأدوار → LegacyRFQList كما هو (المندوب ما زال يرى نفس الجدول القديم لـ"طلبات الشراء"، خارج نطاق هذه المهمة). 181/181 اختبار ناجح (`--no-file-parallelism`، 8 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200. **نهاية المرحلة 8 جزئياً — T8.5 إلى T8.7 متبقية.** |
 

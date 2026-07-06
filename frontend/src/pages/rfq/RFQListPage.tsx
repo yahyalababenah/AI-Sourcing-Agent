@@ -3,7 +3,28 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ROUTES } from "@/constants/routes";
 import { intakeService } from "@/services/intakeService";
+import { useAuthStore } from "@/stores/authStore";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { RFQListPageDesktop } from "./RFQListPageDesktop";
+import { RFQListPageMobile } from "./RFQListPageMobile";
 import type { RFQ } from "@/types/intake";
+
+// Role gateway (T8.4) — this shared /rfq route is "طلبات الشراء" for
+// agents and "طلباتي" for clients (see Sidebar.tsx's two different
+// labelKeys on the same ROUTES.RFQ.LIST). Clients get the rebuilt
+// StatusPill + quote-value table (RFQListPageDesktop/Mobile); agents/
+// admins keep this legacy table unchanged for now — same pattern as
+// ProfilePage.tsx/RFQCreatePage.tsx/QuotationListPage.tsx.
+export function RFQListPage() {
+  const role = useAuthStore((s) => s.role);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+
+  if (role === "client") {
+    return isDesktop ? <RFQListPageDesktop /> : <RFQListPageMobile />;
+  }
+
+  return <LegacyRFQList />;
+}
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-blue-100 text-blue-700",
@@ -21,7 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "ملغي",
 };
 
-export function RFQListPage() {
+function LegacyRFQList() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);

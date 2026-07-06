@@ -10,8 +10,9 @@ import type { Quotation } from "@/types/quotes";
 
 // Role gateway (T8.3): agents get the rebuilt StatusPill-based table
 // (QuotationListPageDesktop/Mobile). Clients/admins keep this legacy table
-// unchanged for now — same pattern as ProfilePage.tsx/RFQCreatePage.tsx —
-// until T8.4 builds the importer-facing view on this same /quotes route.
+// unchanged for now — same pattern as ProfilePage.tsx/RFQCreatePage.tsx.
+// (T8.4, the client-facing "طلباتي" table, turned out to target the
+// separate /rfq route instead — see RFQListPage.tsx.)
 export function QuotationListPage() {
   const role = useAuthStore((s) => s.role);
   const isDesktop = useMediaQuery("(min-width: 1024px)");

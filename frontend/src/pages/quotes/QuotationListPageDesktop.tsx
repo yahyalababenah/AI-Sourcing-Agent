@@ -9,8 +9,9 @@ import { useQuotationListData, quoteStatusPill, quoteTrackingStatus, TRACKING_LA
 // No supplier-quotes-*.html reference exists (same gap as T6.3/T7.x/T8.x) —
 // keeps this page's existing real quotationService.list() data, only the
 // visual language + shared StatusPill/EmptyState/Skeleton changed. Other
-// roles still see LegacyQuotationList (see QuotationListPage.tsx) until
-// T8.4 builds the importer-facing view.
+// roles still see LegacyQuotationList (see QuotationListPage.tsx) — the
+// client-facing T8.4 table turned out to target the separate /rfq route
+// instead (see RFQListPage.tsx).
 export function QuotationListPageDesktop() {
   const { quotations, isLoading, isError, error, refetch, handleView, handleTrack } = useQuotationListData();
 
