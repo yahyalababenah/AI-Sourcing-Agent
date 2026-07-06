@@ -190,3 +190,103 @@ class TestReviewProductEndpoint:
             headers=_headers(client_user),
         )
         assert resp.status_code == 403
+
+    async def test_admin_can_review_any_suppliers_product(
+        self, client, make_user, make_catalog_product,
+    ):
+        # Admin oversight (CLAUDE.md "إشراف الأدمن الكامل") requires bypassing
+        # the ownership check that scopes agents to their own products —
+        # without this, an admin's current_user.id would never match any
+        # supplier_id and every admin review attempt would 404.
+        agent = await make_user(role="agent")
+        admin = await make_user(role="admin")
+        product = await make_catalog_product(supplier=agent, review_status=ProductReviewStatus.PENDING)
+
+        resp = await client.patch(
+            f"/api/v1/catalog/products/{product.id}/review",
+            json={"action": "approve"},
+            headers=_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["review_status"] == "approved"
+
+
+@pytest.mark.asyncio
+class TestAdminPendingProductsAcrossSuppliers:
+    async def test_admin_sees_pending_products_from_every_supplier(
+        self, client, make_user, make_catalog_product,
+    ):
+        agent_a = await make_user(role="agent")
+        agent_b = await make_user(role="agent")
+        admin = await make_user(role="admin")
+        name_a = f"Admin View A {uuid.uuid4().hex[:8]}"
+        name_b = f"Admin View B {uuid.uuid4().hex[:8]}"
+        await make_catalog_product(supplier=agent_a, product_name=name_a, review_status=ProductReviewStatus.PENDING)
+        await make_catalog_product(supplier=agent_b, product_name=name_b, review_status=ProductReviewStatus.PENDING)
+
+        resp = await client.get("/api/v1/catalog/products/pending", headers=_headers(admin))
+        assert resp.status_code == 200
+        names = [item["product_name"] for item in resp.json()["items"]]
+        assert name_a in names
+        assert name_b in names
+
+
+@pytest.mark.asyncio
+class TestAdminCatalogOversightEndpoint:
+    async def test_admin_sees_products_of_any_status(self, client, make_user, make_catalog_product):
+        agent = await make_user(role="agent")
+        admin = await make_user(role="admin")
+        unique_category = f"cat-{uuid.uuid4().hex[:8]}"
+        pending_name = f"Pending {uuid.uuid4().hex[:8]}"
+        rejected_name = f"Rejected {uuid.uuid4().hex[:8]}"
+        await make_catalog_product(
+            supplier=agent, product_name=pending_name, category=unique_category,
+            review_status=ProductReviewStatus.PENDING,
+        )
+        await make_catalog_product(
+            supplier=agent, product_name=rejected_name, category=unique_category,
+            review_status=ProductReviewStatus.REJECTED,
+        )
+
+        resp = await client.get(
+            "/api/v1/catalog/products/admin", params={"category": unique_category}, headers=_headers(admin),
+        )
+        assert resp.status_code == 200
+        names = [item["product_name"] for item in resp.json()["items"]]
+        assert pending_name in names
+        assert rejected_name in names
+
+    async def test_review_status_filter_narrows_results(self, client, make_user, make_catalog_product):
+        agent = await make_user(role="agent")
+        admin = await make_user(role="admin")
+        unique_category = f"cat-{uuid.uuid4().hex[:8]}"
+        pending_name = f"OnlyPending {uuid.uuid4().hex[:8]}"
+        approved_name = f"OnlyApproved {uuid.uuid4().hex[:8]}"
+        await make_catalog_product(
+            supplier=agent, product_name=pending_name, category=unique_category,
+            review_status=ProductReviewStatus.PENDING,
+        )
+        await make_catalog_product(
+            supplier=agent, product_name=approved_name, category=unique_category,
+            review_status=ProductReviewStatus.APPROVED,
+        )
+
+        resp = await client.get(
+            "/api/v1/catalog/products/admin",
+            params={"category": unique_category, "review_status": "pending"},
+            headers=_headers(admin),
+        )
+        assert resp.status_code == 200
+        names = [item["product_name"] for item in resp.json()["items"]]
+        assert pending_name in names
+        assert approved_name not in names
+
+    async def test_forbidden_for_agent_role(self, client, make_user):
+        agent = await make_user(role="agent")
+        resp = await client.get("/api/v1/catalog/products/admin", headers=_headers(agent))
+        assert resp.status_code == 403
+
+    async def test_forbidden_for_client_role(self, client, make_user):
+        client_user = await make_user(role="client")
+        resp = await client.get("/api/v1/catalog/products/admin", headers=_headers(client_user))
+        assert resp.status_code == 403

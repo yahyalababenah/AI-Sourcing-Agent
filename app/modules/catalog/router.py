@@ -16,6 +16,7 @@ from app.modules.catalog.service import (
     search_catalog,
     list_pending_products,
     review_product,
+    list_catalog_admin,
 )
 from app.modules.catalog.models import ProductReviewStatus
 from app.shared.database import get_db
@@ -107,9 +108,12 @@ async def pending_products(
     current_user: User = Depends(get_current_user),
     _: None = Depends(require_any_role(UserRole.AGENT, UserRole.ADMIN)),
 ):
+    # Admins review the whole catalog (see CLAUDE.md's "إشراف الأدمن الكامل"),
+    # not just products they personally uploaded — agents stay scoped to their own.
+    supplier_id = None if current_user.role == UserRole.ADMIN else current_user.id
     return await list_pending_products(
         db,
-        supplier_id=current_user.id,
+        supplier_id=supplier_id,
         page=pagination.page,
         page_size=pagination.page_size,
     )
@@ -133,10 +137,13 @@ async def review_product_endpoint(
         else ProductReviewStatus.REJECTED
     )
     updates = {k: v for k, v in body.model_dump().items() if k != "action" and v is not None}
+    # Admins can review/deactivate any supplier's product from the global
+    # catalog screen — agents remain scoped to their own (ownership check).
+    supplier_id = None if current_user.role == UserRole.ADMIN else current_user.id
     product = await review_product(
         db,
         product_id=product_id,
-        supplier_id=current_user.id,
+        supplier_id=supplier_id,
         status=status,
         updates=updates or None,
     )
@@ -159,4 +166,38 @@ async def review_product_endpoint(
         # today only because the frontend re-fetches the pending list rather
         # than trusting this response body.
         review_status=product.review_status.value if product.review_status else None,
+    )
+
+
+@router.get(
+    "/products/admin",
+    response_model=CatalogListResponse,
+    summary="Browse the full catalog across all suppliers and review statuses (admin only)",
+)
+async def admin_list_catalog_products(
+    review_status: Optional[str] = Query(
+        None,
+        description="Filter by review status (pending|approved|rejected). Omit to see all.",
+    ),
+    q: str = Query(None, min_length=1, max_length=200),
+    category: str = Query(None, min_length=1, max_length=100),
+    supplier_id: UUID = Query(None),
+    pagination: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_any_role(UserRole.ADMIN)),
+):
+    """Admin oversight view — same product pool as the marketplace and the
+    per-supplier review queue, but unfiltered by status/ownership so the
+    admin can audit, correct, approve/reject, or disable any product with a
+    traceable link back to its source document (see CLAUDE.md's
+    "إشراف الأدمن الكامل" principle)."""
+    status_enum = ProductReviewStatus(review_status) if review_status else None
+    return await list_catalog_admin(
+        db,
+        review_status=status_enum,
+        q=q,
+        category=category,
+        supplier_id=supplier_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )

@@ -463,18 +463,25 @@ async def search_catalog_fallback(
 
 async def list_pending_products(
     db: AsyncSession,
-    supplier_id: uuid.UUID,
+    supplier_id: Optional[uuid.UUID],
     page: int = 1,
     page_size: int = 40,
 ) -> CatalogListResponse:
-    """List products awaiting review for a given supplier."""
+    """List products awaiting review.
+
+    ``supplier_id=None`` returns pending products across all suppliers —
+    used by the admin global-catalog oversight screen (see
+    CLAUDE.md's "إشراف الأدمن الكامل" principle). Agents always pass their
+    own id, scoping the list to their own products.
+    """
+    conditions = [CatalogProduct.review_status == ProductReviewStatus.PENDING]
+    if supplier_id is not None:
+        conditions.append(CatalogProduct.supplier_id == supplier_id)
+
     base = (
         select(CatalogProduct)
         .options(joinedload(CatalogProduct.supplier).joinedload(User.supplier_profile), joinedload(CatalogProduct.document))
-        .where(
-            CatalogProduct.supplier_id == supplier_id,
-            CatalogProduct.review_status == ProductReviewStatus.PENDING,
-        )
+        .where(*conditions)
     )
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
     page_size = min(page_size, 100)
@@ -487,17 +494,20 @@ async def list_pending_products(
 async def review_product(
     db: AsyncSession,
     product_id: uuid.UUID,
-    supplier_id: uuid.UUID,
+    supplier_id: Optional[uuid.UUID],
     status: ProductReviewStatus,
     updates: Optional[dict] = None,
 ) -> CatalogProduct:
-    """Approve or reject a product, optionally applying field edits."""
-    result = await db.execute(
-        select(CatalogProduct).where(
-            CatalogProduct.id == product_id,
-            CatalogProduct.supplier_id == supplier_id,
-        )
-    )
+    """Approve or reject a product, optionally applying field edits.
+
+    ``supplier_id=None`` bypasses the ownership check — used by admins
+    reviewing any supplier's product from the global-catalog screen.
+    """
+    conditions = [CatalogProduct.id == product_id]
+    if supplier_id is not None:
+        conditions.append(CatalogProduct.supplier_id == supplier_id)
+
+    result = await db.execute(select(CatalogProduct).where(*conditions))
     product = result.scalar_one_or_none()
     if not product:
         from app.shared.exceptions import NotFoundException
@@ -514,6 +524,57 @@ async def review_product(
     await db.commit()
     await db.refresh(product)
     return product
+
+
+async def list_catalog_admin(
+    db: AsyncSession,
+    *,
+    review_status: Optional[ProductReviewStatus] = None,
+    q: Optional[str] = None,
+    category: Optional[str] = None,
+    supplier_id: Optional[uuid.UUID] = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> CatalogListResponse:
+    """Browse the catalog across all suppliers and review statuses (admin only).
+
+    Unlike :func:`search_catalog` (marketplace-facing, approved-only), this
+    returns products regardless of status so the admin oversight screen can
+    filter across قيد المراجعة / معتمد / مرفوض.
+    """
+    base_query = select(CatalogProduct).options(
+        joinedload(CatalogProduct.supplier).joinedload(User.supplier_profile),
+        joinedload(CatalogProduct.document),
+    )
+
+    conditions = []
+    if review_status is not None:
+        conditions.append(CatalogProduct.review_status == review_status)
+    if q:
+        q_clean = q.strip().lower()
+        conditions.append(
+            or_(
+                func.lower(CatalogProduct.product_name).contains(q_clean),
+                func.lower(CatalogProduct.model_number).contains(q_clean),
+            )
+        )
+    if category:
+        conditions.append(func.lower(CatalogProduct.category) == category.strip().lower())
+    if supplier_id is not None:
+        conditions.append(CatalogProduct.supplier_id == supplier_id)
+
+    if conditions:
+        base_query = base_query.where(and_(*conditions))
+
+    total = (await db.execute(select(func.count()).select_from(base_query.subquery()))).scalar() or 0
+    page_size = min(page_size, 100)
+    skip = (page - 1) * page_size
+    query = base_query.order_by(CatalogProduct.updated_at.desc()).offset(skip).limit(page_size)
+    products = (await db.execute(query)).scalars().all()
+
+    items = [_to_response(p) for p in products]
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    return CatalogListResponse(items=items, total=total, page=page, page_size=page_size, total_pages=total_pages)
 
 
 def _to_response(prod: CatalogProduct) -> CatalogProductResponse:
