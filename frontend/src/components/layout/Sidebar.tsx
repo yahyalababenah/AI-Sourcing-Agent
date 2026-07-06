@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { AppLogo } from "@/components/AppLogo";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { useAuthStore } from "@/stores/authStore";
 import { useUIStore } from "@/stores/uiStore";
 import type { UserRole } from "@/types/auth";
@@ -133,6 +134,8 @@ export function Sidebar({ role, bare = false }: SidebarProps) {
           <Settings className="h-4 w-4 shrink-0" />
           <span>{t("nav.settings")}</span>
         </NavLink>
+
+        <LanguageSwitcher />
 
         <div className="px-2.5 py-3 flex items-center gap-2.5">
           <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", accent.bg)}>
