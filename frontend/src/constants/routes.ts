@@ -12,6 +12,7 @@ export const ROUTES = {
     VERIFICATION: "/admin/verification",
     MONITOR: "/admin/monitor",
     HS_CODES: "/admin/hs-codes",
+    USERS: "/admin/users",
   },
   // Role-scoped home screens (see CLAUDE.md — each role gets its own dashboard route).
   AGENT: {

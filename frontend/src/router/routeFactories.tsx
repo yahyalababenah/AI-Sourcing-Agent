@@ -28,6 +28,7 @@ import { OrdersListPage } from "@/pages/orders/OrdersListPage";
 import { AdminVerificationPage } from "@/pages/admin/AdminVerificationPage";
 import { AdminMonitorPage } from "@/pages/admin/AdminMonitorPage";
 import { AdminHSCodeSchedulesPage } from "@/pages/admin/AdminHSCodeSchedulesPage";
+import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
 import { ChatRoomListPage } from "@/pages/chat/ChatRoomListPage";
 import { ChatRoomDetailPage } from "@/pages/chat/ChatRoomDetailPage";
 import type { RouteObject } from "react-router-dom";
@@ -273,6 +274,16 @@ export const sharedRoutes: RouteObject[] = [
     element: (
       <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
         <AdminHSCodeSchedulesPage />
+      </RoleGuard>
+    ),
+  },
+
+  // ── Admin: User Management (admin only) ──
+  {
+    path: ROUTES.ADMIN.USERS,
+    element: (
+      <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <AdminUsersPage />
       </RoleGuard>
     ),
   },

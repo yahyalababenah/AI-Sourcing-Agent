@@ -4,6 +4,7 @@ import {
   LayoutDashboard, ClipboardList, PlusCircle, Users, Store, Package, Upload,
   ClipboardCheck, FileText, Calculator, Truck, MessageCircle, Clapperboard,
   Globe, Activity, ShieldCheck, DollarSign, ReceiptText, Settings, UserCircle,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: ROUTES.PRICING.RULES,       labelKey: "nav.pricingRules",        icon: DollarSign },
   { to: ROUTES.ADMIN.HS_CODES,      labelKey: "nav.hsCodeSchedules",     icon: ReceiptText },
   { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "nav.globalCatalog",       icon: Store },
+  { to: ROUTES.ADMIN.USERS,         labelKey: "nav.userManagement",      icon: UserCog },
 ];
 
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {

@@ -1196,11 +1196,44 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
     فحص curl عبر Vite dev server لكل الملفات الجديدة/المعدَّلة يعيد
     200 بلا أخطاء تحويل، لا `text-left/right` ولا indigo بالملفات
     الجديدة. ✅
-- [ ] **T9.3 — إدارة المستخدمين + توثيق الموردين**: جداول بفلاتر +
+- [x] **T9.3 — إدارة المستخدمين + توثيق الموردين**: جداول بفلاتر +
   أزرار اعتماد/رفض التوثيق.
-  - **T9.3.1** (اكتُشفت في T1.1): أضف route `ADMIN.USERS` + عنصر
-    "إدارة المستخدمين" في `Sidebar.tsx` (ADMIN_NAV) بعد بناء الصفحة —
-    مفتاح الترجمة `nav.userManagement` موجود مسبقاً بالثلاث لغات.
+  - **توثيق الموردين** كان مبنياً بالفعل بالكامل ووظيفياً
+    (`AdminVerificationPage.tsx`: فلاتر حالة + أزرار توثيق/رفض/إعادة
+    فعلية متصلة بـ`monitoringService.updateVerificationStatus`) — لم
+    يُلمس (خارج نطاق الفجوة الفعلية لهذه المهمة).
+  - **إدارة المستخدمين** كانت الفجوة الحقيقية: لا صفحة ولا route ولا
+    عنصر سايد بار، رغم أن الباك إند (`GET/PUT /admin/users*`) وطبقة
+    الخدمة (`monitoringService.listUsers`/`toggleUserStatus`) كانتا
+    جاهزتين تماماً (غير مستخدمتين بأي صفحة). بُنيت من الصفر بنفس نمط
+    Desktop/Mobile+hook+switcher المتّبع في T9.1/T9.2:
+    `useAdminUsersData.ts` (فلترة حسب الدور عبر الباك إند + فلترة
+    الحالة نشط/معطّل محلياً لأن الباك إند يدعم `active_only` فقط بلا
+    خيار "معطّل فقط") + `AdminUsersPageDesktop.tsx` (جدول: اسم/بريد/
+    دور/تاريخ انضمام/حالة/زر تفعيل-تعطيل) + `AdminUsersPageMobile.tsx`
+    (بطاقات مكدّسة بنفس البيانات والإجراء) + `AdminUsersPage.tsx`
+    (مبدّل `useMediaQuery`).
+  - **T9.3.1 نُفّذت**: أُضيف route جديد `ROUTES.ADMIN.USERS`
+    (`/admin/users`) في `constants/routes.ts` + تسجيله في
+    `routeFactories.tsx` (`RoleGuard roles={["admin"]}`) + عنصر
+    "إدارة المستخدمين" في `Sidebar.tsx` (`ADMIN_NAV`, آخر عنصر حسب
+    ترتيب CLAUDE.md) باستخدام مفتاح الترجمة `nav.userManagement`
+    الموجود مسبقاً بالثلاث لغات (لم يكن مستخدَماً بأي مكان). لم يُلمس
+    `BottomNav.tsx` (غير مطلوب صراحة في T9.3.1، والقائمة السفلية
+    للأدمن ممتلئة بأهم 3 عناصر أصلاً).
+  - الألوان: badges الدور تستخدم `supplier-*`/`importer-*`/slate حسب
+    القاعدة (agent→supplier, client→importer, admin→slate محايد)،
+    بلا أي hex يدوي أو indigo. لا `text-left/right` ثابتة (استُخدم
+    `text-start/end`).
+  - قبول: تحقّق فعلي — `AdminUsersPageDesktop.test.tsx` (3 اختبارات:
+    الجدول ببيانات حقيقية، أزرار تفعيل/تعطيل حسب الحالة، حالة الفراغ
+    الصادقة) + `AdminUsersPageMobile.test.tsx` (بطاقات مكدّسة بلا
+    رؤوس جدول + skeleton التحميل) + `AdminUsersPage.switcher.test.tsx`
+    (اختيار الملف الصحيح حسب `matchMedia`). `npx tsc --noEmit` نظيف،
+    230/230 اختبار ناجح بالمشروع كاملاً (`--no-file-parallelism`)،
+    فحص curl عبر Vite dev server للملفات الثلاثة الجديدة يعيد 200 بلا
+    أخطاء تحويل، `npm run dev` نظيف بلا console errors (HMR طبّق
+    Sidebar.tsx بنجاح). ✅
 - [ ] **T9.4 — قواعد التسعير + جداول رسوم HS + الكتالوج العالمي**:
   جداول CRUD بسيطة وواضحة.
   - commit بعد كل صفحة.
@@ -1288,4 +1321,5 @@ npm run dev                 # يجب أن يعمل بلا أخطاء قبل ال
 | 2026-07-06 | T8.7 | OrderTrackingPage.tsx كانت بالفعل صفحة تتبع حقيقية جداً — خط زمني عمودي حقيقي بنقاط ملوّنة/نبض للحالة النشطة/سجل أحداث فعلي موجود مسبقاً، عكس ما أوحى نص الخطة. المخالفات الفعلية: ملف واحد غير مقسّم، ثيم CSS-variables/hex يدوية قديم، وبيانات مُلفَّقة صريحة: "التسليم المتوقع: 10 أغسطس" (تاريخ وهمي ثابت، لا حقل ETA حقيقي)، شريط "65% مكتمل" ثابت دائماً (لا حقل نسبة تقدّم بعقد الباك إند)، و(quote as any).product_name (حقل غير موجود على Quotation، يسقط دائماً بصمت). فحصت TRACKING_PIPELINE الحقيقي (6 مراحل) مقابل الخمس مراحل الأسلوبية بنص الخطة — لا تطابق حرفي (لا "وصل الميناء" منفصلة، awaiting_payment/production تسبقان الشحن) — أبقيت المراحل الستة الحقيقية بدل اختلاق مرحلة خامسة. قسمت الملف: useOrderTrackingData.ts (+ shipmentLabel مُصححة تقرأ line_items[0] الحقيقي) + ShipmentTimeline.tsx (بلا شريط 65% المُلفَّق) + TrackingEventHistory.tsx + TrackingStatusUpdatePanel.tsx + OrderTrackingPageDesktop.tsx (عمودان) + OrderTrackingPageMobile.tsx (عمود واحد) + مبدّل. حذفت بند "التسليم المتوقع" المُلفَّق كاملاً من بطاقة الملخص بدل تركه. 200/200 اختبار ناجح (`--no-file-parallelism`، 8 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200. **نهاية المرحلة 8 كاملةً.** |
 | 2026-07-06 | T9.1 | بدأت المرحلة 9 (صفحات الأدمن). AdminDashboard.tsx كانت صفحة حقيقية وظيفية (4 KPI حقيقية عبر monitoringService.getStats، تكاليف ذكاء اصطناعي حقيقية مع حالة "غير متوفرة" صادقة عند الفشل، قواعد تسعير نشطة حقيقية) لكن ملفاً واحداً responsive بثيم زخرفي (بنفسجي/أزرق/أخضر/تركواز) يخالف رأس المرحلة 9 الصريح "slate بحت". قسمتها لـuseAdminDashboardData.ts + AdminDashboardDesktop.tsx (شبكة 4 أعمدة) + AdminDashboardMobile.tsx (شبكة 2×2 — بلا مرجع HTML للأدمن فاعتُمدت كثافة المعلومات بدل تقليص 3 KPI) + مبدّل. اكتشفت رابطاً مضلِّلاً: زر "إدارة المستخدمين" القديم كان يقود فعلياً لصفحة SETTINGS الفارغة (placeholder غير متعلق بالمستخدمين إطلاقاً) — حذفته (لا ADMIN.USERS route بعد، T9.3.1 مؤجّلة) واستبدلته برابط حقيقي لصفحة "مراقبة النظام" الموجودة أصلاً. 211/211 اختبار ناجح (`--no-file-parallelism`، 11 اختبار جديد؛ اكتُشف وأُصلح تصادم نصوص بين تسمية رابط سريع وبطاقة KPI أثناء الكتابة)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات الجديدة، لا text-left/right ولا hex يدوية ولا indigo. |
 | 2026-07-06 | T9.2 | AdminMonitorPage.tsx كانت صفحة حقيقية غنية جداً بالفعل (549 سطر: polling حي كل 30 ثانية، ping فعلي لـ8 endpoints مع latency/sparkline تاريخي، LLM circuit breaker حقيقي، توزيع مستخدمين). المخالفات الفعلية: ملف واحد غير مقسّم، **`bg-indigo-600` محظور صراحةً** على أيقونة الترويسة (أول اكتشاف فعلي لمخالفة اللون المحظور صراحة منذ T0.2)، ثيم gray-*/text-right قديم، وبطاقات إحصاءات بـ`bg-${color}-100` الديناميكية (خلل Tailwind JIT كامن حقيقي، لا يُلتقط بالبناء الإنتاجي). قسمتها لـuseAdminMonitorData.ts + monitorHelpers.tsx (Sparkline + دوال ألوان دلالية مشتركة) + AdminMonitorPageDesktop.tsx + AdminMonitorPageMobile.tsx (بلا مرجع HTML للأدمن، تكديس قياسي + إسقاط عمود sparkline لضيق الشاشة فقط) + مبدّل. استبدلت بطاقات الإحصاءات بـStatCard المشترك (يحل خلل الألوان الديناميكية أيضاً)، وأصلحت indigo→slate-800 وgray→slate وtext-right→text-end. أبقيت الألوان الدلالية (أخضر/كهرماني/أحمر لحالة الخدمات/الـlatency) كما هي — إشارات مراقبة لا ألوان دور زخرفية، بنفس سابقة StatusPill. ملاحظة غير blocker: Sparkline لا تزال تستخدم hex خام لصفة SVG stroke (موجودة أصلاً قبل هذه المهمة، لا حل بلا هندسة زائدة لعنصر ثانوي) — ستُراجَع في فحص T12.3 إن لزم. 223/223 اختبار ناجح (`--no-file-parallelism`، 12 اختبار جديد؛ أُصلح تصادم نصوص بين avgLatency المُصطنع بالاختبار وقيمة ping latency)، tsc نظيف، curl عبر Vite يعيد 200. |
+| 2026-07-06 | T9.3 | "توثيق الموردين" كانت مبنية بالفعل ووظيفية (AdminVerificationPage.tsx) فلم تُلمس — الفجوة الحقيقية كانت "إدارة المستخدمين" الغائبة كلياً رغم أن الباك إند وmonitoringService.listUsers/toggleUserStatus كانا جاهزين وغير مستخدَمين بأي صفحة. بُنيت من الصفر بنفس نمط T9.1/T9.2 (useAdminUsersData.ts + Desktop/Mobile + مبدّل): فلاتر دور (عبر الباك إند) وحالة نشط/معطّل (محلياً، لأن الباك إند يدعم active_only فقط)، جدول/بطاقات بزر تفعيل-تعطيل حقيقي. أضفت T9.3.1: ROUTES.ADMIN.USERS جديد + تسجيله بـrouteFactories.tsx + عنصر "إدارة المستخدمين" بـSidebar.tsx (ADMIN_NAV، مفتاح ترجمة nav.userManagement كان موجوداً مسبقاً بلا استخدام). اكتُشف وأُصلح تصادم نصوص أثناء كتابة الاختبارات: "نشط"/"معطّل" تصف كلاً من تبويب فلتر الحالة وشارة الصف نفسها. 230/230 اختبار ناجح (`--no-file-parallelism`، 7 اختبارات جديدة)، tsc نظيف، curl عبر Vite يعيد 200 لكل الملفات الجديدة، لا indigo ولا text-left/right ثابتة. |
 
