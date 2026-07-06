@@ -59,5 +59,6 @@ export const API = {
     PRODUCTS: "/catalog/products",
     PENDING: "/catalog/products/pending",
     REVIEW: (id: string) => `/catalog/products/${id}/review`,
+    ADMIN: "/catalog/products/admin",
   },
 } as const;

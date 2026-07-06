@@ -29,6 +29,7 @@ import { AdminVerificationPage } from "@/pages/admin/AdminVerificationPage";
 import { AdminMonitorPage } from "@/pages/admin/AdminMonitorPage";
 import { AdminHSCodeSchedulesPage } from "@/pages/admin/AdminHSCodeSchedulesPage";
 import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
+import { AdminCatalogPage } from "@/pages/admin/AdminCatalogPage";
 import { ChatRoomListPage } from "@/pages/chat/ChatRoomListPage";
 import { ChatRoomDetailPage } from "@/pages/chat/ChatRoomDetailPage";
 import type { RouteObject } from "react-router-dom";
@@ -284,6 +285,16 @@ export const sharedRoutes: RouteObject[] = [
     element: (
       <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
         <AdminUsersPage />
+      </RoleGuard>
+    ),
+  },
+
+  // ── Admin: Global Catalog oversight (admin only) ──
+  {
+    path: ROUTES.ADMIN.CATALOG,
+    element: (
+      <RoleGuard roles={["admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <AdminCatalogPage />
       </RoleGuard>
     ),
   },

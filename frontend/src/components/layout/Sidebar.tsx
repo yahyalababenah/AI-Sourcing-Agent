@@ -50,7 +50,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: ROUTES.ADMIN.VERIFICATION,  labelKey: "nav.supplierVerification",icon: ShieldCheck },
   { to: ROUTES.PRICING.RULES,       labelKey: "nav.pricingRules",        icon: DollarSign },
   { to: ROUTES.ADMIN.HS_CODES,      labelKey: "nav.hsCodeSchedules",     icon: ReceiptText },
-  { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "nav.globalCatalog",       icon: Store },
+  { to: ROUTES.ADMIN.CATALOG,       labelKey: "nav.globalCatalog",       icon: Store },
   { to: ROUTES.ADMIN.USERS,         labelKey: "nav.userManagement",      icon: UserCog },
 ];
 
