@@ -93,6 +93,10 @@ class HSCodeFeeSchedule(Base):
     service fee, 018 conditional import penalty) rather than a single general
     rate. This table stores the per-HS-code values for those items, verified
     against real JCAP simulation results where available.
+
+    NOTE — Legacy fields (duty_rate, vat_rate, service_fee, additional_fee,
+    is_active) are kept for backward compatibility with older code that wrote
+    single-rate values. New code MUST use the JCAP-specific fields instead.
     """
 
     __tablename__ = "hs_code_fee_schedules"
@@ -100,6 +104,8 @@ class HSCodeFeeSchedule(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     hs_code = Column(String(50), nullable=False, unique=True, index=True)
     description = Column(String(500), nullable=True)
+
+    # ── JCAP-compliant fields ──────────────────────────────────────────────
     duty_rate_001 = Column(Float, nullable=False)  # % on CIF
     service_flat_fee_301 = Column(Float, nullable=False, default=0.0)  # flat JOD
     service_percent_070 = Column(Float, nullable=False, default=0.0)  # % on CIF
@@ -108,6 +114,18 @@ class HSCodeFeeSchedule(Base):
     vat_rate_020 = Column(Float, nullable=True)  # % on (CIF + duty); None = use global default
     is_verified = Column(Boolean, nullable=False, default=False)
     source_note = Column(Text, nullable=True)
+
+    # ── Legacy / backward-compatibility fields ─────────────────────────────
+    # DEPRECATED: use duty_rate_001 instead
+    duty_rate = Column(Float, nullable=True, default=None)
+    # DEPRECATED: use vat_rate_020 instead
+    vat_rate = Column(Float, nullable=True, default=None)
+    # DEPRECATED: use service_flat_fee_301 instead
+    service_fee = Column(Float, nullable=True, default=None)
+    # DEPRECATED: use service_percent_070 / penalty_rate_018 instead
+    additional_fee = Column(Float, nullable=True, default=None)
+    # DEPRECATED: use is_verified instead
+    is_active = Column(Boolean, nullable=True, default=None)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
