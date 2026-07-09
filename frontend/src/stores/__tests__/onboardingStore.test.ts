@@ -12,6 +12,7 @@ function reset() {
     expectedRoute: null,
     completedSteps: [],
     snoozedAt: null,
+    restartSignal: 0,
   });
 }
 
@@ -106,5 +107,20 @@ describe("onboardingStore", () => {
     expect(state.status).toBe("pending");
     expect(state.hasSeenWelcome).toBe(false);
     expect(state.completedSteps).toEqual([]);
+  });
+
+  it("resetTour bumps restartSignal so OnboardingProvider can distinguish a deliberate restart", () => {
+    const before = useOnboardingStore.getState().restartSignal;
+    useOnboardingStore.getState().resetTour();
+    expect(useOnboardingStore.getState().restartSignal).toBe(before + 1);
+    useOnboardingStore.getState().resetTour();
+    expect(useOnboardingStore.getState().restartSignal).toBe(before + 2);
+  });
+
+  it("initFor resetting progress for a different user does not touch restartSignal", () => {
+    useOnboardingStore.getState().resetTour();
+    const signalAfterReset = useOnboardingStore.getState().restartSignal;
+    useOnboardingStore.getState().initFor("user-2", "client");
+    expect(useOnboardingStore.getState().restartSignal).toBe(signalAfterReset);
   });
 });
