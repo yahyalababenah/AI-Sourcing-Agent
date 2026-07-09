@@ -287,6 +287,8 @@ async def quick_estimate(
         rfq_id="estimate",
         target_currency=request.target_currency,
         destination_port=request.destination_port,
+        has_license=request.has_license,
+        volume_cbm=request.volume_cbm,
         products=[{
             "product_id": "estimate",
             "name": "Estimate",
@@ -295,6 +297,7 @@ async def quick_estimate(
             "weight_kg": request.weight_kg,
             "hs_code": request.hs_code,
             "has_license": request.has_license,
+            "volume_cbm": request.volume_cbm,
         }],
     )
     result = await calculate_price(db, calc_request, redis=redis)
