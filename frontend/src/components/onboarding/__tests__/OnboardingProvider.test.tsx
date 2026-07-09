@@ -5,10 +5,15 @@ import { OnboardingProvider } from "../OnboardingProvider";
 import { useAuthStore } from "@/stores/authStore";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 import { authService } from "@/services/authService";
+import { getTourSteps } from "@/constants/onboardingSteps";
+import { useTourTarget } from "@/hooks/useTourTarget";
 import type { User } from "@/types/auth";
 import "@/lib/i18n";
 
 vi.mock("@/services/authService");
+vi.mock("@/hooks/useTourTarget");
+
+const FAKE_RECT = { top: 10, left: 10, width: 80, height: 30, right: 90, bottom: 40, x: 10, y: 10, toJSON() {} } as DOMRect;
 
 function makeUser(overrides: Partial<User> = {}): User {
   return {
@@ -39,6 +44,7 @@ describe("OnboardingProvider", () => {
       snoozedAt: null,
     });
     vi.mocked(authService.updateOnboardingStatus).mockResolvedValue(makeUser());
+    vi.mocked(useTourTarget).mockReturnValue({ rect: FAKE_RECT, status: "found" });
   });
 
   it("shows the welcome carousel when backend status is pending", async () => {
@@ -115,5 +121,34 @@ describe("OnboardingProvider", () => {
     expect(authService.updateOnboardingStatus).toHaveBeenCalledWith("active");
     expect(useOnboardingStore.getState().status).toBe("active");
     expect(useOnboardingStore.getState().activeStepId).not.toBeNull();
+  });
+
+  it("shows the completion card once the tour's last step is finished, and dismisses it", async () => {
+    const agentSteps = getTourSteps("agent");
+    const lastStep = agentSteps[agentSteps.length - 1];
+    useAuthStore.setState({ user: makeUser({ onboarding_status: "active" }) });
+    useOnboardingStore.setState({
+      userId: "user-1",
+      role: "agent",
+      hasSeenWelcome: true,
+      status: "active",
+      activeStepId: lastStep.id,
+      expectedRoute: lastStep.route,
+      completedSteps: [],
+      snoozedAt: null,
+    });
+
+    renderWithProviders(<OnboardingProvider role="agent" />, { route: lastStep.route });
+    await waitFor(() => expect(screen.getByText("إنهاء الجولة")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("إنهاء الجولة"));
+
+    await waitFor(() => {
+      expect(screen.getByText("أتممت الجولة 🎉")).toBeInTheDocument();
+    });
+    expect(useOnboardingStore.getState().status).toBe("completed");
+
+    fireEvent.click(screen.getByText("لنبدأ!"));
+    expect(screen.queryByText("أتممت الجولة 🎉")).not.toBeInTheDocument();
   });
 });

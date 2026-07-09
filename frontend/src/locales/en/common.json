@@ -162,7 +162,8 @@
     },
     "completion": {
       "title": "Tour complete 🎉",
-      "subtitle": "You're all set to use the platform with confidence. You can restart the tour anytime from Settings."
+      "subtitle": "You're all set to use the platform with confidence. You can restart the tour anytime from Settings.",
+      "dismiss": "Let's go!"
     },
     "settings": {
       "restartTour": "Restart the onboarding tour"

@@ -5,6 +5,7 @@ import { authService } from "@/services/authService";
 import { getWelcomeSlides, getTourSteps } from "@/constants/onboardingSteps";
 import { WelcomeCarousel } from "./WelcomeCarousel";
 import { GuidedTour } from "./GuidedTour";
+import { CompletionCard } from "./CompletionCard";
 import type { OnboardingRole } from "./roleAccent";
 
 const SESSION_KEY = "ai-sourcing-onboarding-session-checked";
@@ -32,6 +33,7 @@ export function OnboardingProvider({ role }: OnboardingProviderProps) {
   const skipForever = useOnboardingStore((s) => s.skipForever);
 
   const [welcomeVisible, setWelcomeVisible] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
   const reconciledRef = useRef(false);
 
   useEffect(() => {
@@ -91,7 +93,12 @@ export function OnboardingProvider({ role }: OnboardingProviderProps) {
     );
   }
 
+  if (showCompletion) {
+    return <CompletionCard role={role} onDismiss={() => setShowCompletion(false)} />;
+  }
+
   // GuidedTour self-guards on status !== "active", so it's safe to always
-  // mount it here once the welcome carousel isn't showing.
-  return <GuidedTour role={role} onTourFinished={() => {}} />;
+  // mount it here once neither the welcome carousel nor the completion
+  // card is showing.
+  return <GuidedTour role={role} onTourFinished={() => setShowCompletion(true)} />;
 }
