@@ -13,6 +13,10 @@ export const quotationService = {
   create: (data: QuotationCreate) =>
     api.post<Quotation>(API.QUOTES.CREATE, data).then((r) => r.data),
 
+  /** Create a standalone quotation — no RFQ required. */
+  createStandalone: (data: QuotationCreate) =>
+    api.post<Quotation>(API.QUOTES.CREATE_STANDALONE, data).then((r) => r.data),
+
   /** List quotations. */
   list: (params?: { rfq_id?: string; status?: string; limit?: number }) =>
     api.get<QuotationListResponse>(API.QUOTES.LIST, { params }).then((r) => r.data),

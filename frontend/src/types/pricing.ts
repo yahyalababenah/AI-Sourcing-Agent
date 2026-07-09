@@ -85,7 +85,7 @@ export interface PriceProductInput {
 }
 
 export interface CalculatePriceRequest {
-  rfq_id: string;
+  rfq_id?: string;
   target_currency: string;
   destination_port: string;
   products: PriceProductInput[];

@@ -53,6 +53,10 @@ export const pricingService = {
   calculate: (data: CalculatePriceRequest) =>
     api.post<CalculatePriceResponse>(API.PRICING.CALCULATE, data).then((r) => r.data),
 
+  /** Standalone pricing calculation — no RFQ required. */
+  calculateStandalone: (data: CalculatePriceRequest) =>
+    api.post<CalculatePriceResponse>(API.PRICING.CALCULATE_STANDALONE, data).then((r) => r.data),
+
   /** Quick landed-cost estimate for marketplace browsing (all users). */
   estimate: (data: { unit_price_cny: number; quantity: number; destination_port?: string; target_currency?: string; weight_kg?: number; hs_code?: string; has_license?: boolean; volume_cbm?: number }) =>
     api.post<QuickEstimateResponse>(API.PRICING.ESTIMATE, data).then((r) => r.data),

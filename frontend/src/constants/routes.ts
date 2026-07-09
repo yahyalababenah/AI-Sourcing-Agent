@@ -41,6 +41,7 @@ export const ROUTES = {
     RULES: "/pricing/rules",
     // Lives under /agent because only agents/admins calculate pricing.
     CALCULATE: "/agent/calculator",
+    STANDALONE_CALC: "/agent/standalone-calculator",
   },
   QUOTES: {
     LIST: "/quotes",

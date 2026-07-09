@@ -15,7 +15,7 @@ export interface QuotationLineItem {
 }
 
 export interface QuotationCreate {
-  rfq_id: string;
+  rfq_id?: string;
   target_currency?: string;
   exchange_rate_used?: number;
   line_items: QuotationLineItem[];
