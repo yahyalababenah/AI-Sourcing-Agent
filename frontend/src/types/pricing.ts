@@ -80,6 +80,8 @@ export interface PriceProductInput {
   hs_code?: string;
   /** Whether the importer has confirmed the required license/conformity certificate for this HS code. */
   has_license?: boolean;
+  /** Explicit CBM volume from packing list; overrides weight-based estimate if provided. */
+  volume_cbm?: number;
 }
 
 export interface CalculatePriceRequest {
@@ -87,6 +89,10 @@ export interface CalculatePriceRequest {
   target_currency: string;
   destination_port: string;
   products: PriceProductInput[];
+  /** Global license flag — overridden by per-product has_license if set. */
+  has_license?: boolean;
+  /** Global CBM volume — overridden by per-product volume_cbm if provided. */
+  volume_cbm?: number;
 }
 
 export interface LineItemResult {
@@ -117,6 +123,17 @@ export interface AppliedCustomRule {
   amount: number;
 }
 
+/** Per-line-item 3-phase JCAP customs breakdown. */
+export interface PhaseBreakdown {
+  product_id: string;
+  /** Phase 1: Base customs duty (duty_rate_001 applied to CIF value). */
+  phase_1_duty: number;
+  /** Phase 2: Service fees (service_flat_fee_301 + service_percent_070 on CIF). */
+  phase_2_service: number;
+  /** Phase 3: VAT + penalty (VAT on CIF+duty + conditional penalty_rate_018). */
+  phase_3_vat_penalty: number;
+}
+
 export interface CalculatePriceResponse {
   rfq_id: string;
   target_currency: string;
@@ -132,6 +149,10 @@ export interface CalculatePriceResponse {
   service_flat_fee_301_total: number;
   custom_fees_total: number;
   custom_rules_applied: AppliedCustomRule[];
+  /** Whether this calculation used JCAP-simulated rates. */
+  is_jcap_simulated: boolean;
+  /** Per-line-item 3-phase breakdown (JCAP compliance detail). */
+  three_phase_breakdown?: PhaseBreakdown[];
   /** Set only by the frontend's local fallback (see localPricingFallback.ts)
    * when POST /pricing/calculate fails — never sent by the real backend. */
   is_local_fallback?: boolean;

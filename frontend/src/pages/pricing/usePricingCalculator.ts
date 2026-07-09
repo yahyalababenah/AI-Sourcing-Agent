@@ -25,6 +25,7 @@ export type ProductInput = {
   weight_kg: number;
   hs_code: string;
   has_license: boolean;
+  volume_cbm?: number;
 };
 
 /** Shared react-query/state wiring for the pricing calculator — used by both
@@ -77,6 +78,7 @@ export function usePricingCalculator() {
         weight_kg: p.weight_kg ?? 0,
         hs_code: "",
         has_license: false,
+        volume_cbm: undefined,
       };
     }
     if (JSON.stringify(productInputs) !== JSON.stringify(inputs)) {
@@ -96,6 +98,7 @@ export function usePricingCalculator() {
         weight_kg: vals.weight_kg,
         hs_code: vals.hs_code.trim() || undefined,
         has_license: vals.has_license,
+        volume_cbm: vals.volume_cbm,
       };
     });
 
@@ -108,11 +111,21 @@ export function usePricingCalculator() {
       if (productsPayload.length === 0) {
         throw new PricingValidationError("لا توجد منتجات للحساب");
       }
+      // Determine global license/CBM: true only if ALL products share the same value
+      const allHasLicense = productsPayload.every((p) => p.has_license);
+      const anyVolumeCbm = productsPayload.find((p) => p.volume_cbm != null)?.volume_cbm;
+      const globalVolumeCbm =
+        anyVolumeCbm != null && productsPayload.every((p) => p.volume_cbm === anyVolumeCbm)
+          ? anyVolumeCbm
+          : undefined;
+
       return pricingService.calculate({
         rfq_id: selectedRfqId,
         target_currency: targetCurrency,
         destination_port: destinationPort.trim(),
         products: productsPayload,
+        has_license: allHasLicense,
+        volume_cbm: globalVolumeCbm,
       });
     },
     onSuccess: (data) => {
