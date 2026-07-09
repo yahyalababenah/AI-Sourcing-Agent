@@ -128,32 +128,6 @@ class TestHSCodeCalculate:
     def setup_method(self):
         self.engine = PricingEngine()
 
-    def test_vat_base_excludes_070_301_018_when_toggle_off(self):
-        """By decision, vat_base_includes_fees defaults ON — but an admin can
-        disable it (rule named "vat_base_includes_fees" = 0), which restores
-        the CIF+001-only VAT base with no 070/301/018 included.
-        """
-        engine = PricingEngine(rules_override={"vat_base_includes_fees": 0.0})
-        products = [
-            LineItemInput(
-                product_id="p1", product_name="Lamp", quantity=100,
-                unit_price_cny=100.0, weight_kg=500.0,
-                hs_entry=VERIFIED_HS_ENTRY, has_license=False,
-            )
-        ]
-        result = engine.calculate(
-            rfq_id="hs-vat-test", target_currency="JOD",
-            destination_port="Aqaba", products=products,
-        )
-        li = result["line_items"][0]
-        # penalty_018 must be > 0 in this scenario (no license confirmed)
-        assert li["penalty_018"] > 0
-        assert result["service_flat_fee_301_total"] > 0
-        assert li["service_percent_070"] > 0
-
-        expected_vat_base = li["cif_value"] + li["customs_duty"]
-        expected_vat = round(expected_vat_base * 0.16, 2)
-        assert result["vat"] == pytest.approx(expected_vat, rel=0.01)
 
     def test_vat_base_includes_070_301_018_by_default(self):
         """Default behavior: vat_base_includes_fees=1 widens the VAT base to

@@ -64,20 +64,25 @@ class TestCalculateLandedCost:
         self.engine = PricingEngine()
 
     def test_basic_calculation(self):
-        """Verify the corrected 10-step algorithm produces reasonable results.
+        """Verify the 3-phase algorithm produces reasonable results.
 
-        NOTE: expected values updated after fixing three verified bugs:
-          - exchange_rate_cny_jod default corrected from stale 0.077 to 0.1047
-          - customs duty base corrected from goods-price-only to CIF
-            (goods + freight + insurance), matching a real JCAP result.
-          - freight/volume now scales off the TOTAL shipment weight
-            (weight_kg * quantity), not a single unit's weight — previously
-            volume_cbm was computed from weight_kg alone and then divided by
-            quantity a second time when deriving freight_per_unit, so freight
-            silently shrank toward zero as quantity grew instead of staying
-            roughly constant per unit. ``weight_kg`` is the PER-UNIT weight,
-            matching ``CatalogProduct.weight_kg`` and what the frontend sends
-            (see test_freight_scales_with_quantity_not_inversely below).
+        Phase 1 (Port Arrival / CIF):
+          1. price_usd = 100 * 0.14 = 14.0
+          2. price_local = 14.0 * (0.1047/0.14) ≈ 10.47
+          3. volume_cbm = (500 * 100)/500 = 100.0
+          4. freight_per_unit = 75 * 100.0 / 100 = 75.0
+          5. insurance = (10.47 + 75.0) * 0.01 ≈ 0.8547
+          6. CIF = 10.47 + 75.0 + 0.8547 ≈ 86.32
+
+        Phase 2 (JCAP Customs & Tax) — no HS entry → general rate fallback:
+          7. customs = CIF * 0.05 ≈ 4.32
+             (no 070/018/301 since no hs_entry)
+          8. vat_base = CIF + customs ≈ 90.64
+          9. vat = vat_base * 0.16 ≈ 14.50
+          10. landed_cost = CIF + customs + vat ≈ 105.14
+
+        Phase 3 (Commercial) — handled by calculate(), not calculate_landed_cost(),
+           so clearance_per_unit and commission_per_unit are 0 here.
         """
         result = self.engine.calculate_landed_cost(
             price_rmb=100.0,
@@ -87,32 +92,29 @@ class TestCalculateLandedCost:
             currency="JOD",
             agent_commission_pct=3.0,
         )
-        # Step 1: price_usd = 100 * 0.14 = 14.0
+        # Phase 1: Port Arrival
         assert result["price_usd"] == 14.0
-        # Step 2: price_local = 100 * 0.1047 = 10.47
         assert result["price_local"] == pytest.approx(10.47, rel=0.01)
-        # Step 3: volume_cbm = (500 * 100)/500 = 100.0 (total shipment volume)
         assert result["volume_cbm"] == 100.0
-        # Step 4: freight = 75 * 100.0 / 100 = 75.0
         assert result["freight_per_unit"] == 75.0
-        # Step 5: insurance = (10.47 + 75.0) * 0.01 ≈ 0.8547
         assert result["insurance_per_unit"] == pytest.approx(0.85, abs=0.01)
-        # Step 6: CIF = price_local + freight + insurance ≈ 86.3247
         assert result["cif_per_unit"] == pytest.approx(86.32, abs=0.01)
-        # Step 7: customs = CIF * 0.05 ≈ 4.316 (base is CIF, not goods price alone)
+        # Phase 2: Customs & Tax
         assert result["customs_per_unit"] == pytest.approx(4.32, abs=0.01)
-        # Step 8: clearance = 150 / 100 = 1.5
-        assert result["clearance_per_unit"] == 1.5
-        # Step 9: commission = (price_local + freight + customs + clearance) * 0.03
-        total_before = (
-            result["price_local"] + result["freight_per_unit"]
-            + result["customs_per_unit"] + result["clearance_per_unit"]
-        )
-        assert result["commission_per_unit"] == pytest.approx(total_before * 0.03, rel=0.01)
-        # Step 10: total_per_unit = total_before + commission
-        assert result["total_per_unit"] == pytest.approx(total_before * 1.03, rel=0.01)
-        # grand_total = total_per_unit * quantity
-        assert result["grand_total"] == pytest.approx(result["total_per_unit"] * 100, rel=0.01)
+        assert result["service_percent_per_unit"] == 0.0
+        assert result["penalty_per_unit"] == 0.0
+        assert result["service_flat_301_line"] == 0.0
+        expected_vat_base = result["cif_per_unit"] + result["customs_per_unit"]
+        assert result["vat_base_per_unit"] == pytest.approx(expected_vat_base, rel=0.01)
+        expected_vat = expected_vat_base * 0.16
+        assert result["vat_per_unit"] == pytest.approx(expected_vat, rel=0.01)
+        expected_landed = result["cif_per_unit"] + result["customs_per_unit"] + result["vat_per_unit"]
+        assert result["landed_cost_per_unit"] == pytest.approx(expected_landed, rel=0.01)
+        assert result["total_per_unit"] == pytest.approx(expected_landed, rel=0.01)
+        assert result["grand_total"] == pytest.approx(expected_landed * 100, rel=0.01)
+        # Phase 3 fields are 0 in per-unit calc
+        assert result["clearance_per_unit"] == 0.0
+        assert result["commission_per_unit"] == 0.0
 
     def test_zero_quantity_raises(self):
         """Quantity of 0 should raise ValueError."""
@@ -207,8 +209,8 @@ class TestCalculateLandedCost:
         )
         assert result["sea_freight_cbm"] == 80.0
 
-    def test_commission_on_total_before_commission(self):
-        """Commission is calculated on (price + freight + customs + clearance)."""
+    def test_commission_is_phase3_not_in_per_unit_calc(self):
+        """Commission is now Phase 3 (commercial pricing) — 0 in per-unit calc."""
         result = self.engine.calculate_landed_cost(
             price_rmb=100.0,
             weight_kg=500.0,
@@ -217,17 +219,11 @@ class TestCalculateLandedCost:
             currency="JOD",
             agent_commission_pct=5.0,
         )
-        total_before = (
-            result["price_local"]
-            + result["freight_per_unit"]
-            + result["customs_per_unit"]
-            + result["clearance_per_unit"]
-        )
-        expected_commission = total_before * 0.05
-        assert result["commission_per_unit"] == pytest.approx(expected_commission, rel=0.01)
+        # Commission is Phase 3 — not computed in calculate_landed_cost
+        assert result["commission_per_unit"] == 0.0
 
     def test_custom_rules_override(self):
-        """Custom rules override DEFAULTS."""
+        """Custom rules override DEFAULTS (Phase 1 values still affected)."""
         engine = PricingEngine(rules_override={
             "exchange_rate_cny_usd": 0.15,
             "sea_freight_aqaba": 100.0,
@@ -243,7 +239,8 @@ class TestCalculateLandedCost:
         )
         assert result["price_usd"] == 15.0  # 100 * 0.15
         assert result["sea_freight_cbm"] == 100.0
-        assert result["clearance_per_unit"] == 20.0  # 200 / 10
+        # clearance is Phase 3 — no longer in per-unit calc
+        assert result["clearance_per_unit"] == 0.0
 
 
 class TestCalculate:
@@ -330,11 +327,11 @@ class TestCalculate:
         assert r4["line_items"][0]["discount"] > r3["line_items"][0]["discount"]
 
     def test_vat_base_is_cif_plus_duty_not_full_total(self):
-        """REGRESSION: VAT must be computed on (CIF + duty) only, per a real
-        verified JCAP tax-simulation result — NOT on the full commercial total
-        (which also includes freight, clearance fee and commission). Before the
-        fix, VAT was computed on the inflated ``grand_total`` and would have
-        been significantly higher than the correct government-mandated amount.
+        """REGRESSION: VAT must be computed on (CIF + duty) only, not on the
+        full commercial grand_total (which also includes clearance fee and
+        commission). With the Bug 1 fix, VAT base = CIF + duty + 070 + 018 + 301
+        (all JCAP fees). When no HS entry is present, 070/018/301 are zero so
+        VAT base = CIF + duty.
         """
         products = [
             LineItemInput(
@@ -350,8 +347,9 @@ class TestCalculate:
         expected_vat_base = li["cif_value"] + li["customs_duty"]
         expected_vat = round(expected_vat_base * 0.16, 2)
         assert result["vat"] == pytest.approx(expected_vat, rel=0.01)
-        # Sanity: the (wrong) old base would have been much larger than CIF+duty
-        assert expected_vat_base < result["subtotal_before_vat"]
+        # Sanity: subtotal_before_vat includes CIF + duty (+ 070/018 when applicable).
+        # Without HS entry, 070/018/301 are zero so it equals CIF + duty.
+        assert expected_vat_base == result["subtotal_before_vat"]
 
     def test_weight_kg_changes_freight_and_therefore_total(self):
         """REGRESSION: weight_kg must actually influence the result. Before the

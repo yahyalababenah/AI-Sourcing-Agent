@@ -78,6 +78,7 @@ const CALC_RESULT: CalculatePriceResponse = {
   service_flat_fee_301_total: 0,
   custom_fees_total: 0,
   custom_rules_applied: [],
+  is_jcap_simulated: false,
 };
 
 describe("PricingCalcPageDesktop", () => {

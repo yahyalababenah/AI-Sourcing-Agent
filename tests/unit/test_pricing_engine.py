@@ -21,7 +21,7 @@ class TestZeroPrice:
         self.engine = PricingEngine()
 
     def test_zero_price_produces_zero_goods_cost_but_nonzero_total(self):
-        """A free product still accrues freight/customs/clearance/commission."""
+        """A free product still accrues freight/customs/insurance (Phase 1&2)."""
         result = self.engine.calculate_landed_cost(
             price_rmb=0.0,
             weight_kg=500.0,
@@ -30,10 +30,14 @@ class TestZeroPrice:
             currency="JOD",
         )
         assert result["price_local"] == 0.0
-        # Freight/clearance/commission still apply even at zero goods price.
+        # Freight/insurance still apply even at zero goods price (Phase 1).
         assert result["freight_per_unit"] > 0
-        assert result["clearance_per_unit"] > 0
-        assert result["total_per_unit"] > 0
+        assert result["insurance_per_unit"] > 0
+        # Phase 2 landed cost (CIF + duty + vat) should be > 0
+        assert result["landed_cost_per_unit"] > 0
+        # Phase 3 fields (clearance, commission) are 0 in per-unit calc
+        assert result["clearance_per_unit"] == 0.0
+        assert result["commission_per_unit"] == 0.0
 
     def test_zero_price_in_multi_product_calculate(self):
         products = [
@@ -48,6 +52,11 @@ class TestZeroPrice:
         )
         li = result["line_items"][0]
         assert li["unit_price_converted"] == 0.0
+        # Phase 2 landed cost includes freight/customs/vat even at zero price
+        assert li["landed_cost"] > 0
+        # Phase 3 clearance and commission should be allocated
+        assert li["clearance_fee"] > 0
+        assert li["commission"] > 0
         assert li["total"] >= 0
 
 
