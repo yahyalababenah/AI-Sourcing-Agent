@@ -151,4 +151,18 @@ describe("OnboardingProvider", () => {
     fireEvent.click(screen.getByText("لنبدأ!"));
     expect(screen.queryByText("أتممت الجولة 🎉")).not.toBeInTheDocument();
   });
+
+  it("re-opens the welcome carousel when the store's restartSignal is bumped (settings 'restart tour')", async () => {
+    useAuthStore.setState({ user: makeUser({ onboarding_status: "completed" }) });
+    renderWithProviders(<OnboardingProvider role="agent" />);
+    await waitFor(() => expect(useOnboardingStore.getState().status).toBe("completed"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // Simulates SettingsPage's "restart tour" button calling resetTour().
+    useOnboardingStore.getState().resetTour();
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+  });
 });

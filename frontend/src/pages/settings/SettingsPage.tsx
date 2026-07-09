@@ -1,4 +1,18 @@
+import { useTranslation } from "react-i18next";
+import { useAuthStore } from "@/stores/authStore";
+import { useOnboardingStore } from "@/stores/onboardingStore";
+import { authService } from "@/services/authService";
+
 export function SettingsPage() {
+  const { t } = useTranslation();
+  const role = useAuthStore((s) => s.role);
+  const resetTour = useOnboardingStore((s) => s.resetTour);
+
+  const handleRestartTour = () => {
+    resetTour();
+    authService.updateOnboardingStatus("pending").catch(() => {});
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
@@ -7,6 +21,21 @@ export function SettingsPage() {
           إعدادات الحساب والتفضيلات
         </p>
       </div>
+
+      {/* Restart the interactive onboarding tour — only agent/client have one (see T16). */}
+      {(role === "agent" || role === "client") && (
+        <div className="card flex items-center justify-between p-4">
+          <span className="text-sm font-medium text-gray-700">
+            {t("onboarding.settings.restartTour")}
+          </span>
+          <button
+            onClick={handleRestartTour}
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-bold text-white transition-all duration-150 hover:bg-brand-600 active:scale-[0.98]"
+          >
+            {t("onboarding.controls.startTour")}
+          </button>
+        </div>
+      )}
 
       {/* Placeholder: Settings page will be implemented in later phase */}
       <div className="card p-12 text-center">

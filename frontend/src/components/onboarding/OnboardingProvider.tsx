@@ -32,9 +32,12 @@ export function OnboardingProvider({ role }: OnboardingProviderProps) {
   const snooze = useOnboardingStore((s) => s.snooze);
   const skipForever = useOnboardingStore((s) => s.skipForever);
 
+  const restartSignal = useOnboardingStore((s) => s.restartSignal);
+
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const reconciledRef = useRef(false);
+  const isFirstRestartRenderRef = useRef(true);
 
   useEffect(() => {
     if (!user) return;
@@ -56,6 +59,19 @@ export function OnboardingProvider({ role }: OnboardingProviderProps) {
       setWelcomeVisible(true);
     }
   }, [user, role, initFor]);
+
+  // "Restart tour" from /settings bumps restartSignal — re-open the welcome
+  // carousel even though this provider stays mounted for the whole SPA
+  // session (skip the very first render so mounting doesn't immediately
+  // reopen it just because restartSignal already has its initial value).
+  useEffect(() => {
+    if (isFirstRestartRenderRef.current) {
+      isFirstRestartRenderRef.current = false;
+      return;
+    }
+    setShowCompletion(false);
+    setWelcomeVisible(true);
+  }, [restartSignal]);
 
   if (!user) return null;
 

@@ -24,6 +24,11 @@ interface OnboardingState {
   expectedRoute: string | null;
   completedSteps: string[];
   snoozedAt: string | null;
+  /** Bumped by resetTour() so OnboardingProvider (mounted once for the whole
+   *  SPA session) can distinguish a deliberate "restart tour" settings
+   *  action from status merely already being "pending" for other reasons
+   *  (e.g. the initial backend reconciliation on mount). */
+  restartSignal: number;
 
   /** Initializes state for a freshly authenticated user (called once role/id are known). */
   initFor: (userId: string, role: UserRole) => void;
@@ -59,6 +64,7 @@ export const useOnboardingStore = create<OnboardingState>()(
     (set, get) => ({
       userId: null,
       role: null,
+      restartSignal: 0,
       ...initialProgressState,
 
       initFor: (userId, role) => {
@@ -103,7 +109,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       },
 
       resetTour: () => {
-        set({ ...initialProgressState, status: "pending" });
+        set((s) => ({ ...initialProgressState, status: "pending", restartSignal: s.restartSignal + 1 }));
       },
 
       resumeFromNav: () => {
