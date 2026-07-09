@@ -510,11 +510,17 @@ async def calculate_price(
     engine = PricingEngine(rules_override=rules_override, custom_rules=custom_rules)
 
     # Build line item inputs
-    # FIX: weight_kg was previously never passed through, so freight was always
-    # computed off a phantom 0.1 CBM minimum regardless of actual product weight.
     products = []
     for p in request.products:
         hs_entry = await _load_hs_code_schedule(db, p.hs_code) if p.hs_code else None
+        # Determine effective has_license: per-product override, then global, then False
+        effective_has_license = p.has_license
+        if not effective_has_license and request.has_license is not None:
+            effective_has_license = request.has_license
+        # Determine effective volume_cbm: per-product, then global, then None
+        effective_volume_cbm = p.volume_cbm
+        if effective_volume_cbm is None and request.volume_cbm is not None:
+            effective_volume_cbm = request.volume_cbm
         products.append(
             LineItemInput(
                 product_id=p.product_id,
@@ -523,7 +529,8 @@ async def calculate_price(
                 unit_price_cny=p.unit_price_cny,
                 weight_kg=p.weight_kg,
                 hs_entry=hs_entry,
-                has_license=p.has_license,
+                has_license=effective_has_license,
+                volume_cbm=effective_volume_cbm,
             )
         )
 
@@ -560,6 +567,8 @@ async def calculate_price(
         service_flat_fee_301_total=result.get("service_flat_fee_301_total", 0.0),
         custom_fees_total=result.get("custom_fees_total", 0.0),
         custom_rules_applied=result.get("custom_rules_applied", []),
+        is_jcap_simulated=result.get("is_jcap_simulated", False),
+        three_phase_breakdown=result.get("three_phase_breakdown"),
     )
 
 
