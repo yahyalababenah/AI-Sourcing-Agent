@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import type { Product } from "@/types/intake";
 import type { ProductInput } from "./usePricingCalculator";
 
@@ -26,9 +27,9 @@ export function ProductsInputTable({ products, productInputs, setProductInputs }
               <th className="px-4 py-3 text-xs font-medium text-slate-500">
                 <span dir="ltr">سعر الوحدة (CNY ¥)</span>
               </th>
-              <th className="px-4 py-3 text-xs font-medium text-slate-500">الوزن (كغ/وحدة)</th>
-              <th className="px-4 py-3 text-xs font-medium text-slate-500">رمز HS</th>
-              <th className="px-4 py-3 text-xs font-medium text-slate-500">أملك الترخيص</th>
+              <th className="px-4 py-3 text-xs font-medium text-slate-500"><GlossaryTerm term="Weight">الوزن (كغ/وحدة)</GlossaryTerm></th>
+              <th className="px-4 py-3 text-xs font-medium text-slate-500"><GlossaryTerm term="HS Code">رمز HS</GlossaryTerm></th>
+              <th className="px-4 py-3 text-xs font-medium text-slate-500"><GlossaryTerm term="License">أملك الترخيص</GlossaryTerm></th>
               <th className="px-4 py-3 text-xs font-medium text-slate-500">
                 الإجمالي<span dir="ltr" className="mr-1">(CNY ¥)</span>
               </th>
@@ -130,7 +131,7 @@ export function ProductsInputTable({ products, productInputs, setProductInputs }
 
       {Object.values(productInputs).some((v) => v.weight_kg <= 0) && (
         <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          ⚠️ منتجات بدون وزن — سيُقدَّر الشحن بحد أدنى 0.1 CBM بدلاً من الوزن الفعلي
+          ⚠️ منتجات بدون وزن — سيُقدَّر الشحن بحد أدنى 0.1 <GlossaryTerm term="CBM" /> بدلاً من الوزن الفعلي
         </div>
       )}
     </>

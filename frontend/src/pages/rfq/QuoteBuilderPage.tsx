@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -273,11 +274,11 @@ export function QuoteBuilderPage() {
               </span>
             )}
             <span className="rounded-full bg-green-50 px-3 py-1 text-green-700">
-              الكمية: {pi.quantity.toLocaleString()} وحدة
+              <GlossaryTerm term="Quantity">الكمية</GlossaryTerm>: {pi.quantity.toLocaleString()} وحدة
             </span>
             {pi.unitPrice > 0 && (
               <span className="rounded-full bg-orange-50 px-3 py-1 text-orange-700">
-                السعر الأساسي: {pi.unitPrice} CNY
+                السعر الأساسي: {pi.unitPrice} <GlossaryTerm term="CNY">CNY</GlossaryTerm>
               </span>
             )}
           </div>
@@ -357,7 +358,7 @@ export function QuoteBuilderPage() {
         {!hasEffectivePrice && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
             <AlertCircle className="inline h-4 w-4 ml-1" />
-            لم يستخرج النظام سعر الوحدة من هذا الطلب. أدخل <strong>سعر الوحدة بالريال الصيني (CNY)</strong> في حقل "السعر اليدوي" أدناه لتمكين حساب التكلفة.
+            لم يستخرج النظام سعر الوحدة من هذا الطلب. أدخل <strong>سعر الوحدة بالريال الصيني (<GlossaryTerm term="CNY">CNY</GlossaryTerm>)</strong> في حقل "السعر اليدوي" أدناه لتمكين حساب التكلفة.
           </div>
         )}
 
@@ -381,10 +382,10 @@ export function QuoteBuilderPage() {
               <thead className="bg-gray-50 text-xs text-gray-500">
                 <tr>
                   <th className="px-4 py-2 text-right">البند</th>
-                  <th className="px-4 py-2 text-right">الكمية</th>
+                  <th className="px-4 py-2 text-right"><GlossaryTerm term="Quantity">الكمية</GlossaryTerm></th>
                   <th className="px-4 py-2 text-right">سعر الوحدة</th>
-                  <th className="px-4 py-2 text-right">الجمارك</th>
-                  <th className="px-4 py-2 text-right">العمولة</th>
+                  <th className="px-4 py-2 text-right"><GlossaryTerm term="Duty 001">الجمارك</GlossaryTerm></th>
+                  <th className="px-4 py-2 text-right"><GlossaryTerm term="Commission">العمولة</GlossaryTerm></th>
                   <th className="px-4 py-2 text-right">الإجمالي</th>
                 </tr>
               </thead>
@@ -427,12 +428,12 @@ export function QuoteBuilderPage() {
                 the real backend value, and show the discount explicitly. */}
             <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-1.5 text-sm">
               <div className="flex justify-between text-gray-600">
-                <span>المجموع (بدون شحن وضريبة)</span>
+                <span>المجموع (بدون <GlossaryTerm term="Freight">شحن</GlossaryTerm> و<GlossaryTerm term="VAT">ضريبة</GlossaryTerm>)</span>
                 <span dir="ltr">{fmt(calc.subtotal_before_vat - autoFreight, currency)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>
-                  الشحن
+                  <GlossaryTerm term="Freight">الشحن</GlossaryTerm>
                   {autoFreight > 0 && (
                     <span className="mr-1 text-xs text-gray-400">(تلقائي: {fmt(autoFreight, currency)})</span>
                   )}
@@ -447,7 +448,7 @@ export function QuoteBuilderPage() {
               )}
               {calc.vat > 0 && (
                 <div className="flex justify-between text-gray-600">
-                  <span>ضريبة القيمة المضافة</span>
+                  <span><GlossaryTerm term="VAT">ضريبة القيمة المضافة</GlossaryTerm></span>
                   <span dir="ltr">{fmt(calc.vat, currency)}</span>
                 </div>
               )}
@@ -470,7 +471,7 @@ export function QuoteBuilderPage() {
           {!(pi && pi.unitPrice > 0) && (
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-semibold text-amber-700">
-                سعر الوحدة (CNY) <span className="text-red-500">*</span>
+                سعر الوحدة (<GlossaryTerm term="CNY">CNY</GlossaryTerm>) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -491,7 +492,7 @@ export function QuoteBuilderPage() {
           {/* Freight override */}
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              تكلفة الشحن الفعلية ({currency})
+              تكلفة <GlossaryTerm term="Freight">الشحن</GlossaryTerm> الفعلية ({currency})
             </label>
             <div className="flex items-center gap-2">
               <input

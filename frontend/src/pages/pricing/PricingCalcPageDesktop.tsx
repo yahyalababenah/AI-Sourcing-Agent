@@ -1,5 +1,6 @@
 import { ROUTES } from "@/constants/routes";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { Calculator } from "lucide-react";
 import { usePricingCalculator, CURRENCIES } from "./usePricingCalculator";
 import { ProductsInputTable } from "./ProductsInputTable";
@@ -49,7 +50,7 @@ export function PricingCalcPageDesktop() {
             <h2 className="mb-4 text-lg font-semibold text-slate-900">بيانات الشحنة</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">طلب عرض السعر</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700"><GlossaryTerm term="RFQ">طلب عرض السعر</GlossaryTerm></label>
                 {rfqsLoading ? (
                   <div className="flex h-10 items-center text-sm text-slate-400">جاري التحميل...</div>
                 ) : (
@@ -58,7 +59,7 @@ export function PricingCalcPageDesktop() {
                     onChange={(e) => handleRfqChange(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
                   >
-                    <option value="">-- اختر طلب عرض سعر --</option>
+                    <option value="">-- اختر <GlossaryTerm term="RFQ">طلب عرض سعر</GlossaryTerm> --</option>
                     {rfqsData?.items?.map((rfq) => (
                       <option key={rfq.id} value={rfq.id}>
                         {rfq.client_name}

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LineRow } from "@/components/ui/LineRow";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { Calculator, Plus, Trash2, Search, X } from "lucide-react";
 import { useStandaloneCalculator, CURRENCIES, type StandaloneProductInput } from "./useStandaloneCalculator";
 import type { CalculatePriceResponse } from "@/types/pricing";
@@ -181,11 +182,8 @@ function ProductRow({ product, index, hsCodeList, onUpdate, onRemove, canRemove 
             placeholder="تلقائي"
             className="w-20 rounded border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-supplier-500 focus:outline-none"
           />
-          <span className="group absolute -top-1.5 -right-1.5 flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-500">
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-500">
             ?
-            <span className="invisible group-hover:visible absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] text-white shadow-lg">
-              أدخل الحجم بوحدة CBM أو اتركه للتقدير التلقائي
-            </span>
           </span>
         </div>
       </td>
@@ -302,14 +300,14 @@ export function StandaloneCalcPageDesktop() {
                 <thead className="border-b border-slate-100 bg-slate-50">
                   <tr>
                     <th className="px-3 py-3 text-xs font-medium text-slate-500">المنتج</th>
-                    <th className="px-3 py-3 text-xs font-medium text-slate-500">رمز HS</th>
+                    <th className="px-3 py-3 text-xs font-medium text-slate-500"><GlossaryTerm term="HS Code">رمز HS</GlossaryTerm></th>
                     <th className="px-3 py-3 text-xs font-medium text-slate-500">الكمية</th>
                     <th className="px-3 py-3 text-xs font-medium text-slate-500">
                       <span dir="ltr">سعر الوحدة (CNY ¥)</span>
                     </th>
-                    <th className="px-3 py-3 text-xs font-medium text-slate-500">الوزن (كغ)</th>
-                    <th className="px-3 py-3 text-xs font-medium text-slate-500">الحجم CBM</th>
-                    <th className="px-3 py-3 text-xs font-medium text-slate-500">الترخيص</th>
+                    <th className="px-3 py-3 text-xs font-medium text-slate-500"><GlossaryTerm term="Weight">الوزن (كغ)</GlossaryTerm></th>
+                    <th className="px-3 py-3 text-xs font-medium text-slate-500"><GlossaryTerm term="CBM">الحجم CBM</GlossaryTerm></th>
+                    <th className="px-3 py-3 text-xs font-medium text-slate-500"><GlossaryTerm term="License">الترخيص</GlossaryTerm></th>
                     <th className="px-3 py-3 text-xs font-medium text-slate-500">
                       الإجمالي<span dir="ltr" className="mr-1">(CNY ¥)</span>
                     </th>
@@ -334,7 +332,7 @@ export function StandaloneCalcPageDesktop() {
 
             {products.some((p) => p.weightKg <= 0) && (
               <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-                ⚠️ منتجات بدون وزن — سيُقدَّر الشحن بحد أدنى 0.1 CBM بدلاً من الوزن الفعلي
+                ⚠️ منتجات بدون وزن — سيُقدَّر الشحن بحد أدنى 0.1 <GlossaryTerm term="CBM" /> بدلاً من الوزن الفعلي
               </div>
             )}
 
@@ -422,18 +420,18 @@ function StandaloneResultCard({ result, onCreateQuote, isCreatingQuote }: Standa
       </p>
 
       <div className="mt-4">
-        <LineRow label="سعر المنتج FOB" value={<span dir="ltr">{fmt(fobTotal)}</span>} />
-        <LineRow label="+ الشحن الدولي" value={<span dir="ltr">{fmt(shippingTotal)}</span>} muted />
-        <LineRow label="+ التأمين" value={<span dir="ltr">{fmt(insuranceTotal)}</span>} muted />
-        <LineRow label="+ الجمارك" value={<span dir="ltr">{fmt(customsTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="FOB">سعر المنتج FOB</GlossaryTerm>} value={<span dir="ltr">{fmt(fobTotal)}</span>} />
+        <LineRow label={<GlossaryTerm term="Freight">+ الشحن الدولي</GlossaryTerm>} value={<span dir="ltr">{fmt(shippingTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Insurance">+ التأمين</GlossaryTerm>} value={<span dir="ltr">{fmt(insuranceTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Duty 001">+ الجمارك</GlossaryTerm>} value={<span dir="ltr">{fmt(customsTotal)}</span>} muted />
         {service070Total > 0 && (
-          <LineRow label="+ رسوم خدمة 070" value={<span dir="ltr">{fmt(service070Total)}</span>} muted />
+          <LineRow label={<GlossaryTerm term="Service 070">+ رسوم خدمة 070</GlossaryTerm>} value={<span dir="ltr">{fmt(service070Total)}</span>} muted />
         )}
-        <LineRow label="+ رسوم التخليص" value={<span dir="ltr">{fmt(clearanceTotal)}</span>} muted />
-        <LineRow label="+ ضريبة القيمة المضافة" value={<span dir="ltr">{fmt(result.vat)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Clearance">+ رسوم التخليص</GlossaryTerm>} value={<span dir="ltr">{fmt(clearanceTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="VAT">+ ضريبة القيمة المضافة</GlossaryTerm>} value={<span dir="ltr">{fmt(result.vat)}</span>} muted />
         {result.service_flat_fee_301_total > 0 && (
           <LineRow
-            label="+ بدل خدمات 301 (لكل شحنة)"
+            label={<GlossaryTerm term="Service 301">+ بدل خدمات 301 (لكل شحنة)</GlossaryTerm>}
             value={<span dir="ltr">{fmt(result.service_flat_fee_301_total)}</span>}
             muted
           />
@@ -443,12 +441,12 @@ function StandaloneResultCard({ result, onCreateQuote, isCreatingQuote }: Standa
         )}
         {result.early_payment_discount > 0 && (
           <LineRow
-            label="- خصم الدفع المبكر"
+            label={<GlossaryTerm term="Early Payment Discount">- خصم الدفع المبكر</GlossaryTerm>}
             value={<span dir="ltr">-{fmt(result.early_payment_discount)}</span>}
             muted
           />
         )}
-        <LineRow label="+ عمولة المندوب" value={<span dir="ltr">{fmt(commissionTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Commission">+ عمولة المندوب</GlossaryTerm>} value={<span dir="ltr">{fmt(commissionTotal)}</span>} muted />
       </div>
 
       <div className="mt-4 flex items-center justify-between rounded-lg border-2 border-supplier-100 bg-supplier-50 p-4">
@@ -487,7 +485,7 @@ function StandaloneDetailBreakdown({ result, productInputs }: StandaloneDetailBr
       <h3 className="mb-3 text-sm font-semibold text-slate-700">تفاصيل المنتجات</h3>
 
       {/* Phase 1: CIF breakdown */}
-      <h4 className="mb-2 text-xs font-semibold text-slate-500">المرحلة 1: تفاصيل CIF</h4>
+      <h4 className="mb-2 text-xs font-semibold text-slate-500">المرحلة 1: تفاصيل <GlossaryTerm term="CIF" /></h4>
       <div className="mb-4 overflow-x-auto">
         <table className="w-full text-end">
           <thead className="border-b border-slate-100 bg-slate-50">
@@ -499,9 +497,9 @@ function StandaloneDetailBreakdown({ result, productInputs }: StandaloneDetailBr
               <th className="px-3 py-2 text-xs font-medium text-slate-500">
                 <span dir="ltr">سعر الوحدة (محول)</span>
               </th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">الشحن</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">التأمين</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">CIF</th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Freight">الشحن</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Insurance">التأمين</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="CIF" /></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -538,12 +536,12 @@ function StandaloneDetailBreakdown({ result, productInputs }: StandaloneDetailBr
           <thead className="border-b border-slate-100 bg-slate-50">
             <tr>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">المنتج</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">رسم 001</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">خدمات 070</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">رسم 301</th>
-              {hasPenalty && <th className="px-3 py-2 text-xs font-medium text-red-600">غرامة 018</th>}
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">التخليص</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">العمولة</th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Duty 001">رسم 001</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Service 070">خدمات 070</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Service 301">رسم 301</GlossaryTerm></th>
+              {hasPenalty && <th className="px-3 py-2 text-xs font-medium text-red-600"><GlossaryTerm term="Penalty 018">غرامة 018</GlossaryTerm></th>}
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Clearance">التخليص</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Commission">العمولة</GlossaryTerm></th>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">الخصم</th>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">الإجمالي</th>
             </tr>
@@ -602,8 +600,8 @@ function StandaloneDetailBreakdown({ result, productInputs }: StandaloneDetailBr
             <tr>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">المنتج</th>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">المجموع قبل الضريبة</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">ضريبة القيمة المضافة</th>
-              {hasPenalty && <th className="px-3 py-2 text-xs font-medium text-red-600">غرامة 018</th>}
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="VAT">ضريبة القيمة المضافة</GlossaryTerm></th>
+              {hasPenalty && <th className="px-3 py-2 text-xs font-medium text-red-600"><GlossaryTerm term="Penalty 018">غرامة 018</GlossaryTerm></th>}
               <th className="px-3 py-2 text-xs font-medium text-slate-500">المجموع النهائي</th>
             </tr>
           </thead>

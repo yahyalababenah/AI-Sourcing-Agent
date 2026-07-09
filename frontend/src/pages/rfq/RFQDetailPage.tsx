@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -104,9 +105,9 @@ export function RFQDetailPage() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              تفاصيل طلب عرض السعر
+              تفاصيل <GlossaryTerm term="RFQ">طلب عرض السعر</GlossaryTerm>
             </h1>
-            <p className="mt-1 text-sm text-gray-500">RFQ #{rfq.id.slice(0, 8)}</p>
+            <p className="mt-1 text-sm text-gray-500"><GlossaryTerm term="RFQ">RFQ</GlossaryTerm> #{rfq.id.slice(0, 8)}</p>
           </div>
         </div>
         <span
@@ -154,7 +155,7 @@ export function RFQDetailPage() {
           <div className="rounded-lg border border-gray-200 p-3">
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Globe className="h-4 w-4" />
-              السوق العام
+              <GlossaryTerm term="Public Market">السوق العام</GlossaryTerm>
             </div>
             <p className={`mt-1 text-sm font-medium ${rfq.is_public ? "text-green-700" : "text-gray-700"}`}>
               {rfq.is_public ? "متاح للجميع" : "حصرية قيد التشغيل"}
@@ -204,11 +205,11 @@ export function RFQDetailPage() {
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">ميناء الوصول</p>
+            <p className="text-sm text-gray-500"><GlossaryTerm term="Destination Port">ميناء الوصول</GlossaryTerm></p>
             <p className="font-medium text-gray-900">{rfq.destination_port || "—"}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">العملة المستهدفة</p>
+            <p className="text-sm text-gray-500"><GlossaryTerm term="Target Currency">العملة المستهدفة</GlossaryTerm></p>
             <p className="font-medium text-gray-900">{rfq.target_currency || "—"}</p>
           </div>
           <div>
@@ -245,7 +246,7 @@ export function RFQDetailPage() {
               <thead className="border-b border-gray-100 bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-sm font-medium text-gray-500">المنتج</th>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">الكمية</th>
+                  <th className="px-4 py-2 text-sm font-medium text-gray-500"><GlossaryTerm term="Quantity">الكمية</GlossaryTerm></th>
                   <th className="px-4 py-2 text-sm font-medium text-gray-500">المواصفات</th>
                 </tr>
               </thead>

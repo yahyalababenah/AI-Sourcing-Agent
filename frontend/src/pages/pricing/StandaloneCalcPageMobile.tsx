@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LineRow } from "@/components/ui/LineRow";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { Calculator, Plus, Trash2, Search, X } from "lucide-react";
 import { useStandaloneCalculator, CURRENCIES, type StandaloneProductInput } from "./useStandaloneCalculator";
 import type { CalculatePriceResponse } from "@/types/pricing";
@@ -194,10 +195,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
 
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">
-            الحجم CBM
-            <span className="mr-1 inline-flex cursor-help text-[10px] text-slate-400" title="أدخل الحجم بوحدة CBM أو اتركه للتقدير التلقائي">
-              (?)
-            </span>
+            <GlossaryTerm term="CBM">الحجم CBM</GlossaryTerm>
           </label>
           <input
             type="number"
@@ -214,7 +212,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
 
         <div className="flex items-end gap-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">الترخيص</label>
+            <label className="mb-1 block text-xs font-medium text-slate-600"><GlossaryTerm term="License">الترخيص</GlossaryTerm></label>
             <input
               type="checkbox"
               checked={product.hasLicense}
@@ -332,7 +330,7 @@ export function StandaloneCalcPageMobile() {
 
         {products.some((p) => p.weightKg <= 0) && (
           <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-            ⚠️ منتجات بدون وزن — سيُقدَّر الشحن بحد أدنى 0.1 CBM
+            ⚠️ منتجات بدون وزن — سيُقدَّر الشحن بحد أدنى 0.1 <GlossaryTerm term="CBM" />
           </div>
         )}
 
@@ -416,18 +414,18 @@ function MobileResultCard({ result, onCreateQuote, isCreatingQuote }: MobileResu
       </p>
 
       <div className="mt-4">
-        <LineRow label="سعر المنتج FOB" value={<span dir="ltr">{fmt(fobTotal)}</span>} />
-        <LineRow label="+ الشحن الدولي" value={<span dir="ltr">{fmt(shippingTotal)}</span>} muted />
-        <LineRow label="+ التأمين" value={<span dir="ltr">{fmt(insuranceTotal)}</span>} muted />
-        <LineRow label="+ الجمارك" value={<span dir="ltr">{fmt(customsTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="FOB">سعر المنتج FOB</GlossaryTerm>} value={<span dir="ltr">{fmt(fobTotal)}</span>} />
+        <LineRow label={<GlossaryTerm term="Freight">+ الشحن الدولي</GlossaryTerm>} value={<span dir="ltr">{fmt(shippingTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Insurance">+ التأمين</GlossaryTerm>} value={<span dir="ltr">{fmt(insuranceTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Duty 001">+ الجمارك</GlossaryTerm>} value={<span dir="ltr">{fmt(customsTotal)}</span>} muted />
         {service070Total > 0 && (
-          <LineRow label="+ رسوم خدمة 070" value={<span dir="ltr">{fmt(service070Total)}</span>} muted />
+          <LineRow label={<GlossaryTerm term="Service 070">+ رسوم خدمة 070</GlossaryTerm>} value={<span dir="ltr">{fmt(service070Total)}</span>} muted />
         )}
-        <LineRow label="+ رسوم التخليص" value={<span dir="ltr">{fmt(clearanceTotal)}</span>} muted />
-        <LineRow label="+ ضريبة القيمة المضافة" value={<span dir="ltr">{fmt(result.vat)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Clearance">+ رسوم التخليص</GlossaryTerm>} value={<span dir="ltr">{fmt(clearanceTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="VAT">+ ضريبة القيمة المضافة</GlossaryTerm>} value={<span dir="ltr">{fmt(result.vat)}</span>} muted />
         {result.service_flat_fee_301_total > 0 && (
           <LineRow
-            label="+ بدل خدمات 301"
+            label={<GlossaryTerm term="Service 301">+ بدل خدمات 301</GlossaryTerm>}
             value={<span dir="ltr">{fmt(result.service_flat_fee_301_total)}</span>}
             muted
           />
@@ -437,12 +435,12 @@ function MobileResultCard({ result, onCreateQuote, isCreatingQuote }: MobileResu
         )}
         {result.early_payment_discount > 0 && (
           <LineRow
-            label="- خصم الدفع المبكر"
+            label={<GlossaryTerm term="Early Payment Discount">- خصم الدفع المبكر</GlossaryTerm>}
             value={<span dir="ltr">-{fmt(result.early_payment_discount)}</span>}
             muted
           />
         )}
-        <LineRow label="+ عمولة المندوب" value={<span dir="ltr">{fmt(commissionTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Commission">+ عمولة المندوب</GlossaryTerm>} value={<span dir="ltr">{fmt(commissionTotal)}</span>} muted />
       </div>
 
       <div className="mt-4 rounded-lg border-2 border-supplier-100 bg-supplier-50 p-4">
@@ -507,25 +505,25 @@ function MobileDetailBreakdown({ result, productInputs }: MobileDetailBreakdownP
               <span className="text-slate-500">سعر الوحدة (محول):</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.unit_price_converted.toFixed(2)}</span>
 
-              <span className="text-slate-500">الشحن:</span>
+              <span className="text-slate-500"><GlossaryTerm term="Freight">الشحن</GlossaryTerm>:</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.freight_cost.toFixed(2)}</span>
 
-              <span className="text-slate-500">التأمين:</span>
+              <span className="text-slate-500"><GlossaryTerm term="Insurance">التأمين</GlossaryTerm>:</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.insurance_cost.toFixed(2)}</span>
 
-              <span className="text-slate-500">CIF:</span>
+              <span className="text-slate-500"><GlossaryTerm term="CIF" />:</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.cif_value.toFixed(2)}</span>
 
-              <span className="text-slate-500">الجمارك:</span>
+              <span className="text-slate-500"><GlossaryTerm term="Duty 001">الجمارك</GlossaryTerm>:</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.customs_duty.toFixed(2)}</span>
 
-              <span className="text-slate-500">خدمات 070:</span>
+              <span className="text-slate-500"><GlossaryTerm term="Service 070">خدمات 070</GlossaryTerm>:</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.service_percent_070.toFixed(2)}</span>
 
-              <span className="text-slate-500">التخليص:</span>
+              <span className="text-slate-500"><GlossaryTerm term="Clearance">التخليص</GlossaryTerm>:</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.clearance_fee.toFixed(2)}</span>
 
-              <span className="text-slate-500">العمولة:</span>
+              <span className="text-slate-500"><GlossaryTerm term="Commission">العمولة</GlossaryTerm>:</span>
               <span className="text-slate-900 tabular-nums text-left" dir="ltr">{item.commission.toFixed(2)}</span>
 
               {item.discount > 0 && (
@@ -537,7 +535,7 @@ function MobileDetailBreakdown({ result, productInputs }: MobileDetailBreakdownP
 
               {hasPenalty && (
                 <>
-                  <span className="text-red-600">غرامة 018:</span>
+                  <span className="text-red-600"><GlossaryTerm term="Penalty 018">غرامة 018</GlossaryTerm>:</span>
                   <span className="text-red-600 tabular-nums text-left" dir="ltr">
                     {item.penalty_018 > 0 ? item.penalty_018.toFixed(2) : "—"}
                   </span>

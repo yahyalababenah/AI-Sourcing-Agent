@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { AlertCircle, Globe, RefreshCw, Zap } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -85,7 +86,7 @@ export function SupplierRfqInboxMobile() {
           }`}
         >
           <Zap className="h-4 w-4" />
-          الحصرية
+          <GlossaryTerm term="Exclusive Match">الحصرية</GlossaryTerm>
         </button>
         <button
           onClick={() => setActiveTab("public")}
@@ -94,7 +95,7 @@ export function SupplierRfqInboxMobile() {
           }`}
         >
           <Globe className="h-4 w-4" />
-          السوق العام
+          <GlossaryTerm term="Public Market">السوق العام</GlossaryTerm>
         </button>
       </div>
 

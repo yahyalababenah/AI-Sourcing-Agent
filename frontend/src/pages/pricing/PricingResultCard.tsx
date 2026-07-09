@@ -1,4 +1,5 @@
 import { LineRow } from "@/components/ui/LineRow";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import type { CalculatePriceResponse } from "@/types/pricing";
 
 // Formats a currency amount the way the reference design does — thousands
@@ -56,18 +57,18 @@ export function PricingResultCard({ result, onViewRfq, onCreateQuote, isCreating
       </p>
 
       <div className="mt-4">
-        <LineRow label="سعر المنتج FOB" value={<span dir="ltr">{fmt(fobTotal)}</span>} />
-        <LineRow label="+ الشحن الدولي" value={<span dir="ltr">{fmt(shippingTotal)}</span>} muted />
-        <LineRow label="+ التأمين" value={<span dir="ltr">{fmt(insuranceTotal)}</span>} muted />
-        <LineRow label="+ الجمارك" value={<span dir="ltr">{fmt(customsTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="FOB">سعر المنتج FOB</GlossaryTerm>} value={<span dir="ltr">{fmt(fobTotal)}</span>} />
+        <LineRow label={<GlossaryTerm term="Freight">+ الشحن الدولي</GlossaryTerm>} value={<span dir="ltr">{fmt(shippingTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Insurance">+ التأمين</GlossaryTerm>} value={<span dir="ltr">{fmt(insuranceTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Duty 001">+ الجمارك</GlossaryTerm>} value={<span dir="ltr">{fmt(customsTotal)}</span>} muted />
         {service070Total > 0 && (
-          <LineRow label="+ رسوم خدمة 070" value={<span dir="ltr">{fmt(service070Total)}</span>} muted />
+          <LineRow label={<GlossaryTerm term="Service 070">+ رسوم خدمة 070</GlossaryTerm>} value={<span dir="ltr">{fmt(service070Total)}</span>} muted />
         )}
-        <LineRow label="+ رسوم التخليص" value={<span dir="ltr">{fmt(clearanceTotal)}</span>} muted />
-        <LineRow label="+ ضريبة القيمة المضافة" value={<span dir="ltr">{fmt(result.vat)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Clearance">+ رسوم التخليص</GlossaryTerm>} value={<span dir="ltr">{fmt(clearanceTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="VAT">+ ضريبة القيمة المضافة</GlossaryTerm>} value={<span dir="ltr">{fmt(result.vat)}</span>} muted />
         {result.service_flat_fee_301_total > 0 && (
           <LineRow
-            label="+ بدل خدمات 301 (لكل شحنة)"
+            label={<GlossaryTerm term="Service 301">+ بدل خدمات 301 (لكل شحنة)</GlossaryTerm>}
             value={<span dir="ltr">{fmt(result.service_flat_fee_301_total)}</span>}
             muted
           />
@@ -77,12 +78,12 @@ export function PricingResultCard({ result, onViewRfq, onCreateQuote, isCreating
         )}
         {result.early_payment_discount > 0 && (
           <LineRow
-            label="- خصم الدفع المبكر"
+            label={<GlossaryTerm term="Early Payment Discount">- خصم الدفع المبكر</GlossaryTerm>}
             value={<span dir="ltr">-{fmt(result.early_payment_discount)}</span>}
             muted
           />
         )}
-        <LineRow label="+ عمولة المندوب" value={<span dir="ltr">{fmt(commissionTotal)}</span>} muted />
+        <LineRow label={<GlossaryTerm term="Commission">+ عمولة المندوب</GlossaryTerm>} value={<span dir="ltr">{fmt(commissionTotal)}</span>} muted />
       </div>
 
       <div className="mt-4 flex items-center justify-between rounded-lg border-2 border-supplier-100 bg-supplier-50 p-4">

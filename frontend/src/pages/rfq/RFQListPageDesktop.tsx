@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { AlertCircle, ClipboardList, Plus, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -43,7 +44,7 @@ export function RFQListPageDesktop() {
           className="flex items-center gap-2 rounded-lg bg-importer-500 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-importer-600 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
-          طلب عرض سعر جديد
+          <GlossaryTerm term="RFQ">طلب عرض سعر</GlossaryTerm> جديد
         </button>
       </div>
 
@@ -94,7 +95,7 @@ export function RFQListPageDesktop() {
             <table className="w-full">
               <thead className="border-b border-slate-100 bg-slate-50">
                 <tr>
-                  <th className="px-4 py-3 text-start text-sm font-medium text-slate-500">الطلب</th>
+                  <th className="px-4 py-3 text-start text-sm font-medium text-slate-500"><GlossaryTerm term="RFQ">الطلب</GlossaryTerm></th>
                   <th className="px-4 py-3 text-start text-sm font-medium text-slate-500">الوجهة</th>
                   <th className="px-4 py-3 text-start text-sm font-medium text-slate-500">قيمة العرض</th>
                   <th className="px-4 py-3 text-start text-sm font-medium text-slate-500">الحالة</th>

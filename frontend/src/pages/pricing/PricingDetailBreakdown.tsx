@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import type { CalculatePriceResponse, LineItemResult } from "@/types/pricing";
 import type { ProductInput } from "./usePricingCalculator";
 
@@ -29,13 +30,13 @@ export function PricingDetailBreakdown({ result, productInputs }: PricingDetailB
               <th className="px-3 py-2 text-xs font-medium text-slate-500">
                 <span dir="ltr">سعر الوحدة (محول)</span>
               </th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">الشحن</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">التأمين</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">الجمارك</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">التخليص</th>
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">خدمات 070</th>
-              {hasPenalty && <th className="px-3 py-2 text-xs font-medium text-red-600">غرامة 018</th>}
-              <th className="px-3 py-2 text-xs font-medium text-slate-500">العمولة</th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Freight">الشحن</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Insurance">التأمين</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Duty 001">الجمارك</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Clearance">التخليص</GlossaryTerm></th>
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Service 070">خدمات 070</GlossaryTerm></th>
+              {hasPenalty && <th className="px-3 py-2 text-xs font-medium text-red-600"><GlossaryTerm term="Penalty 018">غرامة 018</GlossaryTerm></th>}
+              <th className="px-3 py-2 text-xs font-medium text-slate-500"><GlossaryTerm term="Commission">العمولة</GlossaryTerm></th>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">الخصم</th>
               <th className="px-3 py-2 text-xs font-medium text-slate-500">الإجمالي</th>
             </tr>

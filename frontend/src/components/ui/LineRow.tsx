@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 interface LineRowProps {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
   /** Dims the row for secondary/derived line items (e.g. subtotals). */
   muted?: boolean;

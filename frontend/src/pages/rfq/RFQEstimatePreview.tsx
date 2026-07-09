@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { LineRow } from "@/components/ui/LineRow";
 import type { CalculatePriceResponse } from "@/types/pricing";
 
@@ -32,17 +33,17 @@ export function RFQEstimatePreview({ estimate }: RFQEstimatePreviewProps) {
             {estimate.line_items.map((item) => (
               <div key={item.product_id}>
                 <LineRow
-                  label="سعر المنتج FOB"
+                  label={<GlossaryTerm term="FOB">سعر المنتج FOB</GlossaryTerm>}
                   value={<span dir="ltr">{fmt(item.unit_price_converted * item.quantity)}</span>}
                 />
-                <LineRow label="+ الشحن الدولي" value={<span dir="ltr">{fmt(item.freight_cost)}</span>} muted />
-                <LineRow label="+ التأمين" value={<span dir="ltr">{fmt(item.insurance_cost)}</span>} muted />
-                <LineRow label="+ الجمارك" value={<span dir="ltr">{fmt(item.customs_duty)}</span>} muted />
-                <LineRow label="+ رسوم التخليص" value={<span dir="ltr">{fmt(item.clearance_fee)}</span>} muted />
-                <LineRow label="+ عمولة المندوب" value={<span dir="ltr">{fmt(item.commission)}</span>} muted />
+                <LineRow label={<GlossaryTerm term="Freight">+ الشحن الدولي</GlossaryTerm>} value={<span dir="ltr">{fmt(item.freight_cost)}</span>} muted />
+                <LineRow label={<GlossaryTerm term="Insurance">+ التأمين</GlossaryTerm>} value={<span dir="ltr">{fmt(item.insurance_cost)}</span>} muted />
+                <LineRow label={<GlossaryTerm term="Duty 001">+ الجمارك</GlossaryTerm>} value={<span dir="ltr">{fmt(item.customs_duty)}</span>} muted />
+                <LineRow label={<GlossaryTerm term="Clearance">+ رسوم التخليص</GlossaryTerm>} value={<span dir="ltr">{fmt(item.clearance_fee)}</span>} muted />
+                <LineRow label={<GlossaryTerm term="Commission">+ عمولة المندوب</GlossaryTerm>} value={<span dir="ltr">{fmt(item.commission)}</span>} muted />
               </div>
             ))}
-            <LineRow label="+ ضريبة القيمة المضافة" value={<span dir="ltr">{fmt(estimate.vat)}</span>} muted />
+            <LineRow label={<GlossaryTerm term="VAT">+ ضريبة القيمة المضافة</GlossaryTerm>} value={<span dir="ltr">{fmt(estimate.vat)}</span>} muted />
           </div>
 
           <div className="mt-4 flex items-center justify-between rounded-lg border-2 border-brand-100 bg-brand-50 p-4">
@@ -53,7 +54,7 @@ export function RFQEstimatePreview({ estimate }: RFQEstimatePreviewProps) {
           </div>
 
           <p className="mt-3 text-xs text-slate-400">
-            تقدير تقريبي محلي (جمارك عامة 5٪، عمولة 3٪، ضريبة 16٪) — السعر النهائي الحقيقي يصلك من المندوب بعد
+            تقدير تقريبي محلي (<GlossaryTerm term="Duty 001">جمارك</GlossaryTerm> عامة 5٪، <GlossaryTerm term="Commission">عمولة</GlossaryTerm> 3٪، <GlossaryTerm term="VAT">ضريبة</GlossaryTerm> 16٪) — السعر النهائي الحقيقي يصلك من المندوب بعد
             مراجعة الطلب.
           </p>
         </>

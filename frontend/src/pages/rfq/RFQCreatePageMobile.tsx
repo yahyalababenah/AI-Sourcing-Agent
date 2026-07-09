@@ -1,3 +1,4 @@
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { ROUTES } from "@/constants/routes";
 import { useClientRfqCreate, CURRENCIES } from "./useClientRfqCreate";
 import { RFQEstimatePreview } from "./RFQEstimatePreview";
@@ -33,7 +34,7 @@ export function RFQCreatePageMobile() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">طلب عرض سعر جديد</h1>
+        <h1 className="text-xl font-bold text-slate-900"><GlossaryTerm term="RFQ">طلب عرض سعر</GlossaryTerm> جديد</h1>
         <p className="mt-1 text-sm text-slate-500">
           صف المنتج الذي تريد استيراده وسيصلك عرض سعر حقيقي من المندوب
         </p>
@@ -67,7 +68,7 @@ export function RFQCreatePageMobile() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              الكمية <span className="text-red-500">*</span>
+              <GlossaryTerm term="Quantity">الكمية</GlossaryTerm> <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -82,7 +83,7 @@ export function RFQCreatePageMobile() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              السعر المستهدف للوحدة (يوان صيني)
+              السعر المستهدف للوحدة (<GlossaryTerm term="CNY">يوان صيني</GlossaryTerm>)
             </label>
             <input
               type="number"
@@ -98,7 +99,7 @@ export function RFQCreatePageMobile() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">ميناء الوصول</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700"><GlossaryTerm term="Destination Port">ميناء الوصول</GlossaryTerm></label>
             <input
               type="text"
               value={destinationPort}
@@ -109,7 +110,7 @@ export function RFQCreatePageMobile() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">العملة المستهدفة</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700"><GlossaryTerm term="Target Currency">العملة المستهدفة</GlossaryTerm></label>
             <select
               value={targetCurrency}
               onChange={(e) => setTargetCurrency(e.target.value)}
