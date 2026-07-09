@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ClipboardList, PlusCircle, Users, Store, Package, Upload,
   ClipboardCheck, FileText, Calculator, Truck, MessageCircle, Clapperboard,
   Globe, Activity, ShieldCheck, DollarSign, ReceiptText, Settings, UserCircle,
-  UserCog,
+  UserCog, Zap,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ const AGENT_NAV: NavItem[] = [
   { to: ROUTES.DOCUMENTS.UPLOAD,     labelKey: "nav.uploadDocument",        icon: Upload },
   { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.productReview",         icon: ClipboardCheck },
   { to: ROUTES.PRICING.CALCULATE,    labelKey: "nav.calculator",            icon: Calculator },
+  { to: ROUTES.PRICING.STANDALONE_CALC, labelKey: "nav.standaloneCalculator", icon: Zap },
   { to: ROUTES.QUOTES.LIST,          labelKey: "nav.quotes",                icon: FileText },
   { to: ROUTES.ORDERS.LIST,          labelKey: "nav.shipmentTracking",      icon: Truck },
   { to: ROUTES.CHAT.LIST,            labelKey: "nav.chat",                  icon: MessageCircle },
