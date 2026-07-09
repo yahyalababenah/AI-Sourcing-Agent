@@ -43,7 +43,7 @@ export function TourBottomSheet({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-sheet-title"
-      className="fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl bg-white p-5 pb-6 shadow-xl motion-safe:animate-[onboardPopIn_320ms_ease-out] lg:hidden"
+      className="onboard-pop fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl bg-white p-5 pb-6 shadow-xl lg:hidden"
     >
       {targetStatus === "waiting" ? (
         <div className="space-y-3">
@@ -52,11 +52,11 @@ export function TourBottomSheet({
           <p className="text-xs text-slate-400">{t("onboarding.waiting.message")}</p>
         </div>
       ) : (
-        <div key={title} className="motion-safe:animate-[onboardPopIn_320ms_ease-out]">
+        <div key={title} className="onboard-pop">
           {progressSlot}
 
           <div
-            className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full motion-safe:animate-[onboardIconBounce_450ms_ease-out] ${accent.dotInactive}`}
+            className={`onboard-rise mb-3 flex h-10 w-10 items-center justify-center rounded-full ${accent.dotInactive}`}
           >
             <Sparkles className={`h-5 w-5 ${accent.text}`} />
           </div>

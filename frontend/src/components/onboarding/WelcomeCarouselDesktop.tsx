@@ -5,7 +5,7 @@ import { useCarouselNav } from "@/hooks/useCarouselNav";
 import { useCarouselKeyboard } from "@/hooks/useCarouselKeyboard";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { roleAccent, type OnboardingRole } from "./roleAccent";
-import { welcomeSlideIcons } from "./welcomeSlideIcons";
+import { WelcomeIllustration } from "./welcomeIllustrations";
 
 interface WelcomeCarouselDesktopProps {
   role: OnboardingRole;
@@ -34,7 +34,6 @@ export function WelcomeCarouselDesktop({
   });
 
   const slide = slides[index];
-  const SlideIcon = welcomeSlideIcons[slide.id];
 
   return (
     <div
@@ -46,7 +45,7 @@ export function WelcomeCarouselDesktop({
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-carousel-title"
-        className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white p-9 shadow-2xl motion-safe:animate-[onboardPopIn_350ms_ease-out]"
+        className="onboard-pop relative w-full max-w-lg overflow-hidden rounded-3xl bg-white p-9 shadow-2xl"
       >
         {/* Decorative glow blobs — purely visual, gives the card depth/life */}
         <div aria-hidden className={`pointer-events-none absolute -top-16 -end-16 h-48 w-48 rounded-full opacity-20 blur-3xl ${accent.glow}`} />
@@ -67,14 +66,8 @@ export function WelcomeCarouselDesktop({
           </button>
         </div>
 
-        <div key={slide.id} className="relative motion-safe:animate-[onboardPopIn_400ms_cubic-bezier(0.34,1.56,0.64,1)]">
-          {SlideIcon && (
-            <div
-              className={`mb-5 flex h-20 w-20 items-center justify-center rounded-2xl shadow-lg motion-safe:animate-[onboardIconBounce_500ms_ease-out] ${accent.iconBadge}`}
-            >
-              <SlideIcon className="h-10 w-10 text-white" strokeWidth={1.75} />
-            </div>
-          )}
+        <div key={slide.id} className="onboard-pop relative">
+          <WelcomeIllustration slideId={slide.id} role={role} className="mb-6 h-28 w-28" />
 
           <h2 id="welcome-carousel-title" className="mb-3 text-2xl font-extrabold leading-tight text-slate-900">
             {t(slide.titleKey)}
@@ -88,7 +81,7 @@ export function WelcomeCarouselDesktop({
               key={s.id}
               onClick={() => goTo(i)}
               aria-label={`${i + 1}`}
-              className={`h-2 rounded-full transition-all duration-300 motion-safe:ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+              className={`h-2 rounded-full transition-all duration-300 ease-out ${
                 i === index ? `w-8 ${accent.dot}` : `w-2 ${accent.dotInactive}`
               }`}
             />

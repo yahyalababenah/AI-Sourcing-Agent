@@ -4,7 +4,7 @@ import type { WelcomeSlide } from "@/constants/onboardingSteps";
 import { useCarouselNav } from "@/hooks/useCarouselNav";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { roleAccent, type OnboardingRole } from "./roleAccent";
-import { welcomeSlideIcons } from "./welcomeSlideIcons";
+import { WelcomeIllustration } from "./welcomeIllustrations";
 
 interface WelcomeCarouselMobileProps {
   role: OnboardingRole;
@@ -27,7 +27,6 @@ export function WelcomeCarouselMobile({
   const dialogRef = useFocusTrap<HTMLDivElement>(true);
 
   const slide = slides[index];
-  const SlideIcon = welcomeSlideIcons[slide.id];
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-white lg:hidden" role="presentation">
@@ -59,15 +58,9 @@ export function WelcomeCarouselMobile({
 
         <div
           key={slide.id}
-          className="relative flex flex-1 flex-col items-center justify-center text-center motion-safe:animate-[onboardPopIn_400ms_cubic-bezier(0.34,1.56,0.64,1)]"
+          className="onboard-pop relative flex flex-1 flex-col items-center justify-center text-center"
         >
-          {SlideIcon && (
-            <div
-              className={`mb-6 flex h-24 w-24 items-center justify-center rounded-3xl shadow-lg motion-safe:animate-[onboardIconBounce_500ms_ease-out] ${accent.iconBadge}`}
-            >
-              <SlideIcon className="h-12 w-12 text-white" strokeWidth={1.75} />
-            </div>
-          )}
+          <WelcomeIllustration slideId={slide.id} role={role} className="mb-7 h-32 w-32" />
           <h2 id="welcome-carousel-title-mobile" className="mb-3 text-xl font-extrabold leading-tight text-slate-900">
             {t(slide.titleKey)}
           </h2>

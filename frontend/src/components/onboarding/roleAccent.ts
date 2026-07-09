@@ -8,7 +8,18 @@ export type OnboardingRole = "agent" | "client";
 
 export const roleAccent: Record<
   OnboardingRole,
-  { dot: string; dotInactive: string; button: string; text: string; iconBadge: string; glow: string }
+  {
+    dot: string;
+    dotInactive: string;
+    button: string;
+    text: string;
+    iconBadge: string;
+    glow: string;
+    /** Tinted gradient background for the welcome illustration "stage". */
+    illStage: string;
+    /** currentColor ink the monochrome illustrations are drawn in. */
+    illInk: string;
+  }
 > = {
   agent: {
     dot: "bg-supplier-500",
@@ -17,6 +28,8 @@ export const roleAccent: Record<
     text: "text-supplier-600",
     iconBadge: "bg-gradient-to-br from-supplier-400 to-supplier-600",
     glow: "bg-supplier-400",
+    illStage: "from-supplier-50 to-supplier-100",
+    illInk: "text-supplier-600",
   },
   client: {
     dot: "bg-importer-500",
@@ -25,5 +38,7 @@ export const roleAccent: Record<
     text: "text-importer-600",
     iconBadge: "bg-gradient-to-br from-importer-400 to-importer-600",
     glow: "bg-importer-400",
+    illStage: "from-importer-50 to-importer-100",
+    illInk: "text-importer-600",
   },
 };

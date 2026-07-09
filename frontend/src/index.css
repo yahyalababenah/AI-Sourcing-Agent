@@ -84,25 +84,24 @@
     50%  { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
   }
-  /* Onboarding: a bouncy "pop" for dialogs/icon badges — the spring-like
-     overshoot (cubic-bezier back-out) is what reads as "lively" rather
-     than a flat fade. */
+  /* Onboarding: a smooth "materialize" for dialogs/illustrations — gentle
+     rise + fade + de-blur on a strong expo ease-out. No overshoot: the
+     brand is professional B2B, so motion should feel calm, not springy. */
   @keyframes onboardPopIn {
-    0%   { opacity: 0; transform: scale(0.85) translateY(10px); }
-    60%  { opacity: 1; transform: scale(1.04) translateY(-2px); }
-    100% { opacity: 1; transform: scale(1) translateY(0); }
+    from { opacity: 0; transform: translateY(8px) scale(0.985); filter: blur(6px); }
+    to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
   }
+  /* Icon/badge entrance — a soft settle, not a bounce. */
   @keyframes onboardIconBounce {
-    0%   { transform: scale(0.5) rotate(-8deg); opacity: 0; }
-    50%  { transform: scale(1.15) rotate(4deg); opacity: 1; }
-    75%  { transform: scale(0.95) rotate(-2deg); }
-    100% { transform: scale(1) rotate(0deg); }
+    from { opacity: 0; transform: translateY(9px) scale(0.94); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
   }
-  /* Continuous gentle pulse for the tour Spotlight ring so it reads as
-     "alive" while a step is active, not a static frozen highlight. */
-  @keyframes onboardSpotlightPulse {
-    0%, 100% { box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 3px rgba(255, 255, 255, 0.9); }
-    50%      { box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 6px rgba(255, 255, 255, 0.55); }
+  /* One-shot "focus lands" for the tour Spotlight ring: a soft wide halo
+     pulls into a crisp 3px ring once, then rests static (no looping — a
+     continuous pulse is attention-seeking and ages badly). */
+  @keyframes onboardSpotlightIn {
+    from { box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 10px rgba(255, 255, 255, 0); }
+    to   { box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 3px rgba(255, 255, 255, 0.9); }
   }
 
   /* Respect prefers-reduced-motion globally (CLAUDE.md motion rules) —
@@ -118,6 +117,13 @@
 }
 
 @layer components {
+  /* ── Onboarding shared entrances ──
+     Plain classes (not motion-safe: Tailwind variants) — the global
+     prefers-reduced-motion rule above already collapses them to instant,
+     so no per-call guarding is needed. Smooth expo ease-out, no overshoot. */
+  .onboard-pop  { animation: onboardPopIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .onboard-rise { animation: onboardIconBounce 460ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
   /* ── Cards ── */
   .card {
     @apply rounded-xl border border-slate-200/80 bg-white shadow-sm;

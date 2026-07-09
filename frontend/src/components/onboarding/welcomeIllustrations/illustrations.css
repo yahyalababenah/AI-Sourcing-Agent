@@ -1,0 +1,121 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Welcome onboarding illustrations — bespoke one-shot entrance scenes.
+
+   Every animation here is DECORATIVE and plays ONCE per slide mount (the
+   parent keys each illustration by slide id, so switching slides replays
+   the scene). Nothing loops — a truck drives in and settles, a compass
+   needle finds north and stops. The global `prefers-reduced-motion` rule
+   in index.css collapses all of this to the final composed frame, and the
+   SVGs are drawn so that final frame is a complete, correct picture.
+
+   Feel: smooth expo ease-out (--wi-ease), no elastic overshoot — matches a
+   professional B2B brand while still feeling alive.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.wi-stage {
+  --wi-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wi-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* SVG child transforms should pivot around each element's own box. */
+.wi-svg [class^="wi-"],
+.wi-svg [class*=" wi-"] {
+  transform-box: fill-box;
+}
+
+@keyframes wiFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes wiPop {
+  from { opacity: 0; transform: translateY(3px) scale(0.7); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ───────── Calculator: a scan sweeps the screen, then the total lands ───── */
+@keyframes wiCalcScan {
+  0%   { opacity: 0; transform: translateX(-14px); }
+  25%  { opacity: 0.9; }
+  100% { opacity: 0; transform: translateX(14px); }
+}
+.wi-calc-scan { animation: wiCalcScan 720ms var(--wi-ease) 200ms both; }
+
+.wi-calc-total { transform-origin: center; animation: wiPop 460ms var(--wi-ease) 780ms both; }
+
+.wi-calc-eq { animation: wiFadeIn 320ms var(--wi-ease) 900ms both; }
+
+/* ───────── Truck: drives in from the left, wheels spinning, then settles ── */
+@keyframes wiTruckDrive {
+  from { opacity: 0; transform: translateX(-42px); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.wi-truck { animation: wiTruckDrive 850ms var(--wi-ease) both; }
+
+@keyframes wiWheel {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(540deg); }
+}
+.wi-wheel { transform-origin: center; animation: wiWheel 850ms var(--wi-ease) both; }
+
+/* Speed lines streak past while the truck arrives, then fade out for good. */
+@keyframes wiSpeed {
+  0%   { opacity: 0; transform: translateX(10px); }
+  40%  { opacity: 0.8; }
+  100% { opacity: 0; transform: translateX(-16px); }
+}
+.wi-speed { animation: wiSpeed 700ms var(--wi-ease) both; }
+.wi-speed-2 { animation-delay: 120ms; }
+.wi-speed-3 { animation-delay: 240ms; }
+
+/* ───────── Compass: needle spins fast, decelerates, settles on a heading ── */
+@keyframes wiNeedle {
+  0%   { transform: rotate(-90deg); }
+  70%  { transform: rotate(348deg); }
+  100% { transform: rotate(335deg); }
+}
+.wi-needle { transform-origin: center; animation: wiNeedle 1150ms var(--wi-ease) 150ms both; }
+
+.wi-compass-ring { transform-origin: center; animation: wiPop 620ms var(--wi-ease) both; }
+
+/* ───────── Paper plane: flies in on an arc, its dashed trail drawing in ─── */
+@keyframes wiPlaneFly {
+  from { opacity: 0; transform: translate(-30px, 16px) rotate(-12deg); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+}
+.wi-plane { transform-origin: center; animation: wiPlaneFly 780ms var(--wi-ease) 120ms both; }
+
+@keyframes wiTrailDraw {
+  from { stroke-dashoffset: 96; opacity: 0; }
+  30%  { opacity: 1; }
+  to   { stroke-dashoffset: 0; opacity: 1; }
+}
+.wi-trail {
+  stroke-dasharray: 96;
+  animation: wiTrailDraw 820ms var(--wi-ease) 120ms both;
+}
+
+/* ───────── Package: lid lifts ajar, extracted products rise out and float ─ */
+@keyframes wiLid {
+  from { transform: translateY(0) rotate(0deg); }
+  to   { transform: translateY(-5px) rotate(-7deg); }
+}
+.wi-lid { transform-origin: left center; animation: wiLid 560ms var(--wi-ease) 120ms both; }
+
+@keyframes wiProduct {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.6); }
+  70%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(var(--wi-rise, -8px)) scale(1); }
+}
+.wi-product { transform-origin: center; animation: wiProduct 620ms var(--wi-ease) both; }
+.wi-product-1 { --wi-rise: -6px; animation-delay: 420ms; }
+.wi-product-2 { --wi-rise: -11px; animation-delay: 560ms; }
+.wi-product-3 { --wi-rise: -6px; animation-delay: 700ms; }

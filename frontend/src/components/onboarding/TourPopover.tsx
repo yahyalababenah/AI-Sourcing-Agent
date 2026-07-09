@@ -65,11 +65,11 @@ export function TourPopover({
           <p className="text-xs text-slate-400">{t("onboarding.waiting.message")}</p>
         </div>
       ) : (
-        <div key={title} className="motion-safe:animate-[onboardPopIn_320ms_cubic-bezier(0.34,1.56,0.64,1)]">
+        <div key={title} className="onboard-pop">
           {progressSlot}
 
           <div
-            className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full motion-safe:animate-[onboardIconBounce_450ms_ease-out] ${accent.dotInactive}`}
+            className={`onboard-rise mb-3 flex h-10 w-10 items-center justify-center rounded-full ${accent.dotInactive}`}
           >
             <Sparkles className={`h-5 w-5 ${accent.text}`} />
           </div>
