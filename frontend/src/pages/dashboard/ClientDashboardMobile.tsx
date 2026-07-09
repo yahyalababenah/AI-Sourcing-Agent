@@ -5,6 +5,7 @@ import { ROUTES } from "@/constants/routes";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusPill, type OrderStatus } from "@/components/ui/StatusPill";
 import { ReelTile } from "@/components/ui/ReelTile";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { useClientDashboardData, type ClientRfqStatus } from "./useClientDashboardData";
 import type { RFQ } from "@/types/intake";
 
@@ -42,7 +43,7 @@ export function ClientDashboardMobile() {
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-importer-500 px-4 py-3 text-[13px] font-bold text-white transition-all duration-150 hover:bg-importer-600 active:scale-[0.98]"
       >
         <Sparkles className="h-4 w-4" />
-        طلب عرض سعر جديد
+        <GlossaryTerm term="RFQ">طلب عرض سعر جديد</GlossaryTerm>
       </button>
 
       {/* KPI stats — 3 on mobile per CLAUDE.md's dual-pattern rule */}
@@ -98,7 +99,9 @@ export function ClientDashboardMobile() {
       {/* Recent orders */}
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[14px] font-bold text-slate-900">طلباتي الأخيرة</h2>
+          <h2 className="text-[14px] font-bold text-slate-900">
+            <GlossaryTerm term="RFQ">طلباتي الأخيرة</GlossaryTerm>
+          </h2>
           <button
             onClick={() => navigate(ROUTES.RFQ.LIST)}
             className="text-[11px] font-medium text-importer-600 transition-colors duration-150 hover:text-importer-700"
@@ -127,7 +130,7 @@ export function ClientDashboardMobile() {
                       {quantity > 0 ? `${quantity.toLocaleString()} وحدة` : ""}
                     </div>
                   </div>
-                  <span className="text-[12px] font-bold font-mono text-slate-900 tabular-nums" dir="ltr">
+                  <span className="text-[12px] bold font-mono text-slate-900 tabular-nums" dir="ltr">
                     {quote ? `${quote.target_currency} ${Math.round(quote.grand_total).toLocaleString()}` : "—"}
                   </span>
                 </div>

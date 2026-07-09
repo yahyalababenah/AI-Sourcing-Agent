@@ -2,6 +2,7 @@ import { ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { HSCodeFormModal } from "./HSCodeFormModal";
 import { useHsCodeSchedulesData } from "./useHsCodeSchedulesData";
 
@@ -90,12 +91,12 @@ export function AdminHSCodeSchedulesPageMobile() {
             </div>
 
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500 tabular-nums" dir="ltr">
-              <span>001: {entry.duty_rate_001}%</span>
-              <span>301: {entry.service_flat_fee_301} JOD</span>
-              <span>070: {entry.service_percent_070}%</span>
-              <span>018: {entry.requires_license ? `${entry.penalty_rate_018}%` : "—"}</span>
-              <span>020: {entry.vat_rate_020 ?? "16 (افتراضي)"}</span>
-              <span>ترخيص: {entry.requires_license ? "نعم" : "لا"}</span>
+              <span><GlossaryTerm term="Duty001">001</GlossaryTerm>: {entry.duty_rate_001}%</span>
+              <span><GlossaryTerm term="Service301">301</GlossaryTerm>: {entry.service_flat_fee_301} JOD</span>
+              <span><GlossaryTerm term="Service070">070</GlossaryTerm>: {entry.service_percent_070}%</span>
+              <span><GlossaryTerm term="Penalty018">018</GlossaryTerm>: {entry.requires_license ? `${entry.penalty_rate_018}%` : "—"}</span>
+              <span><GlossaryTerm term="VAT020">020</GlossaryTerm>: {entry.vat_rate_020 ?? "16 (افتراضي)"}</span>
+              <span><GlossaryTerm term="License">ترخيص</GlossaryTerm>: {entry.requires_license ? "نعم" : "لا"}</span>
             </div>
 
             <div className="flex gap-2 border-t border-slate-100 pt-3">

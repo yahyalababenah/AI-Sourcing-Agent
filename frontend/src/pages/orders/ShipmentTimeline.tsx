@@ -1,10 +1,26 @@
 import { Check } from "lucide-react";
-import { TRACKING_PIPELINE, type TrackingEvent } from "@/types/orders";
+import { TRACKING_PIPELINE, type TrackingEvent, type TrackingStatus } from "@/types/orders";
 import { TRACKING_LABELS } from "./useOrderTrackingData";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 
 interface ShipmentTimelineProps {
   currentIndex: number;
   events: TrackingEvent[];
+}
+
+/** Maps each tracking status to its glossary term key for tooltip display. */
+function TrackingLabel({ status }: { status: TrackingStatus }) {
+  const label = TRACKING_LABELS[status];
+  const termMap: Partial<Record<TrackingStatus, string>> = {
+    awaiting_payment: "Awaiting Payment",
+    production: "Production",
+    inland_freight: "Inland Freight",
+    sea_freight: "Sea Freight",
+    customs: "Customs",
+    delivered: "Delivered",
+  };
+  const termKey = termMap[status];
+  return termKey ? <GlossaryTerm term={termKey}>{label}</GlossaryTerm> : <>{label}</>;
 }
 
 /** Vertical shipment timeline (T8.7) — colored dots + connecting line +
@@ -62,7 +78,7 @@ export function ShipmentTimeline({ currentIndex, events }: ShipmentTimelineProps
                 >
                   <div className="mb-0.5 flex items-baseline justify-between">
                     <span className={`text-[12px] font-bold ${isPending ? "text-slate-400" : "text-slate-900"}`}>
-                      {TRACKING_LABELS[status]}
+                      <TrackingLabel status={status} />
                     </span>
                     <span className={`text-[10px] font-semibold ${isCurrent ? "text-brand-600" : isPending ? "text-slate-400" : "text-brand-600"}`}>
                       {isCurrent ? "جارٍ الآن" : isPending ? "قادم" : "مكتمل"}

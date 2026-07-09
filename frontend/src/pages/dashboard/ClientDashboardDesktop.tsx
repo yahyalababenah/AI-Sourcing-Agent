@@ -5,6 +5,7 @@ import { ROUTES } from "@/constants/routes";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusPill, type OrderStatus } from "@/components/ui/StatusPill";
 import { ReelTile } from "@/components/ui/ReelTile";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { useClientDashboardData, type ClientRfqStatus } from "./useClientDashboardData";
 import type { RFQ } from "@/types/intake";
 
@@ -52,7 +53,7 @@ export function ClientDashboardDesktop() {
           className="flex items-center gap-2 rounded-lg bg-importer-500 px-4 py-2.5 text-[13px] font-bold text-white transition-all duration-150 hover:bg-importer-600 active:scale-[0.98]"
         >
           <Sparkles className="h-4 w-4" />
-          طلب عرض سعر جديد
+          <GlossaryTerm term="RFQ">طلب عرض سعر جديد</GlossaryTerm>
         </button>
       </div>
 
@@ -112,7 +113,9 @@ export function ClientDashboardDesktop() {
       {/* Recent orders */}
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[14px] font-bold text-slate-900">طلباتي الأخيرة</h2>
+          <h2 className="text-[14px] font-bold text-slate-900">
+            <GlossaryTerm term="RFQ">طلباتي الأخيرة</GlossaryTerm>
+          </h2>
           <button
             onClick={() => navigate(ROUTES.RFQ.LIST)}
             className="text-[12px] font-medium text-importer-600 transition-colors duration-150 hover:text-importer-700"

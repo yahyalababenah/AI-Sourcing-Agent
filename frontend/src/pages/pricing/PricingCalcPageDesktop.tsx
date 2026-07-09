@@ -59,7 +59,7 @@ export function PricingCalcPageDesktop() {
                     onChange={(e) => handleRfqChange(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
                   >
-                    <option value="">-- اختر <GlossaryTerm term="RFQ">طلب عرض سعر</GlossaryTerm> --</option>
+                    <option value="">-- اختر طلب عرض سعر --</option>
                     {rfqsData?.items?.map((rfq) => (
                       <option key={rfq.id} value={rfq.id}>
                         {rfq.client_name}

@@ -1,9 +1,25 @@
 import { RotateCw } from "lucide-react";
 import type { TrackingEvent, TrackingStatus } from "@/types/orders";
 import { TRACKING_LABELS, formatDateTime } from "./useOrderTrackingData";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 
 interface TrackingEventHistoryProps {
   events: TrackingEvent[];
+}
+
+/** Maps each tracking status to its glossary term key for tooltip display. */
+function TrackingStatusLabel({ status, fallback }: { status: TrackingStatus; fallback: string }) {
+  const label = TRACKING_LABELS[status] || fallback;
+  const termMap: Partial<Record<TrackingStatus, string>> = {
+    awaiting_payment: "Awaiting Payment",
+    production: "Production",
+    inland_freight: "Inland Freight",
+    sea_freight: "Sea Freight",
+    customs: "Customs",
+    delivered: "Delivered",
+  };
+  const termKey = termMap[status];
+  return termKey ? <GlossaryTerm term={termKey}>{label}</GlossaryTerm> : <>{label}</>;
 }
 
 /** "سجل التحديثات" — real stage-transition history (T8.7), shared between
@@ -23,11 +39,13 @@ export function TrackingEventHistory({ events }: TrackingEventHistoryProps) {
             <div className="flex-1">
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-medium text-slate-900">
-                  {event.from_status ? TRACKING_LABELS[event.from_status as TrackingStatus] || event.from_status : "—"}
+                  {event.from_status ? (
+                    <TrackingStatusLabel status={event.from_status as TrackingStatus} fallback={event.from_status} />
+                  ) : "—"}
                 </span>
                 <span className="text-slate-400">→</span>
                 <span className="font-medium text-brand-600">
-                  {TRACKING_LABELS[event.to_status as TrackingStatus] || event.to_status}
+                  <TrackingStatusLabel status={event.to_status as TrackingStatus} fallback={event.to_status} />
                 </span>
               </div>
               {event.notes && <p className="mt-1 text-xs text-slate-500">{event.notes}</p>}

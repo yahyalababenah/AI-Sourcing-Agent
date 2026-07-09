@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { pricingService } from "@/services/pricingService";
 import type { HSCodeFeeSchedule, HSCodeFeeScheduleCreate } from "@/types/pricing";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
@@ -114,7 +115,9 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">رسوم 001 (% على CIF)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <GlossaryTerm term="Duty001">رسوم 001 (% على CIF)</GlossaryTerm>
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -127,7 +130,9 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">بدل خدمات 301 (JOD ثابت)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <GlossaryTerm term="Service301">بدل خدمات 301 (JOD ثابت)</GlossaryTerm>
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -142,7 +147,9 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">بدل خدمات 070 (% على CIF)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <GlossaryTerm term="Service070">بدل خدمات 070 (% على CIF)</GlossaryTerm>
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -156,7 +163,9 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">غرامة 018 الشرطية (% على CIF)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <GlossaryTerm term="Penalty018">غرامة 018 الشرطية (% على CIF)</GlossaryTerm>
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -173,7 +182,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              ضريبة المبيعات 020 (٪) — اتركه فارغاً للافتراضي 16٪
+              <GlossaryTerm term="VAT020">ضريبة المبيعات 020 (٪)</GlossaryTerm> — اتركه فارغاً للافتراضي 16٪
             </label>
             <input
               type="number"
@@ -201,7 +210,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
               className="rounded border-slate-300 text-slate-700 focus:ring-slate-500"
             />
             <label htmlFor="requires_license" className="text-sm text-slate-700">
-              يتطلب ترخيص / شهادة مطابقة (تُطبَّق غرامة 018 إن لم يُؤكَّد توفره)
+              <GlossaryTerm term="License">يتطلب ترخيص / شهادة مطابقة</GlossaryTerm> (تُطبَّق غرامة 018 إن لم يُؤكَّد توفره)
             </label>
           </div>
 

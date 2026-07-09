@@ -2,6 +2,7 @@ import { ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 import { HSCodeFormModal } from "./HSCodeFormModal";
 import { useHsCodeSchedulesData } from "./useHsCodeSchedulesData";
 
@@ -30,8 +31,11 @@ export function AdminHSCodeSchedulesPageDesktop() {
           <div>
             <h1 className="text-xl font-bold text-slate-900">جداول رسوم رموز HS</h1>
             <p className="text-sm text-slate-500">
-              {total} رمز HS — الرسوم متعددة البنود (001 الجمرك، 301 بدل خدمات ثابت، 070 بدل خدمات
-              نسبي، 018 غرامة شرطية)
+              {total} رمز HS — الرسوم متعددة البنود (
+              <GlossaryTerm term="Duty001">001 الجمرك</GlossaryTerm>،{" "}
+              <GlossaryTerm term="Service301">301 بدل خدمات ثابت</GlossaryTerm>،{" "}
+              <GlossaryTerm term="Service070">070 بدل خدمات نسبي</GlossaryTerm>،{" "}
+              <GlossaryTerm term="Penalty018">018 غرامة شرطية</GlossaryTerm>)
             </p>
           </div>
         </div>
@@ -77,12 +81,24 @@ export function AdminHSCodeSchedulesPageDesktop() {
               <thead>
                 <tr className="border-b border-slate-100 text-xs text-slate-400">
                   <th className="px-4 py-3 text-start font-medium">رمز HS</th>
-                  <th className="px-4 py-3 text-start font-medium">001 (%)</th>
-                  <th className="px-4 py-3 text-start font-medium">301 (JOD)</th>
-                  <th className="px-4 py-3 text-start font-medium">070 (%)</th>
-                  <th className="px-4 py-3 text-start font-medium">ترخيص؟</th>
-                  <th className="px-4 py-3 text-start font-medium">018 (%)</th>
-                  <th className="px-4 py-3 text-start font-medium">020 (%)</th>
+                  <th className="px-4 py-3 text-start font-medium">
+                    <GlossaryTerm term="Duty001">001 (%)</GlossaryTerm>
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium">
+                    <GlossaryTerm term="Service301">301 (JOD)</GlossaryTerm>
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium">
+                    <GlossaryTerm term="Service070">070 (%)</GlossaryTerm>
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium">
+                    <GlossaryTerm term="License">ترخيص؟</GlossaryTerm>
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium">
+                    <GlossaryTerm term="Penalty018">018 (%)</GlossaryTerm>
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium">
+                    <GlossaryTerm term="VAT020">020 (%)</GlossaryTerm>
+                  </th>
                   <th className="px-4 py-3 text-start font-medium">الحالة</th>
                   <th className="px-4 py-3 text-end font-medium">الإجراءات</th>
                 </tr>

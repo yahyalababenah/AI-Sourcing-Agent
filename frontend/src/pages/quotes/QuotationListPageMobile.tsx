@@ -2,7 +2,42 @@ import { AlertCircle, FileText, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { useQuotationListData, quoteStatusPill, quoteTrackingStatus, TRACKING_LABELS } from "./useQuotationListData";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
+import { useQuotationListData, quoteStatusPill, quoteTrackingStatus } from "./useQuotationListData";
+
+const STATUS_GLOSSARY_MAP: Record<string, string> = {
+  awaiting_payment: "AwaitingPayment",
+  production: "Production",
+  inland_freight: "InlandFreight",
+  sea_freight: "SeaFreight",
+  customs: "Customs",
+  delivered: "Delivered",
+};
+
+const TRACKING_LABELS: Record<string, string> = {
+  awaiting_payment: "بانتظار الدفع",
+  production: "قيد التصنيع",
+  inland_freight: "الشحن الداخلي",
+  sea_freight: "الشحن البحري",
+  customs: "التخليص الجمركي",
+  delivered: "تم التسليم",
+};
+
+function TrackingStatusBadge({ status }: { status: string }) {
+  const label = TRACKING_LABELS[status] || status;
+  const term = STATUS_GLOSSARY_MAP[status];
+  return term ? (
+    <GlossaryTerm term={term}>
+      <span className="mt-2 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+        {label}
+      </span>
+    </GlossaryTerm>
+  ) : (
+    <span className="mt-2 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+      {label}
+    </span>
+  );
+}
 
 // Same shared hook/data as QuotationListPageDesktop, stacked into a single
 // column of cards instead of a table (a wide multi-column table doesn't fit
@@ -79,11 +114,7 @@ export function QuotationListPageMobile() {
                   </span>
                 </div>
 
-                {trackingStatus && (
-                  <span className="mt-2 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                    {TRACKING_LABELS[trackingStatus] || trackingStatus}
-                  </span>
-                )}
+                {trackingStatus && <TrackingStatusBadge status={trackingStatus} />}
 
                 <div className="mt-3 flex gap-2">
                   <button

@@ -7,6 +7,7 @@ import { intakeService } from "@/services/intakeService";
 import { useAuthStore } from "@/stores/authStore";
 import type { QuotationLineItem } from "@/types/quotes";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { GlossaryTerm } from "@/components/ui/GlossaryTerm";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -26,6 +27,15 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "مرفوض",
 };
 
+const STATUS_GLOSSARY_MAP: Record<string, string> = {
+  awaiting_payment: "AwaitingPayment",
+  production: "Production",
+  inland_freight: "InlandFreight",
+  sea_freight: "SeaFreight",
+  customs: "Customs",
+  delivered: "Delivered",
+};
+
 const TRACKING_LABELS: Record<string, string> = {
   awaiting_payment: "بانتظار الدفع",
   production: "قيد التصنيع",
@@ -34,6 +44,22 @@ const TRACKING_LABELS: Record<string, string> = {
   customs: "التخليص الجمركي",
   delivered: "تم التسليم",
 };
+
+function TrackingStatusBadge({ status }: { status: string }) {
+  const label = TRACKING_LABELS[status] || status;
+  const term = STATUS_GLOSSARY_MAP[status];
+  return term ? (
+    <GlossaryTerm term={term}>
+      <span className="inline-block rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+        🚚 {label}
+      </span>
+    </GlossaryTerm>
+  ) : (
+    <span className="inline-block rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+      🚚 {label}
+    </span>
+  );
+}
 
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -150,11 +176,7 @@ export function QuotationDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {trackingStatus && (
-            <span className="inline-block rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
-              🚚 {TRACKING_LABELS[trackingStatus] || trackingStatus}
-            </span>
-          )}
+          {trackingStatus && <TrackingStatusBadge status={trackingStatus} />}
           <span
             className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
               STATUS_COLORS[quote.status] || "bg-gray-100 text-gray-700"
@@ -170,21 +192,27 @@ export function QuotationDetailPage() {
         <h2 className="mb-4 text-lg font-semibold text-gray-900">ملخص عرض السعر</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-lg bg-primary-50 p-4 text-center">
-            <p className="text-sm text-gray-500">الإجمالي قبل الضريبة</p>
+            <p className="text-sm text-gray-500">
+              <GlossaryTerm term="Subtotal">الإجمالي قبل الضريبة</GlossaryTerm>
+            </p>
             <p className="mt-1 text-2xl font-bold text-primary-700">
               {quote.subtotal.toLocaleString()} {currency}
             </p>
           </div>
           {quote.vat_total != null && (
             <div className="rounded-lg bg-purple-50 p-4 text-center">
-              <p className="text-sm text-gray-500">ضريبة القيمة المضافة</p>
+              <p className="text-sm text-gray-500">
+                <GlossaryTerm term="VAT">ضريبة القيمة المضافة</GlossaryTerm>
+              </p>
               <p className="mt-1 text-2xl font-bold text-purple-700">
                 {quote.vat_total.toLocaleString()} {currency}
               </p>
             </div>
           )}
           <div className="rounded-lg bg-amber-50 p-4 text-center">
-            <p className="text-sm text-gray-500">المبلغ النهائي</p>
+            <p className="text-sm text-gray-500">
+              <GlossaryTerm term="GrandTotal">المبلغ النهائي</GlossaryTerm>
+            </p>
             <p className="mt-1 text-2xl font-bold text-amber-700">
               {quote.grand_total.toLocaleString()} {currency}
             </p>
@@ -192,7 +220,7 @@ export function QuotationDetailPage() {
         </div>
         {quote.exchange_rate_used && (
           <p className="mt-3 text-xs text-gray-400" dir="ltr">
-            سعر الصرف: 1 CNY = {quote.exchange_rate_used} {currency}
+            <GlossaryTerm term="ExchangeRate">سعر الصرف</GlossaryTerm>: 1 CNY = {quote.exchange_rate_used} {currency}
           </p>
         )}
         {quote.notes && (
@@ -213,11 +241,17 @@ export function QuotationDetailPage() {
                 <tr>
                   <th className="px-4 py-2 text-sm font-medium text-gray-500">المنتج</th>
                   <th className="px-4 py-2 text-sm font-medium text-gray-500">الكمية</th>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">سعر الوحدة (¥)</th>
+                  <th className="px-4 py-2 text-sm font-medium text-gray-500">سعر الوحدة (<GlossaryTerm term="CNY">¥</GlossaryTerm>)</th>
                   <th className="px-4 py-2 text-sm font-medium text-gray-500">سعر الوحدة ({currency})</th>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">الشحن</th>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">الجمارك</th>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">العمولة</th>
+                  <th className="px-4 py-2 text-sm font-medium text-gray-500">
+                    <GlossaryTerm term="Freight">الشحن</GlossaryTerm>
+                  </th>
+                  <th className="px-4 py-2 text-sm font-medium text-gray-500">
+                    <GlossaryTerm term="CustomsDuty">الجمارك</GlossaryTerm>
+                  </th>
+                  <th className="px-4 py-2 text-sm font-medium text-gray-500">
+                    <GlossaryTerm term="Commission">العمولة</GlossaryTerm>
+                  </th>
                   <th className="px-4 py-2 text-sm font-medium text-gray-500">المجموع</th>
                 </tr>
               </thead>
