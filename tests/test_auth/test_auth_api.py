@@ -426,6 +426,73 @@ class TestGetMe:
         )
         assert response.status_code == 401
 
+    async def test_get_me_defaults_onboarding_status_pending(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """New users should default to onboarding_status=pending with no completion timestamp."""
+        from app.modules.auth.models import ClientProfile, User, UserRole
+        from app.modules.auth.service import _hash_password, create_tokens
+
+        user = User(
+            email="onboard-default@test.com",
+            password_hash=_hash_password("Secure@Pass123"),
+            full_name="Onboard Default",
+            role=UserRole.CLIENT,
+        )
+        db_session.add(user)
+        await db_session.flush()
+        db_session.add(ClientProfile(user_id=user.id, company_name="Onboard Co"))
+        await db_session.commit()
+
+        tokens = await create_tokens(user)
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["onboarding_status"] == "pending"
+        assert data["onboarding_completed_at"] is None
+
+    async def test_patch_me_updates_onboarding_status(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """PATCH /auth/me should persist onboarding_status and stamp onboarding_completed_at on completion."""
+        from app.modules.auth.models import ClientProfile, User, UserRole
+        from app.modules.auth.service import _hash_password, create_tokens
+
+        user = User(
+            email="onboard-patch@test.com",
+            password_hash=_hash_password("Secure@Pass123"),
+            full_name="Onboard Patch",
+            role=UserRole.CLIENT,
+        )
+        db_session.add(user)
+        await db_session.flush()
+        db_session.add(ClientProfile(user_id=user.id, company_name="Onboard Co"))
+        await db_session.commit()
+
+        tokens = await create_tokens(user)
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        snoozed_resp = await client.patch(
+            "/api/v1/auth/me",
+            json={"onboarding_status": "snoozed"},
+            headers=headers,
+        )
+        assert snoozed_resp.status_code == 200
+        assert snoozed_resp.json()["onboarding_status"] == "snoozed"
+        assert snoozed_resp.json()["onboarding_completed_at"] is None
+
+        completed_resp = await client.patch(
+            "/api/v1/auth/me",
+            json={"onboarding_status": "completed"},
+            headers=headers,
+        )
+        assert completed_resp.status_code == 200
+        assert completed_resp.json()["onboarding_status"] == "completed"
+        assert completed_resp.json()["onboarding_completed_at"] is not None
+
 
 class TestRefreshToken:
     """POST /api/v1/auth/refresh"""

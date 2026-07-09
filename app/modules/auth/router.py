@@ -8,6 +8,8 @@ AI-Sourcing Hub — Authentication Endpoints
 /api/v1/auth/logout        POST   Invalidate refresh token
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +19,7 @@ from app.modules.auth.dependencies import (
     get_current_user,
     get_current_user_with_profiles,
 )
-from app.modules.auth.models import User, UserRole
+from app.modules.auth.models import OnboardingStatus, User, UserRole
 from app.modules.auth.schemas import (
     TokenRefresh,
     TokenResponse,
@@ -128,6 +130,10 @@ async def update_me(
         current_user.full_name = data.full_name
     if data.phone is not None:
         current_user.phone = data.phone
+    if data.onboarding_status is not None:
+        current_user.onboarding_status = data.onboarding_status
+        if data.onboarding_status == OnboardingStatus.COMPLETED:
+            current_user.onboarding_completed_at = datetime.now(timezone.utc)
 
     # Update role-specific profile
     if current_user.role == UserRole.CLIENT and current_user.client_profile:

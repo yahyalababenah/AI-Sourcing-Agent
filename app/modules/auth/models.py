@@ -28,6 +28,21 @@ class VerificationStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class OnboardingStatus(str, enum.Enum):
+    """Lifecycle of the post-login interactive onboarding tour.
+
+    Mirrors the frontend's TourStatus (frontend/src/stores/onboardingStore.ts)
+    so /auth/me can be the cross-device source of truth: a rep who starts the
+    tour on desktop and picks up their phone on the way to a meeting shouldn't
+    see it again.
+    """
+    PENDING = "pending"
+    ACTIVE = "active"
+    SNOOZED = "snoozed"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -39,6 +54,16 @@ class User(Base):
     phone = Column(String(50), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     preferences = Column(JSONB, nullable=True, default=dict)
+
+    onboarding_status = Column(
+        Enum(OnboardingStatus, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+        default=OnboardingStatus.PENDING,
+        server_default=OnboardingStatus.PENDING.value,
+    )
+    """Interactive onboarding tour lifecycle — see OnboardingStatus."""
+    onboarding_completed_at = Column(DateTime(timezone=True), nullable=True)
+    """Timestamp the user finished (or was marked completed for) the tour."""
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(

@@ -5,7 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from app.modules.auth.models import User, UserRole
+from app.modules.auth.models import OnboardingStatus, User, UserRole
 
 
 # ═══════════════════════════════════════════════════════════
@@ -161,6 +161,13 @@ class UpdateProfileRequest(BaseModel):
     specialty: Optional[str] = Field(None, max_length=255)
     factory_address: Optional[str] = Field(None, max_length=500)
 
+    # Interactive onboarding tour (see OnboardingStatus) — lets the frontend
+    # sync tour lifecycle across devices instead of relying on localStorage alone.
+    onboarding_status: Optional[OnboardingStatus] = Field(
+        None,
+        description="New onboarding tour status: pending | active | snoozed | completed | skipped",
+    )
+
 
 class UpdateVerificationRequest(BaseModel):
     """Admin request to update a supplier's verification status."""
@@ -188,6 +195,8 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
     is_active: bool
     created_at: datetime
+    onboarding_status: str = "pending"
+    onboarding_completed_at: Optional[datetime] = None
     profile: Optional[dict] = None  # Role-specific profile data (client or supplier)
 
     model_config = {"from_attributes": True}
