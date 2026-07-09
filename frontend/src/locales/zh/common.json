@@ -153,6 +153,10 @@
       "message": "您似乎离开了导览！",
       "returnButton": "返回当前步骤"
     },
+    "resume": {
+      "tryingIt": "慢慢试用，不用着急。",
+      "continueButton": "继续导览"
+    },
     "waiting": {
       "message": "准备中..."
     },

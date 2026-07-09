@@ -17,7 +17,6 @@ export interface TourStepPanelProps {
   onBack: () => void;
   onSkipStep: () => void;
   onSnooze: () => void;
-  onSkipForever: () => void;
   /** Called instead of onNext when the user is on the last step and presses the primary button. */
   onFinish: () => void;
   isFirst: boolean;

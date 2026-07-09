@@ -153,6 +153,10 @@
       "message": "Looks like you wandered off the tour!",
       "returnButton": "Return to the current step"
     },
+    "resume": {
+      "tryingIt": "Take your time trying it out.",
+      "continueButton": "Continue the tour"
+    },
     "waiting": {
       "message": "Getting ready..."
     },

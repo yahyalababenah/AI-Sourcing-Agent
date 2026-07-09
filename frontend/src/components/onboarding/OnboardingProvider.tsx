@@ -4,6 +4,7 @@ import { useOnboardingStore } from "@/stores/onboardingStore";
 import { authService } from "@/services/authService";
 import { getWelcomeSlides, getTourSteps } from "@/constants/onboardingSteps";
 import { WelcomeCarousel } from "./WelcomeCarousel";
+import { GuidedTour } from "./GuidedTour";
 import type { OnboardingRole } from "./roleAccent";
 
 const SESSION_KEY = "ai-sourcing-onboarding-session-checked";
@@ -54,37 +55,43 @@ export function OnboardingProvider({ role }: OnboardingProviderProps) {
     }
   }, [user, role, initFor]);
 
-  if (!user || !welcomeVisible) return null;
+  if (!user) return null;
 
-  const slides = getWelcomeSlides(role);
-  if (slides.length === 0) return null;
+  if (welcomeVisible) {
+    const slides = getWelcomeSlides(role);
+    if (slides.length === 0) return null;
 
-  const handleStartTour = () => {
-    setWelcomeVisible(false);
-    const [firstStep] = getTourSteps(role);
-    if (firstStep) startTour(firstStep.id, firstStep.route);
-    authService.updateOnboardingStatus("active").catch(() => {});
-  };
+    const handleStartTour = () => {
+      setWelcomeVisible(false);
+      const [firstStep] = getTourSteps(role);
+      if (firstStep) startTour(firstStep.id, firstStep.route);
+      authService.updateOnboardingStatus("active").catch(() => {});
+    };
 
-  const handleSnooze = () => {
-    setWelcomeVisible(false);
-    snooze();
-    authService.updateOnboardingStatus("snoozed").catch(() => {});
-  };
+    const handleSnooze = () => {
+      setWelcomeVisible(false);
+      snooze();
+      authService.updateOnboardingStatus("snoozed").catch(() => {});
+    };
 
-  const handleSkipForever = () => {
-    setWelcomeVisible(false);
-    skipForever();
-    authService.updateOnboardingStatus("skipped").catch(() => {});
-  };
+    const handleSkipForever = () => {
+      setWelcomeVisible(false);
+      skipForever();
+      authService.updateOnboardingStatus("skipped").catch(() => {});
+    };
 
-  return (
-    <WelcomeCarousel
-      role={role}
-      slides={slides}
-      onStartTour={handleStartTour}
-      onSnooze={handleSnooze}
-      onSkipForever={handleSkipForever}
-    />
-  );
+    return (
+      <WelcomeCarousel
+        role={role}
+        slides={slides}
+        onStartTour={handleStartTour}
+        onSnooze={handleSnooze}
+        onSkipForever={handleSkipForever}
+      />
+    );
+  }
+
+  // GuidedTour self-guards on status !== "active", so it's safe to always
+  // mount it here once the welcome carousel isn't showing.
+  return <GuidedTour role={role} onTourFinished={() => {}} />;
 }

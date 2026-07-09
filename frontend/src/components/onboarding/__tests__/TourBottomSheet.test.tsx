@@ -13,7 +13,6 @@ const baseProps = {
   onBack: vi.fn(),
   onSkipStep: vi.fn(),
   onSnooze: vi.fn(),
-  onSkipForever: vi.fn(),
   onFinish: vi.fn(),
   isFirst: false,
   isLast: false,
