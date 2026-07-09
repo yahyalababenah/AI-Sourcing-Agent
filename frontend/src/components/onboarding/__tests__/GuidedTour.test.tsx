@@ -106,6 +106,27 @@ describe("GuidedTour", () => {
     expect(useOnboardingStore.getState().activeStepId).toBe(nextStep.id);
   });
 
+  it("auto-completes the calculator step the moment the user types anything on the calculator page (T11 forgiveness)", async () => {
+    const ctaStep = agentSteps.find((s) => s.id === "agent-calculator")!;
+    setActiveStep(ctaStep.id);
+    renderTour(ctaStep.route);
+
+    fireEvent.click(screen.getByText("جرّبها الآن"));
+    await waitFor(() => {
+      expect(screen.getByTestId("current-path")).toHaveTextContent(ctaStep.cta!.route);
+    });
+
+    // No click on "أكمل الجولة" — a bare input event anywhere on the page
+    // should be enough to advance, per the plan's forgiveness rule.
+    document.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await waitFor(() => {
+      expect(useOnboardingStore.getState().completedSteps).toContain(ctaStep.id);
+    });
+    const nextStep = agentSteps[agentSteps.findIndex((s) => s.id === ctaStep.id) + 1];
+    expect(useOnboardingStore.getState().activeStepId).toBe(nextStep.id);
+  });
+
   it("shows the nav-guard warning when the user wanders to an unrelated route", () => {
     setActiveStep(agentSteps[0].id);
     renderTour("/some/unrelated/route");

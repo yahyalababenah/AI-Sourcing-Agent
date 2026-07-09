@@ -87,6 +87,25 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
     }
   }
 
+  // Forgiveness completion path for the calculator step specifically (plan
+  // review): reaching the calculator page already lets the user advance via
+  // the manual "أكمل الجولة" button, but the plan calls out that actually
+  // entering a value should *also* complete it — a genuine interaction
+  // signal is a stronger completion cue than just landing on the page, and
+  // it saves the user a click. The button stays as the fallback for anyone
+  // who doesn't want to type anything.
+  useEffect(() => {
+    if (!currentStep || currentStep.id !== "agent-calculator") return;
+    if (!onCtaRoute || !awaitingReturn) return;
+
+    function handleInput() {
+      if (currentStep) advance(currentStep, true);
+    }
+    document.addEventListener("input", handleInput, { once: true });
+    return () => document.removeEventListener("input", handleInput);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, onCtaRoute, awaitingReturn]);
+
   // Auto-skip a step whose target never renders (plan §2.7-a) — mark it
   // complete anyway so progress keeps moving; there's nothing the user can
   // do about a DOM element that never shows up. Guarded by a ref (not a
