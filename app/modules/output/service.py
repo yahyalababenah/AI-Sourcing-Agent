@@ -109,22 +109,24 @@ async def create_quotation(
     Raises:
         NotFoundException: If referenced RFQ not found.
     """
-    # Verify RFQ exists
-    result = await db.execute(
-        select(RFQ).where(RFQ.id == uuid.UUID(data.rfq_id))
-    )
-    rfq = result.scalar_one_or_none()
-    if not rfq:
-        raise NotFoundException(
-            resource="RFQ",
-            resource_id=data.rfq_id,
+    # Verify RFQ exists (only if rfq_id is provided — standalone quotations skip this)
+    if data.rfq_id:
+        result = await db.execute(
+            select(RFQ).where(RFQ.id == uuid.UUID(data.rfq_id))
         )
+        rfq = result.scalar_one_or_none()
+        if not rfq:
+            raise NotFoundException(
+                resource="RFQ",
+                resource_id=data.rfq_id,
+            )
 
     await _validate_moq(db, data.line_items)
 
     # Create quotation
+    rfq_id = uuid.UUID(data.rfq_id) if data.rfq_id else None
     quotation = Quotation(
-        rfq_id=uuid.UUID(data.rfq_id),
+        rfq_id=rfq_id,
         agent_id=uuid.UUID(agent_id),
         quotation_number=_generate_quotation_number(),
         status=QuotationStatus.DRAFT,

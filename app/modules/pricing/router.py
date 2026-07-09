@@ -245,6 +245,27 @@ async def delete_hs_code(
 
 
 # ═══════════════════════════════════════════════════════════
+# Standalone Calculation (no RFQ required)
+# ═══════════════════════════════════════════════════════════
+
+@router.post(
+    "/calculate-standalone",
+    response_model=CalculatePriceResponse,
+    summary="Standalone price calculation (no RFQ required)",
+)
+async def calculate_standalone(
+    request: CalculatePriceRequest,
+    current_user: User = Depends(require_agent_or_admin),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis_client),
+):
+    """Standalone calculation — not tied to any RFQ or catalog product.
+    Agent can freely input product data and get pricing.
+    """
+    return await calculate_price(db, request, redis=redis)
+
+
+# ═══════════════════════════════════════════════════════════
 # Price Calculation
 # ═══════════════════════════════════════════════════════════
 

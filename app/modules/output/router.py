@@ -51,6 +51,30 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+# ═══════════════════════════════════════════════════════════
+# Standalone Quotation (no RFQ required)
+# ═══════════════════════════════════════════════════════════
+
+@router.post(
+    "/create-standalone",
+    response_model=QuotationResponse,
+    status_code=201,
+    summary="Create a standalone quotation (no RFQ)",
+)
+async def create_standalone_quotation(
+    request: QuotationCreate,
+    current_user: User = Depends(require_agent_or_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a quotation from standalone calculation (no RFQ required).
+    Agent can freely input product data and create a quotation without
+    being tied to any RFQ or catalog product.
+    """
+    return await create_quotation(
+        db=db, agent_id=str(current_user.id), data=request
+    )
+
+
 @router.post(
     "",
     response_model=QuotationResponse,

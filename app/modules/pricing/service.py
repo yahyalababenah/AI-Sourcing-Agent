@@ -521,9 +521,11 @@ async def calculate_price(
         effective_volume_cbm = p.volume_cbm
         if effective_volume_cbm is None and request.volume_cbm is not None:
             effective_volume_cbm = request.volume_cbm
+        # Generate a placeholder product_id if not provided (standalone mode)
+        product_id = p.product_id if p.product_id else f"standalone-{uuid.uuid4().hex[:12]}"
         products.append(
             LineItemInput(
-                product_id=p.product_id,
+                product_id=product_id,
                 product_name=p.name,
                 quantity=p.quantity,
                 unit_price_cny=p.unit_price_cny,
