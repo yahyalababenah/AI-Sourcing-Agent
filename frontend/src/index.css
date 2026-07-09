@@ -84,6 +84,26 @@
     50%  { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
   }
+  /* Onboarding: a bouncy "pop" for dialogs/icon badges — the spring-like
+     overshoot (cubic-bezier back-out) is what reads as "lively" rather
+     than a flat fade. */
+  @keyframes onboardPopIn {
+    0%   { opacity: 0; transform: scale(0.85) translateY(10px); }
+    60%  { opacity: 1; transform: scale(1.04) translateY(-2px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes onboardIconBounce {
+    0%   { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+    50%  { transform: scale(1.15) rotate(4deg); opacity: 1; }
+    75%  { transform: scale(0.95) rotate(-2deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  /* Continuous gentle pulse for the tour Spotlight ring so it reads as
+     "alive" while a step is active, not a static frozen highlight. */
+  @keyframes onboardSpotlightPulse {
+    0%, 100% { box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 3px rgba(255, 255, 255, 0.9); }
+    50%      { box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 6px rgba(255, 255, 255, 0.55); }
+  }
 
   /* Respect prefers-reduced-motion globally (CLAUDE.md motion rules) —
      collapse all transitions/animations to instant for users who ask for it. */

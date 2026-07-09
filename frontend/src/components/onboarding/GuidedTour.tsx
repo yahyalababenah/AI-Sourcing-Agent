@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useOnboardingStore } from "@/stores/onboardingStore";
@@ -23,15 +23,15 @@ interface GuidedTourProps {
 }
 
 /**
- * Renders the active guided-tour step: a Spotlight highlight plus a
- * TourPopover (desktop) or TourBottomSheet (mobile) anchored to it.
+ * Renders the active guided-tour step: a Spotlight highlight on the
+ * relevant sidebar link plus a TourPopover (desktop) or TourBottomSheet
+ * (mobile) — while the user is actually standing on the real feature page
+ * (`step.route`), not just looking at a sidebar link from the dashboard.
+ * GuidedTour navigates there itself the moment a step becomes active.
  *
- * Three location states, since a step's target only exists on its own
- * `route` while its optional `cta` sends the user somewhere else entirely:
- *  1. on `step.route`      → full spotlight + popover/sheet as normal.
- *  2. on `step.cta.route`  → the user deliberately followed "try it now";
- *     show a low-key, positively-worded resume affordance, not a warning.
- *  3. anywhere else        → the user genuinely wandered off (an unrelated
+ * Two location states:
+ *  1. on `step.route` → full spotlight + popover/sheet as normal.
+ *  2. anywhere else   → the user genuinely wandered off (an unrelated
  *     link, browser back); show the NavGuardToast "wandered off" warning
  *     (plan §2.7-b) with a button back to the step.
  */
@@ -53,21 +53,32 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
   const currentIndex = steps.findIndex((s) => s.id === activeStepId);
   const currentStep: TourStep | null = currentIndex >= 0 ? steps[currentIndex] : null;
 
-  const [awaitingReturn, setAwaitingReturn] = useState(false);
   const autoSkippedStepIdRef = useRef<string | null>(null);
+  const navigatedForStepIdRef = useRef<string | null>(null);
 
   const onSameRoute = currentStep ? location.pathname === currentStep.route : false;
-  const onCtaRoute = !!(currentStep?.cta && location.pathname === currentStep.cta.route);
 
   const targetIdForLookup = onSameRoute ? currentStep?.target ?? null : null;
   const { rect, status: targetStatus } = useTourTarget(targetIdForLookup);
 
-  // Every current tour step targets something inside the Sidebar
-  // (tour-sidebar-nav / tour-nav-*), which on mobile only exists on-screen
-  // inside the MobileDrawer. Without this, useTourTarget would resolve a
-  // rect that's real but translated off-screen (the drawer's closed state
-  // doesn't unmount it, just slides it out) — so keep the drawer open for
-  // as long as a step is active on its own route on a small screen.
+  // Take the user *into* each feature as soon as its step becomes active —
+  // per feedback, the tour shouldn't just point at a sidebar link from the
+  // dashboard and wait for a click. One navigate per step (guarded by ref)
+  // so a manual detour back to the dashboard doesn't get yanked away again.
+  useEffect(() => {
+    if (!currentStep) return;
+    if (navigatedForStepIdRef.current === currentStep.id) return;
+    navigatedForStepIdRef.current = currentStep.id;
+    if (location.pathname !== currentStep.route) navigate(currentStep.route);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
+
+  // Every current tour step targets the Sidebar (tour-sidebar-nav /
+  // tour-nav-*), which on mobile only exists on-screen inside the
+  // MobileDrawer. Without this, useTourTarget would resolve a rect that's
+  // real but translated off-screen (the drawer's closed state doesn't
+  // unmount it, just slides it out) — so keep the drawer open for as long
+  // as a step is active on its own route on a small screen.
   useEffect(() => {
     if (isDesktop || !onSameRoute) return;
     useUIStore.getState().openDrawer();
@@ -76,10 +87,8 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
   function advance(step: TourStep, markComplete: boolean) {
     if (markComplete) completeStep(step.id);
     const next = steps[steps.findIndex((s) => s.id === step.id) + 1];
-    setAwaitingReturn(false);
     if (next) {
       goToStep(next.id, next.route);
-      if (location.pathname !== next.route) navigate(next.route);
     } else {
       completeTour();
       authService.updateOnboardingStatus("completed").catch(() => {});
@@ -89,14 +98,11 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
 
   // Forgiveness completion path for the calculator step specifically (plan
   // review): reaching the calculator page already lets the user advance via
-  // the manual "أكمل الجولة" button, but the plan calls out that actually
-  // entering a value should *also* complete it — a genuine interaction
-  // signal is a stronger completion cue than just landing on the page, and
-  // it saves the user a click. The button stays as the fallback for anyone
-  // who doesn't want to type anything.
+  // the "التالي" button, but the plan calls out that actually entering a
+  // value should *also* complete it — a genuine interaction is a stronger
+  // completion cue than just landing on the page, and it saves a click.
   useEffect(() => {
-    if (!currentStep || currentStep.id !== "agent-calculator") return;
-    if (!onCtaRoute || !awaitingReturn) return;
+    if (!currentStep || currentStep.id !== "agent-calculator" || !onSameRoute) return;
 
     function handleInput() {
       if (currentStep) advance(currentStep, true);
@@ -104,7 +110,7 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
     document.addEventListener("input", handleInput, { once: true });
     return () => document.removeEventListener("input", handleInput);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, onCtaRoute, awaitingReturn]);
+  }, [currentStep, onSameRoute]);
 
   // Auto-skip a step whose target never renders (plan §2.7-a) — mark it
   // complete anyway so progress keeps moving; there's nothing the user can
@@ -129,38 +135,18 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
   const handleBack = () => {
     const prev = steps[currentIndex - 1];
     if (!prev) return;
-    setAwaitingReturn(false);
     goToStep(prev.id, prev.route);
-    if (location.pathname !== prev.route) navigate(prev.route);
-  };
-  const handleCta = () => {
-    if (!step.cta) return;
-    setAwaitingReturn(true);
-    navigate(step.cta.route);
   };
   const handleSnooze = () => {
     snooze();
     authService.updateOnboardingStatus("snoozed").catch(() => {});
   };
   const handleReturnToStep = () => {
-    setAwaitingReturn(false);
     navigate(step.route);
   };
 
-  // State 2: deliberately visiting the CTA's own destination.
-  if (onCtaRoute && awaitingReturn) {
-    return (
-      <NavGuardToast
-        role={role}
-        message={t("onboarding.resume.tryingIt")}
-        buttonLabel={t("onboarding.resume.continueButton")}
-        onReturn={handleAdvance}
-      />
-    );
-  }
-
-  // State 3: somewhere else entirely — genuine "wandered off".
-  if (!onSameRoute && !onCtaRoute) {
+  // The user genuinely wandered off (an unrelated link, browser back).
+  if (!onSameRoute) {
     return (
       <NavGuardToast
         role={role}
@@ -171,15 +157,12 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
     );
   }
 
-  // State 1: on the expected route — full spotlight + popover/sheet.
   const panelProps = {
     role,
     rect,
     targetStatus,
     title: t(step.titleKey),
     description: t(step.descriptionKey),
-    ctaLabel: step.cta ? t(step.cta.labelKey) : undefined,
-    onCta: step.cta ? handleCta : undefined,
     onNext: handleAdvance,
     onBack: handleBack,
     onSkipStep: handleSkipStep,

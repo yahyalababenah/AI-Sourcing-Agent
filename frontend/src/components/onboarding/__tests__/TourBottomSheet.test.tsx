@@ -29,12 +29,9 @@ describe("TourBottomSheet", () => {
     expect(screen.getByText("جارٍ التحضير...")).toBeInTheDocument();
   });
 
-  it("renders title/description and calls onCta", () => {
-    const onCta = vi.fn();
-    render(<TourBottomSheet {...baseProps} ctaLabel="جرّبها الآن" onCta={onCta} />);
+  it("renders title/description — the user is already on the real feature page, no CTA needed", () => {
+    render(<TourBottomSheet {...baseProps} />);
     expect(screen.getByText("عنوان الخطوة")).toBeInTheDocument();
-    screen.getByText("جرّبها الآن").click();
-    expect(onCta).toHaveBeenCalledTimes(1);
   });
 
   it("calls onFinish on the last step's primary button", () => {

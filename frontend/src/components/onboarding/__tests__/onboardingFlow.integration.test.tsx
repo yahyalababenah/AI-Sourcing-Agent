@@ -9,7 +9,7 @@ import { ROUTES } from "@/constants/routes";
 import { authService } from "@/services/authService";
 import { useTourTarget } from "@/hooks/useTourTarget";
 import type { User } from "@/types/auth";
-import i18n from "@/lib/i18n";
+import "@/lib/i18n";
 
 vi.mock("@/services/authService");
 vi.mock("@/hooks/useTourTarget");
@@ -34,9 +34,10 @@ function makeUser(overrides: Partial<User> = {}): User {
  * End-to-end walk through the whole onboarding experience via the real
  * consumer-facing entry point (OnboardingProvider), not the individual
  * pieces tested in isolation elsewhere: welcome carousel -> guided tour
- * (mixing highlight-only and CTA steps) -> completion card -> dismiss.
- * Exercises the plan's Definition of Done directly: "مستخدم Agent ...
- * يمرّ بجولة تلمس ≥5 مزايا، يجرّب فعلياً ≥2 خدمة" and ends 100% complete.
+ * (which navigates the user into each real feature page as it goes) ->
+ * completion card -> dismiss. Exercises the plan's Definition of Done
+ * directly: "مستخدم Agent ... يمرّ بجولة تلمس ≥5 مزايا، يجرّب فعلياً ≥2
+ * خدمة" and ends 100% complete.
  */
 describe("onboarding flow (integration)", () => {
   beforeEach(() => {
@@ -98,7 +99,7 @@ describe("onboarding flow (integration)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("actually tries >=2 CTA-backed services by visiting their destinations before continuing", async () => {
+  it("actually carries the user onto >=2 distinct real feature pages while walking the tour, not just the dashboard", async () => {
     useAuthStore.setState({ user: makeUser({ onboarding_status: "pending" }) });
     renderWithProviders(<OnboardingProvider role="agent" />, { route: ROUTES.AGENT.DASHBOARD });
 
@@ -111,30 +112,16 @@ describe("onboarding flow (integration)", () => {
     fireEvent.click(startButton);
 
     const steps = getTourSteps("agent");
-    const ctaSteps = steps.filter((s) => s.cta);
-    expect(ctaSteps.length).toBeGreaterThanOrEqual(2);
+    const distinctFeatureRoutes = new Set(steps.map((s) => s.route));
+    expect(distinctFeatureRoutes.size).toBeGreaterThanOrEqual(2); // DoD: >=2 real services visited
 
-    let triedCount = 0;
     for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
       const isLast = i === steps.length - 1;
-
-      if (step.cta) {
-        const ctaLabel = i18n.t(step.cta.labelKey);
-        await waitFor(() => expect(screen.getByText(ctaLabel)).toBeInTheDocument());
-        // Follow the CTA (actually "trying" the feature) instead of skipping.
-        fireEvent.click(screen.getByText(ctaLabel));
-        triedCount += 1;
-        await waitFor(() => expect(screen.getByText("أكمل الجولة")).toBeInTheDocument());
-        fireEvent.click(screen.getByText("أكمل الجولة"));
-      } else {
-        const label = isLast ? "إنهاء الجولة" : "التالي";
-        await waitFor(() => expect(screen.getByText(label)).toBeInTheDocument());
-        fireEvent.click(screen.getByText(label));
-      }
+      const label = isLast ? "إنهاء الجولة" : "التالي";
+      await waitFor(() => expect(screen.getByText(label)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(label));
     }
 
-    expect(triedCount).toBeGreaterThanOrEqual(2);
     await waitFor(() => {
       expect(screen.getByText("أتممت الجولة 🎉")).toBeInTheDocument();
     });

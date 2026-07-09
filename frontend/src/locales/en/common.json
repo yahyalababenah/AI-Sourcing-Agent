@@ -82,23 +82,19 @@
         },
         "calculator": {
           "title": "Quick Calculator",
-          "description": "Calculate the landed cost of any product in seconds, no need for a full quote request.",
-          "cta": "Try it now"
+          "description": "Calculate the landed cost of any product in seconds, no need for a full quote request."
         },
         "upload": {
           "title": "Upload your catalog",
-          "description": "Upload a file or product photos and the system extracts the data automatically for you to review later.",
-          "cta": "Open upload page"
+          "description": "Upload a file or product photos and the system extracts the data automatically for you to review later."
         },
         "inbox": {
           "title": "Incoming client requests",
-          "description": "Importer requests land here so you can prepare quotes quickly.",
-          "cta": "Check it out"
+          "description": "Importer requests land here so you can prepare quotes quickly."
         },
         "tracking": {
           "title": "Shipment tracking",
-          "description": "Follow every shipment from China until it reaches your client.",
-          "cta": "Open tracking"
+          "description": "Follow every shipment from China until it reaches your client."
         },
         "chatProfile": {
           "title": "Messages and your profile",
@@ -112,23 +108,19 @@
         },
         "marketplace": {
           "title": "Global Marketplace",
-          "description": "Browse real products from verified suppliers before requesting a quote.",
-          "cta": "Browse marketplace"
+          "description": "Browse real products from verified suppliers before requesting a quote."
         },
         "rfq": {
           "title": "Request a new quote",
-          "description": "Describe what you need in one simple sentence, and we'll route it to the right agent.",
-          "cta": "Try requesting"
+          "description": "Describe what you need in one simple sentence, and we'll route it to the right agent."
         },
         "myRequests": {
           "title": "My Requests",
-          "description": "Track all your requests and the quotes you've received in one place.",
-          "cta": "Check it out"
+          "description": "Track all your requests and the quotes you've received in one place."
         },
         "tracking": {
           "title": "Shipment tracking",
-          "description": "Once your order is confirmed, follow it step by step until it arrives.",
-          "cta": "Open tracking"
+          "description": "Once your order is confirmed, follow it step by step until it arrives."
         },
         "chat": {
           "title": "Messages",
@@ -152,10 +144,6 @@
     "navGuard": {
       "message": "Looks like you wandered off the tour!",
       "returnButton": "Return to the current step"
-    },
-    "resume": {
-      "tryingIt": "Take your time trying it out.",
-      "continueButton": "Continue the tour"
     },
     "waiting": {
       "message": "Getting ready..."

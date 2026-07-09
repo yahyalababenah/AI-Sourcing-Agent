@@ -11,8 +11,6 @@ export interface TourStepPanelProps {
   targetStatus: TourTargetStatus;
   title: string;
   description: string;
-  ctaLabel?: string;
-  onCta?: () => void;
   onNext: () => void;
   onBack: () => void;
   onSkipStep: () => void;

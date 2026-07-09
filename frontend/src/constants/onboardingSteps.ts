@@ -12,15 +12,16 @@ export interface WelcomeSlide {
 }
 
 /**
- * A single guided-tour step. `target` must match a `data-tour="<target>"`
- * attribute on a real element rendered while the user is on `route`.
+ * A single guided-tour step. `route` is the *real* feature page the step
+ * lives on — GuidedTour navigates the user there the moment the step
+ * becomes active, so the tour walks through the actual product instead of
+ * just pointing at sidebar links from the dashboard (feedback: take the
+ * user *inside* each feature, don't have them look at it from outside).
  *
- * Steps with a `cta` are the "interactive" steps: their primary button
- * navigates to `cta.route` and the step is considered complete the moment
- * the user *reaches* that route (see CLAUDE-reviewed forgiveness rule —
- * opening the upload screen or the RFQ form counts as done, no need to
- * actually upload a file or submit a request). Steps without a `cta` are
- * highlight-only and complete when the user clicks "next".
+ * `target` matches a `data-tour="<target>"` attribute on the sidebar link
+ * for this feature — the Sidebar renders on every route inside
+ * AgentLayout/ClientLayout, so it stays a valid Spotlight anchor even
+ * while standing on the feature page itself ("you are here").
  */
 export interface TourStep {
   id: string;
@@ -28,10 +29,6 @@ export interface TourStep {
   descriptionKey: string;
   target: string;
   route: string;
-  cta?: {
-    labelKey: string;
-    route: string;
-  };
 }
 
 export const welcomeSlides: Record<Extract<UserRole, "agent" | "client">, WelcomeSlide[]> = {
@@ -84,44 +81,28 @@ const agentSteps: TourStep[] = [
     titleKey: "onboarding.steps.agent.calculator.title",
     descriptionKey: "onboarding.steps.agent.calculator.description",
     target: "tour-nav-calculator",
-    route: ROUTES.AGENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.agent.calculator.cta",
-      route: ROUTES.PRICING.STANDALONE_CALC,
-    },
+    route: ROUTES.PRICING.STANDALONE_CALC,
   },
   {
     id: "agent-upload",
     titleKey: "onboarding.steps.agent.upload.title",
     descriptionKey: "onboarding.steps.agent.upload.description",
     target: "tour-nav-upload",
-    route: ROUTES.AGENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.agent.upload.cta",
-      route: ROUTES.DOCUMENTS.UPLOAD,
-    },
+    route: ROUTES.DOCUMENTS.UPLOAD,
   },
   {
     id: "agent-inbox",
     titleKey: "onboarding.steps.agent.inbox.title",
     descriptionKey: "onboarding.steps.agent.inbox.description",
     target: "tour-nav-supplier-inbox",
-    route: ROUTES.AGENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.agent.inbox.cta",
-      route: ROUTES.RFQ.SUPPLIER_INBOX,
-    },
+    route: ROUTES.RFQ.SUPPLIER_INBOX,
   },
   {
     id: "agent-tracking",
     titleKey: "onboarding.steps.agent.tracking.title",
     descriptionKey: "onboarding.steps.agent.tracking.description",
     target: "tour-nav-orders",
-    route: ROUTES.AGENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.agent.tracking.cta",
-      route: ROUTES.ORDERS.LIST,
-    },
+    route: ROUTES.ORDERS.LIST,
   },
   {
     id: "agent-chat-profile",
@@ -145,44 +126,28 @@ const clientSteps: TourStep[] = [
     titleKey: "onboarding.steps.client.marketplace.title",
     descriptionKey: "onboarding.steps.client.marketplace.description",
     target: "tour-nav-marketplace",
-    route: ROUTES.CLIENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.client.marketplace.cta",
-      route: ROUTES.CATALOG.MARKETPLACE,
-    },
+    route: ROUTES.CATALOG.MARKETPLACE,
   },
   {
     id: "client-rfq",
     titleKey: "onboarding.steps.client.rfq.title",
     descriptionKey: "onboarding.steps.client.rfq.description",
     target: "tour-nav-new-rfq",
-    route: ROUTES.CLIENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.client.rfq.cta",
-      route: ROUTES.RFQ.CREATE,
-    },
+    route: ROUTES.RFQ.CREATE,
   },
   {
     id: "client-my-requests",
     titleKey: "onboarding.steps.client.myRequests.title",
     descriptionKey: "onboarding.steps.client.myRequests.description",
     target: "tour-nav-my-requests",
-    route: ROUTES.CLIENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.client.myRequests.cta",
-      route: ROUTES.RFQ.LIST,
-    },
+    route: ROUTES.RFQ.LIST,
   },
   {
     id: "client-tracking",
     titleKey: "onboarding.steps.client.tracking.title",
     descriptionKey: "onboarding.steps.client.tracking.description",
     target: "tour-nav-orders",
-    route: ROUTES.CLIENT.DASHBOARD,
-    cta: {
-      labelKey: "onboarding.steps.client.tracking.cta",
-      route: ROUTES.ORDERS.LIST,
-    },
+    route: ROUTES.ORDERS.LIST,
   },
   {
     id: "client-chat",

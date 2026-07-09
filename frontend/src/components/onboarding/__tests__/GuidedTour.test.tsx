@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { GuidedTour } from "../GuidedTour";
 import { useOnboardingStore } from "@/stores/onboardingStore";
@@ -37,6 +37,18 @@ function CurrentPathProbe() {
   return <div data-testid="current-path">{location.pathname}</div>;
 }
 
+/** Simulates the user clicking some unrelated link (not one of GuidedTour's
+ *  own controls) — the only way to distinguish real wandering from the
+ *  tour's own one-navigate-per-step effect in a test. */
+function WanderAwayTrigger() {
+  const navigate = useNavigate();
+  return (
+    <button data-testid="wander-away" onClick={() => navigate("/some/unrelated/route")}>
+      wander away
+    </button>
+  );
+}
+
 function renderTour(initialRoute: string, onTourFinished = vi.fn()) {
   return renderWithProviders(
     <Routes>
@@ -45,6 +57,7 @@ function renderTour(initialRoute: string, onTourFinished = vi.fn()) {
         element={
           <>
             <CurrentPathProbe />
+            <WanderAwayTrigger />
             <GuidedTour role="agent" onTourFinished={onTourFinished} />
           </>
         }
@@ -85,51 +98,46 @@ describe("GuidedTour", () => {
     expect(useOnboardingStore.getState().activeStepId).toBe(agentSteps[1].id);
   });
 
-  it("shows a low-key resume nudge (not a warning) after following a step's CTA, then advances on continue", async () => {
-    const ctaStep = agentSteps.find((s) => s.id === "agent-calculator")!;
-    setActiveStep(ctaStep.id);
-    renderTour(ctaStep.route);
+  it("navigates the user into the real feature page as soon as its step becomes active, instead of just pointing at it from the dashboard", async () => {
+    const featureStep = agentSteps.find((s) => s.id === "agent-calculator")!;
+    // Start on the dashboard with an earlier step active...
+    setActiveStep(agentSteps[0].id);
+    renderTour(ROUTES.AGENT.DASHBOARD);
 
-    fireEvent.click(screen.getByText("جرّبها الآن"));
+    // ...advance past it, and the tour should carry the user onto the
+    // calculator's own route automatically — no separate "try it" click.
+    fireEvent.click(screen.getByText("التالي"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("current-path")).toHaveTextContent(ctaStep.cta!.route);
+      expect(screen.getByTestId("current-path")).toHaveTextContent(featureStep.route);
     });
-
-    expect(screen.getByText("خذ وقتك وجرّبها كما تشاء")).toBeInTheDocument();
-    expect(screen.queryByText("يبدو أنك ابتعدت عن الجولة!")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByText("أكمل الجولة"));
-
-    expect(useOnboardingStore.getState().completedSteps).toContain(ctaStep.id);
-    const nextStep = agentSteps[agentSteps.findIndex((s) => s.id === ctaStep.id) + 1];
-    expect(useOnboardingStore.getState().activeStepId).toBe(nextStep.id);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("auto-completes the calculator step the moment the user types anything on the calculator page (T11 forgiveness)", async () => {
-    const ctaStep = agentSteps.find((s) => s.id === "agent-calculator")!;
-    setActiveStep(ctaStep.id);
-    renderTour(ctaStep.route);
+  it("auto-completes the calculator step the moment the user types anything on its page (T11 forgiveness)", async () => {
+    const calculatorStep = agentSteps.find((s) => s.id === "agent-calculator")!;
+    setActiveStep(calculatorStep.id);
+    renderTour(calculatorStep.route);
 
-    fireEvent.click(screen.getByText("جرّبها الآن"));
-    await waitFor(() => {
-      expect(screen.getByTestId("current-path")).toHaveTextContent(ctaStep.cta!.route);
-    });
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
 
-    // No click on "أكمل الجولة" — a bare input event anywhere on the page
+    // No click on "التالي" — a bare input event anywhere on the page
     // should be enough to advance, per the plan's forgiveness rule.
     document.dispatchEvent(new Event("input", { bubbles: true }));
 
     await waitFor(() => {
-      expect(useOnboardingStore.getState().completedSteps).toContain(ctaStep.id);
+      expect(useOnboardingStore.getState().completedSteps).toContain(calculatorStep.id);
     });
-    const nextStep = agentSteps[agentSteps.findIndex((s) => s.id === ctaStep.id) + 1];
+    const nextStep = agentSteps[agentSteps.findIndex((s) => s.id === calculatorStep.id) + 1];
     expect(useOnboardingStore.getState().activeStepId).toBe(nextStep.id);
   });
 
-  it("shows the nav-guard warning when the user wanders to an unrelated route", () => {
+  it("shows the nav-guard warning when the user wanders to an unrelated route", async () => {
     setActiveStep(agentSteps[0].id);
-    renderTour("/some/unrelated/route");
+    renderTour(ROUTES.AGENT.DASHBOARD);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("wander-away"));
 
     expect(screen.getByText("يبدو أنك ابتعدت عن الجولة!")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -137,12 +145,17 @@ describe("GuidedTour", () => {
 
   it("returning from the nav-guard warning navigates back and re-shows the step panel", async () => {
     setActiveStep(agentSteps[0].id);
-    renderTour("/some/unrelated/route");
+    renderTour(ROUTES.AGENT.DASHBOARD);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("wander-away"));
+    await waitFor(() => expect(screen.getByText("يبدو أنك ابتعدت عن الجولة!")).toBeInTheDocument());
 
     fireEvent.click(screen.getByText("العودة للخطوة الحالية"));
 
     await waitFor(() => {
       expect(screen.getByTestId("current-path")).toHaveTextContent(agentSteps[0].route);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
   });
 
@@ -183,10 +196,15 @@ describe("GuidedTour", () => {
     expect(useUIStore.getState().drawerOpen).toBe(true);
   });
 
-  it("does not force the drawer open for the nav-guard 'wandered off' state", () => {
-    useUIStore.setState({ drawerOpen: false });
+  it("does not force the drawer open for the nav-guard 'wandered off' state", async () => {
     setActiveStep(agentSteps[0].id);
-    renderTour("/some/unrelated/route");
+    renderTour(ROUTES.AGENT.DASHBOARD);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    useUIStore.setState({ drawerOpen: false });
+    fireEvent.click(screen.getByTestId("wander-away"));
+
+    await waitFor(() => expect(screen.getByText("يبدو أنك ابتعدت عن الجولة!")).toBeInTheDocument());
     expect(useUIStore.getState().drawerOpen).toBe(false);
   });
 

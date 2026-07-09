@@ -39,14 +39,10 @@ describe("TourPopover", () => {
     expect(screen.queryByText("عنوان الخطوة")).not.toBeInTheDocument();
   });
 
-  it("shows title, description, and the CTA when a cta is provided", () => {
-    const onCta = vi.fn();
-    render(<TourPopover {...baseProps} rect={rect()} ctaLabel="جرّبها الآن" onCta={onCta} />);
+  it("shows title and description — the user is already on the real feature page, no CTA needed", () => {
+    render(<TourPopover {...baseProps} rect={rect()} />);
     expect(screen.getByText("عنوان الخطوة")).toBeInTheDocument();
     expect(screen.getByText("شرح الخطوة")).toBeInTheDocument();
-    const cta = screen.getByText("جرّبها الآن");
-    cta.click();
-    expect(onCta).toHaveBeenCalledTimes(1);
   });
 
   it("shows 'إنهاء الجولة' instead of 'التالي' on the last step and calls onFinish", () => {

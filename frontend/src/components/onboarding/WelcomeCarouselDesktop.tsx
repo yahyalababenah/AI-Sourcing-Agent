@@ -5,6 +5,7 @@ import { useCarouselNav } from "@/hooks/useCarouselNav";
 import { useCarouselKeyboard } from "@/hooks/useCarouselKeyboard";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { roleAccent, type OnboardingRole } from "./roleAccent";
+import { welcomeSlideIcons } from "./welcomeSlideIcons";
 
 interface WelcomeCarouselDesktopProps {
   role: OnboardingRole;
@@ -33,6 +34,7 @@ export function WelcomeCarouselDesktop({
   });
 
   const slide = slides[index];
+  const SlideIcon = welcomeSlideIcons[slide.id];
 
   return (
     <div
@@ -44,9 +46,13 @@ export function WelcomeCarouselDesktop({
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-carousel-title"
-        className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-xl transition-all duration-200 motion-reduce:transition-none"
+        className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white p-9 shadow-2xl motion-safe:animate-[onboardPopIn_350ms_ease-out]"
       >
-        <div className="mb-6 flex items-center justify-between text-[13px]">
+        {/* Decorative glow blobs — purely visual, gives the card depth/life */}
+        <div aria-hidden className={`pointer-events-none absolute -top-16 -end-16 h-48 w-48 rounded-full opacity-20 blur-3xl ${accent.glow}`} />
+        <div aria-hidden className={`pointer-events-none absolute -bottom-20 -start-10 h-40 w-40 rounded-full opacity-10 blur-3xl ${accent.glow}`} />
+
+        <div className="relative mb-7 flex items-center justify-between text-[13px]">
           <button
             onClick={onSnooze}
             className="text-slate-400 transition-colors duration-150 hover:text-slate-600"
@@ -61,25 +67,35 @@ export function WelcomeCarouselDesktop({
           </button>
         </div>
 
-        <h2 id="welcome-carousel-title" className="mb-3 text-xl font-bold text-slate-900">
-          {t(slide.titleKey)}
-        </h2>
-        <p className="mb-8 text-sm leading-relaxed text-slate-600">{t(slide.descriptionKey)}</p>
+        <div key={slide.id} className="relative motion-safe:animate-[onboardPopIn_400ms_cubic-bezier(0.34,1.56,0.64,1)]">
+          {SlideIcon && (
+            <div
+              className={`mb-5 flex h-20 w-20 items-center justify-center rounded-2xl shadow-lg motion-safe:animate-[onboardIconBounce_500ms_ease-out] ${accent.iconBadge}`}
+            >
+              <SlideIcon className="h-10 w-10 text-white" strokeWidth={1.75} />
+            </div>
+          )}
 
-        <div className="mb-6 flex items-center justify-center gap-1.5">
+          <h2 id="welcome-carousel-title" className="mb-3 text-2xl font-extrabold leading-tight text-slate-900">
+            {t(slide.titleKey)}
+          </h2>
+          <p className="mb-8 text-base leading-relaxed text-slate-600">{t(slide.descriptionKey)}</p>
+        </div>
+
+        <div className="relative mb-7 flex items-center justify-center gap-2">
           {slides.map((s, i) => (
             <button
               key={s.id}
               onClick={() => goTo(i)}
               aria-label={`${i + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-150 ${
-                i === index ? `w-6 ${accent.dot}` : `w-1.5 ${accent.dotInactive}`
+              className={`h-2 rounded-full transition-all duration-300 motion-safe:ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                i === index ? `w-8 ${accent.dot}` : `w-2 ${accent.dotInactive}`
               }`}
             />
           ))}
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="relative flex items-center justify-between gap-3">
           <button
             onClick={back}
             disabled={isFirst}
@@ -90,7 +106,7 @@ export function WelcomeCarouselDesktop({
           </button>
           <button
             onClick={isLast ? onStartTour : next}
-            className={`flex items-center gap-1 rounded-lg px-5 py-2.5 text-sm font-bold transition-all duration-150 active:scale-[0.98] ${accent.button}`}
+            className={`flex items-center gap-1.5 rounded-xl px-6 py-3 text-sm font-bold shadow-md transition-all duration-150 hover:shadow-lg active:scale-[0.97] ${accent.button}`}
           >
             {isLast ? t("onboarding.controls.startTour") : t("onboarding.controls.next")}
             <ChevronRight className="h-4 w-4 rtl:rotate-180" />

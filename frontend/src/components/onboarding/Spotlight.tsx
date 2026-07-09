@@ -17,6 +17,10 @@ const PADDING = 6;
  *
  * pointer-events: none so the spotlight never blocks interaction with the
  * highlighted element or the rest of the page underneath it.
+ *
+ * The ring pulses gently (onboardSpotlightPulse, index.css) so it reads as
+ * a live, breathing highlight instead of a frozen overlay — respects
+ * prefers-reduced-motion globally (see index.css's blanket media query).
  */
 export function Spotlight({ rect }: SpotlightProps) {
   if (!rect) return null;
@@ -25,13 +29,12 @@ export function Spotlight({ rect }: SpotlightProps) {
     <div
       aria-hidden
       data-testid="onboarding-spotlight"
-      className="fixed z-[9998] rounded-xl pointer-events-none transition-all duration-200 motion-reduce:transition-none"
+      className="fixed z-[9998] rounded-xl pointer-events-none transition-[top,left,width,height] duration-200 motion-reduce:transition-none animate-[onboardSpotlightPulse_2.5s_ease-in-out_infinite]"
       style={{
         top: rect.top - PADDING,
         left: rect.left - PADDING,
         width: rect.width + PADDING * 2,
         height: rect.height + PADDING * 2,
-        boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 3px rgba(255, 255, 255, 0.9)",
       }}
     />,
     document.body,

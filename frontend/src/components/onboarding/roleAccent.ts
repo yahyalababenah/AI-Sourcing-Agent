@@ -8,18 +8,22 @@ export type OnboardingRole = "agent" | "client";
 
 export const roleAccent: Record<
   OnboardingRole,
-  { dot: string; dotInactive: string; button: string; text: string }
+  { dot: string; dotInactive: string; button: string; text: string; iconBadge: string; glow: string }
 > = {
   agent: {
     dot: "bg-supplier-500",
     dotInactive: "bg-supplier-100",
     button: "bg-supplier-500 hover:bg-supplier-600 text-white",
     text: "text-supplier-600",
+    iconBadge: "bg-gradient-to-br from-supplier-400 to-supplier-600",
+    glow: "bg-supplier-400",
   },
   client: {
     dot: "bg-importer-500",
     dotInactive: "bg-importer-100",
     button: "bg-importer-500 hover:bg-importer-600 text-white",
     text: "text-importer-600",
+    iconBadge: "bg-gradient-to-br from-importer-400 to-importer-600",
+    glow: "bg-importer-400",
   },
 };

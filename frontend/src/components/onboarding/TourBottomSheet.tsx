@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { roleAccent } from "./roleAccent";
@@ -12,14 +12,16 @@ import type { TourStepPanelProps } from "./tourStepTypes";
  * targets). Portaled to document.body like TourPopover; ignores `rect` for
  * its own placement (it always docks to the bottom) but the Spotlight
  * component still highlights the target above it.
+ *
+ * The user is already standing on the real feature page by the time this
+ * renders (GuidedTour navigates there first) — this panel just narrates
+ * what they're looking at, it doesn't send them anywhere else.
  */
 export function TourBottomSheet({
   role,
   targetStatus,
   title,
   description,
-  ctaLabel,
-  onCta,
   onNext,
   onBack,
   onSkipStep,
@@ -41,7 +43,7 @@ export function TourBottomSheet({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-sheet-title"
-      className="fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl bg-white p-5 pb-6 shadow-xl transition-all duration-200 motion-reduce:transition-none lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl bg-white p-5 pb-6 shadow-xl motion-safe:animate-[onboardPopIn_320ms_ease-out] lg:hidden"
     >
       {targetStatus === "waiting" ? (
         <div className="space-y-3">
@@ -50,22 +52,19 @@ export function TourBottomSheet({
           <p className="text-xs text-slate-400">{t("onboarding.waiting.message")}</p>
         </div>
       ) : (
-        <>
+        <div key={title} className="motion-safe:animate-[onboardPopIn_320ms_ease-out]">
           {progressSlot}
+
+          <div
+            className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full motion-safe:animate-[onboardIconBounce_450ms_ease-out] ${accent.dotInactive}`}
+          >
+            <Sparkles className={`h-5 w-5 ${accent.text}`} />
+          </div>
 
           <h3 id="tour-sheet-title" className="mb-1.5 text-base font-bold text-slate-900">
             {title}
           </h3>
           <p className="mb-4 text-sm leading-relaxed text-slate-600">{description}</p>
-
-          {ctaLabel && onCta && (
-            <button
-              onClick={onCta}
-              className={`mb-3 w-full rounded-lg px-4 py-3 text-sm font-bold transition-all duration-150 active:scale-[0.98] ${accent.button}`}
-            >
-              {ctaLabel}
-            </button>
-          )}
 
           <div className="mb-3 flex items-center justify-between text-[13px]">
             <button
@@ -99,7 +98,7 @@ export function TourBottomSheet({
               <ChevronRight className="h-4 w-4 rtl:rotate-180" />
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>,
     document.body,

@@ -82,23 +82,19 @@
         },
         "calculator": {
           "title": "快速计算器",
-          "description": "几秒钟内计算任意产品的到岸成本，无需完整询价流程。",
-          "cta": "立即试用"
+          "description": "几秒钟内计算任意产品的到岸成本，无需完整询价流程。"
         },
         "upload": {
           "title": "上传您的产品目录",
-          "description": "上传文件或产品图片，系统将自动提取数据供您稍后审核。",
-          "cta": "打开上传页面"
+          "description": "上传文件或产品图片，系统将自动提取数据供您稍后审核。"
         },
         "inbox": {
           "title": "客户来件请求",
-          "description": "进口商的请求会显示在这里，方便您快速准备报价。",
-          "cta": "查看请求"
+          "description": "进口商的请求会显示在这里，方便您快速准备报价。"
         },
         "tracking": {
           "title": "货运跟踪",
-          "description": "跟踪每一批货物从中国发出直至送达客户手中。",
-          "cta": "打开跟踪页面"
+          "description": "跟踪每一批货物从中国发出直至送达客户手中。"
         },
         "chatProfile": {
           "title": "消息与个人资料",
@@ -112,23 +108,19 @@
         },
         "marketplace": {
           "title": "全球市场",
-          "description": "在发起询价之前，浏览认证供应商的真实产品。",
-          "cta": "浏览市场"
+          "description": "在发起询价之前，浏览认证供应商的真实产品。"
         },
         "rfq": {
           "title": "发起新的询价",
-          "description": "用一句话描述您的需求，我们会将其转发给合适的代理。",
-          "cta": "立即试用"
+          "description": "用一句话描述您的需求，我们会将其转发给合适的代理。"
         },
         "myRequests": {
           "title": "我的请求",
-          "description": "在一处跟踪您的所有请求及收到的报价。",
-          "cta": "查看请求"
+          "description": "在一处跟踪您的所有请求及收到的报价。"
         },
         "tracking": {
           "title": "货运跟踪",
-          "description": "订单确认后，在这里逐步跟踪直至货物送达。",
-          "cta": "打开跟踪页面"
+          "description": "订单确认后，在这里逐步跟踪直至货物送达。"
         },
         "chat": {
           "title": "消息",
@@ -152,10 +144,6 @@
     "navGuard": {
       "message": "您似乎离开了导览！",
       "returnButton": "返回当前步骤"
-    },
-    "resume": {
-      "tryingIt": "慢慢试用，不用着急。",
-      "continueButton": "继续导览"
     },
     "waiting": {
       "message": "准备中..."
