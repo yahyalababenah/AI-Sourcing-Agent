@@ -47,6 +47,11 @@ export interface ClientProfile {
   contact_number?: string | null;
 }
 
+/** Interactive onboarding tour lifecycle — mirrors the backend's OnboardingStatus
+ *  and the frontend's TourStatus (stores/onboardingStore.ts). Lives on the user
+ *  record so tour progress is a cross-device fact, not just localStorage. */
+export type OnboardingStatus = "pending" | "active" | "snoozed" | "completed" | "skipped";
+
 export interface User {
   id: string;
   email: string;
@@ -55,5 +60,7 @@ export interface User {
   phone?: string;
   is_active: boolean;
   created_at: string;
+  onboarding_status: OnboardingStatus;
+  onboarding_completed_at?: string | null;
   profile?: SupplierProfile | ClientProfile | null;
 }

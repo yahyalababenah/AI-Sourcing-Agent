@@ -4,6 +4,7 @@ import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { MobileDrawer } from "./MobileDrawer";
 import { Toaster } from "react-hot-toast";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 
 export function AgentLayout() {
   return (
@@ -21,6 +22,7 @@ export function AgentLayout() {
 
       <MobileDrawer role="agent" />
       <BottomNav role="agent" />
+      <OnboardingProvider role="agent" />
 
       <Toaster
         position="top-left"
