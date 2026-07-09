@@ -35,7 +35,17 @@ export function useTourTarget(targetId: string | null): TourTargetResult {
     setResult({ rect: null, status: "waiting" });
 
     const selector = `[data-tour="${targetId}"]`;
-    const findElement = () => document.querySelector<HTMLElement>(selector);
+    // Several screens render the same nav twice (desktop Sidebar hidden via
+    // `hidden lg:flex`, the same Sidebar reused inside MobileDrawer) per
+    // CLAUDE.md's mandatory two-file pattern — both copies carry the same
+    // data-tour id. Prefer whichever copy is actually laid out
+    // (offsetWidth/offsetHeight > 0); a display:none ancestor collapses
+    // both to 0, so the hidden copy's zero-size rect never wins over a
+    // rendered one.
+    const findElement = () => {
+      const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector));
+      return candidates.find((el) => el.offsetWidth > 0 || el.offsetHeight > 0) ?? candidates[0] ?? null;
+    };
 
     const updateRect = () => {
       if (cancelled) return;

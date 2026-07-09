@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useOnboardingStore } from "@/stores/onboardingStore";
+import { useUIStore } from "@/stores/uiStore";
 import { authService } from "@/services/authService";
 import { getTourSteps, type TourStep } from "@/constants/onboardingSteps";
 import { useTourTarget } from "@/hooks/useTourTarget";
@@ -60,6 +61,17 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
 
   const targetIdForLookup = onSameRoute ? currentStep?.target ?? null : null;
   const { rect, status: targetStatus } = useTourTarget(targetIdForLookup);
+
+  // Every current tour step targets something inside the Sidebar
+  // (tour-sidebar-nav / tour-nav-*), which on mobile only exists on-screen
+  // inside the MobileDrawer. Without this, useTourTarget would resolve a
+  // rect that's real but translated off-screen (the drawer's closed state
+  // doesn't unmount it, just slides it out) — so keep the drawer open for
+  // as long as a step is active on its own route on a small screen.
+  useEffect(() => {
+    if (isDesktop || !onSameRoute) return;
+    useUIStore.getState().openDrawer();
+  }, [isDesktop, onSameRoute, currentStep]);
 
   function advance(step: TourStep, markComplete: boolean) {
     if (markComplete) completeStep(step.id);

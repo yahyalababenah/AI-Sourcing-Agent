@@ -68,6 +68,23 @@ describe("useTourTarget", () => {
     expect(result.current.status).toBe("found");
   });
 
+  it("prefers a visible duplicate target over a hidden one with the same id (desktop/mobile dual-render pattern)", async () => {
+    // Sidebar renders twice — once hidden via `hidden lg:flex` on desktop
+    // breakpoints, once inside MobileDrawer — both carrying the same
+    // data-tour id. The hidden copy must never win.
+    const hidden = appendTarget("dup-target", { top: 999, left: 999 });
+    Object.defineProperty(hidden, "offsetWidth", { value: 0, configurable: true });
+    Object.defineProperty(hidden, "offsetHeight", { value: 0, configurable: true });
+
+    const visible = appendTarget("dup-target", { top: 5, left: 5 });
+    Object.defineProperty(visible, "offsetWidth", { value: 100, configurable: true });
+    Object.defineProperty(visible, "offsetHeight", { value: 40, configurable: true });
+
+    const { result } = renderHook(() => useTourTarget("dup-target"));
+    await waitFor(() => expect(result.current.status).toBe("found"));
+    expect(result.current.rect?.top).toBe(5);
+  });
+
   it("resets to waiting when targetId changes to null", () => {
     const { result, rerender } = renderHook(({ id }: { id: string | null }) => useTourTarget(id), {
       initialProps: { id: "some-target" as string | null },

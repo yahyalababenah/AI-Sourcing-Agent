@@ -8,6 +8,7 @@ import { getTourSteps } from "@/constants/onboardingSteps";
 import { ROUTES } from "@/constants/routes";
 import { authService } from "@/services/authService";
 import { useTourTarget } from "@/hooks/useTourTarget";
+import { useUIStore } from "@/stores/uiStore";
 import "@/lib/i18n";
 
 vi.mock("@/services/authService");
@@ -152,6 +153,20 @@ describe("GuidedTour", () => {
       expect(authService.updateOnboardingStatus).toHaveBeenCalledWith("completed");
     });
     expect(onTourFinished).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the mobile drawer while a step is active on its own route (jsdom defaults to the mobile breakpoint)", () => {
+    useUIStore.setState({ drawerOpen: false });
+    setActiveStep(agentSteps[0].id);
+    renderTour(ROUTES.AGENT.DASHBOARD);
+    expect(useUIStore.getState().drawerOpen).toBe(true);
+  });
+
+  it("does not force the drawer open for the nav-guard 'wandered off' state", () => {
+    useUIStore.setState({ drawerOpen: false });
+    setActiveStep(agentSteps[0].id);
+    renderTour("/some/unrelated/route");
+    expect(useUIStore.getState().drawerOpen).toBe(false);
   });
 
   it("'skip this step' advances without marking the step complete", () => {

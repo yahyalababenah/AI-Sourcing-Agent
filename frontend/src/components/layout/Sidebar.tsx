@@ -19,31 +19,34 @@ interface NavItem {
   to: string;
   labelKey: string;
   icon: LucideIcon;
+  /** Anchors the interactive onboarding tour's Spotlight to this item (see
+   *  constants/onboardingSteps.ts — must match a step's `target`). */
+  dataTour?: string;
 }
 
 const AGENT_NAV: NavItem[] = [
   { to: ROUTES.AGENT.DASHBOARD,      labelKey: "nav.home",                  icon: LayoutDashboard },
   { to: ROUTES.RFQ.LIST,             labelKey: "nav.purchaseRequests",      icon: ClipboardList },
-  { to: ROUTES.RFQ.SUPPLIER_INBOX,   labelKey: "nav.incomingClientRequests",icon: Users },
+  { to: ROUTES.RFQ.SUPPLIER_INBOX,   labelKey: "nav.incomingClientRequests",icon: Users, dataTour: "tour-nav-supplier-inbox" },
   { to: ROUTES.CATALOG.MARKETPLACE,  labelKey: "nav.marketplace",           icon: Store },
   { to: ROUTES.SUPPLIER.MY_PRODUCTS, labelKey: "nav.myProducts",            icon: Package },
-  { to: ROUTES.DOCUMENTS.UPLOAD,     labelKey: "nav.uploadDocument",        icon: Upload },
+  { to: ROUTES.DOCUMENTS.UPLOAD,     labelKey: "nav.uploadDocument",        icon: Upload, dataTour: "tour-nav-upload" },
   { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.productReview",         icon: ClipboardCheck },
   { to: ROUTES.PRICING.CALCULATE,    labelKey: "nav.calculator",            icon: Calculator },
-  { to: ROUTES.PRICING.STANDALONE_CALC, labelKey: "nav.standaloneCalculator", icon: Zap },
+  { to: ROUTES.PRICING.STANDALONE_CALC, labelKey: "nav.standaloneCalculator", icon: Zap, dataTour: "tour-nav-calculator" },
   { to: ROUTES.QUOTES.LIST,          labelKey: "nav.quotes",                icon: FileText },
-  { to: ROUTES.ORDERS.LIST,          labelKey: "nav.shipmentTracking",      icon: Truck },
-  { to: ROUTES.CHAT.LIST,            labelKey: "nav.chat",                  icon: MessageCircle },
+  { to: ROUTES.ORDERS.LIST,          labelKey: "nav.shipmentTracking",      icon: Truck, dataTour: "tour-nav-orders" },
+  { to: ROUTES.CHAT.LIST,            labelKey: "nav.chat",                  icon: MessageCircle, dataTour: "tour-nav-chat" },
   { to: ROUTES.AGENT.REELS,          labelKey: "nav.reels",                 icon: Clapperboard },
 ];
 
 const CLIENT_NAV: NavItem[] = [
   { to: ROUTES.CLIENT.DASHBOARD,    labelKey: "nav.dashboard",  icon: LayoutDashboard },
-  { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "nav.marketplace",icon: Globe },
-  { to: ROUTES.RFQ.CREATE,          labelKey: "nav.newRfq",     icon: PlusCircle },
-  { to: ROUTES.RFQ.LIST,            labelKey: "nav.myRequests", icon: ClipboardList },
-  { to: ROUTES.CHAT.LIST,           labelKey: "nav.chat",       icon: MessageCircle },
-  { to: ROUTES.ORDERS.LIST,         labelKey: "nav.shipmentTracking", icon: Truck },
+  { to: ROUTES.CATALOG.MARKETPLACE, labelKey: "nav.marketplace",icon: Globe, dataTour: "tour-nav-marketplace" },
+  { to: ROUTES.RFQ.CREATE,          labelKey: "nav.newRfq",     icon: PlusCircle, dataTour: "tour-nav-new-rfq" },
+  { to: ROUTES.RFQ.LIST,            labelKey: "nav.myRequests", icon: ClipboardList, dataTour: "tour-nav-my-requests" },
+  { to: ROUTES.CHAT.LIST,           labelKey: "nav.chat",       icon: MessageCircle, dataTour: "tour-nav-chat" },
+  { to: ROUTES.ORDERS.LIST,         labelKey: "nav.shipmentTracking", icon: Truck, dataTour: "tour-nav-orders" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -98,12 +101,13 @@ export function Sidebar({ role, bare = false }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" data-tour="tour-sidebar-nav">
         {items.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             onClick={closeDrawer}
+            data-tour={item.dataTour}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] transition-colors",

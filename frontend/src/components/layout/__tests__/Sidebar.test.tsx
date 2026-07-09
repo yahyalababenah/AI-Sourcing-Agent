@@ -20,3 +20,28 @@ describe("Sidebar — agent nav", () => {
     expect(screen.getByText("منتجاتي")).toBeInTheDocument();
   });
 });
+
+// The interactive onboarding tour's Spotlight anchors to these data-tour
+// ids (see constants/onboardingSteps.ts) — a renamed/removed attribute here
+// would silently break the guided tour without any type error to catch it.
+describe("Sidebar — onboarding tour anchors", () => {
+  it("marks the nav container and agent-specific links for the guided tour", () => {
+    const { container } = renderWithProviders(<Sidebar role="agent" />);
+    expect(container.querySelector('[data-tour="tour-sidebar-nav"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-calculator"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-upload"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-supplier-inbox"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-orders"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-chat"]')).toBeInTheDocument();
+  });
+
+  it("marks the nav container and client-specific links for the guided tour", () => {
+    const { container } = renderWithProviders(<Sidebar role="client" />);
+    expect(container.querySelector('[data-tour="tour-sidebar-nav"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-marketplace"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-new-rfq"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-my-requests"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-orders"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-nav-chat"]')).toBeInTheDocument();
+  });
+});
