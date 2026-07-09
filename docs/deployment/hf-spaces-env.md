@@ -1,43 +1,85 @@
 # Hugging Face Spaces — Required Environment Variables
 
-The HF Spaces deployment (`Dockerfile` / `entrypoint.hf.sh`) runs a single `uvicorn`
-process against external services (Supabase Postgres + Upstash Redis). It does **not**
-bundle a Celery worker. The admin health dashboard (`/health`) will show
-services as disconnected/not_configured until the matching secrets below are set under
-the Space's **Settings → Repository secrets**.
+This document lists all environment variables you need to configure under the HF Space's **Settings → Repository secrets**.
 
-## ⚠️ MinIO is currently bundled in-container — TEMPORARY, single-demo-session only
+> **HF Space URL:** `https://yahyoha-ai-sourcing-hub.hf.space`
 
-As of the current `Dockerfile`/`entrypoint.hf.sh`, MinIO runs as a background
-process *inside the same container* as the API (`minio server /data/minio`,
-started by `entrypoint.hf.sh` before `uvicorn`), with `S3_ENDPOINT=http://localhost:9000`
-and `S3_ACCESS_KEY`/`S3_SECRET_KEY=minioadmin` set as image defaults. This was done to
-support a single live demo (catalog upload) without needing an external S3 account.
+---
 
-**Limits — do not treat this as a durable setup:**
-- Storage lives at `/data/minio` inside the container's own filesystem — it is
-  **ephemeral** and is **wiped on every Space restart, redeploy, or rebuild**.
-  Any uploaded catalog/quotation PDF is lost when that happens.
-- There is no replication, backup, or persistent volume behind it.
-- For any use beyond a single demo session, switch back to a real external
-  S3-compatible provider (Supabase Storage, Cloudflare R2, Backblaze, etc.) by
-  overriding `S3_ENDPOINT`/`S3_ACCESS_KEY`/`S3_SECRET_KEY` as Space secrets —
-  this takes priority over the in-image defaults in `app/config.py`.
+## 🔐 Required Secrets (set these)
 
-| Health item | Env vars to set | Where the value comes from |
-|---|---|---|
-| MinIO (recommended for anything beyond a one-off demo) | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | An S3-compatible bucket (e.g. Supabase Storage or Cloudflare R2). Setting these overrides the in-container MinIO fallback (entrypoint skips starting MinIO entirely when `S3_ENDPOINT` is set). |
-| Celery | `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` | Same Upstash Redis URL used for `REDIS_URL`. Without these, `app/shared/celery_app.py` falls back to `redis://...@redis:6379/1` (also a docker-compose-only hostname). |
-| LLM | `DEEPSEEK_API_KEY` (tried first), `OPENROUTER_API_KEY`, or `TOGETHER_API_KEY` | DeepSeek, OpenRouter, or Together API key. |
+| Variable | Description | Example / How to get |
+|----------|-------------|----------------------|
+| `DB_PASSWORD` | Supabase PostgreSQL password | Your Supabase project password (min 8 chars) |
+| `DATABASE_URL` | Full Supabase connection string | `postgresql+asyncpg://postgres:[PASSWORD]@[HOST]:6543/postgres` |
+| `REDIS_PASSWORD` | Upstash Redis password | Your Upstash Redis password (min 8 chars) |
+| `REDIS_URL` | Upstash Redis connection string | `rediss://default:[PASSWORD]@[HOST]:6379` |
+| `JWT_SECRET` | Secret key for JWT token signing | Generate with: `openssl rand -hex 64` (min 32 chars) |
+| `ENVIRONMENT` | Deployment environment | `production` |
 
-## Celery caveat — this one won't fully go green on HF Spaces
+> **Note about `DATABASE_URL`:** Supabase uses port `6543` (not `5432`) for SSL-required connections. The driver *must* be `postgresql+asyncpg`. SSL is handled automatically via `connect_args` in `app/shared/database.py`.
 
-Even after setting `CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND` correctly, the health
-check pings a live worker (`celery_app.control.inspect(...).ping()`). HF Spaces runs a
-single container/process and cannot host a Celery worker alongside the API. Options:
+---
 
-- Deploy a small always-on worker process elsewhere (Railway, Fly.io, a VPS) pointed at
-  the same Redis broker — this is the only way to make "Celery: connected" possible.
-- Otherwise, treat "Celery: disconnected" as expected on this deployment target and only
-  chase it if a feature that depends on background tasks (e.g. async document/OCR
-  processing) is actually needed there.
+## ⚡ Optional but Recommended
+
+| Variable | Description | Why set it |
+|----------|-------------|------------|
+| `DEEPSEEK_API_KEY` | DeepSeek LLM API key | Enables RFQ translation & product extraction |
+| `OPENROUTER_API_KEY` | OpenRouter API key (fallback) | Backup LLM provider |
+| `TOGETHER_API_KEY` | Together AI API key (fallback) | Backup LLM provider |
+| `EXCHANGE_RATE_API_KEY` | Exchange rate API key | Enables live currency conversion |
+| `S3_ENDPOINT` | External S3 endpoint URL | Overrides ephemeral in-container MinIO for durable file storage |
+| `S3_ACCESS_KEY` | S3 access key | Required when using external S3 |
+| `S3_SECRET_KEY` | S3 secret key | Required when using external S3 |
+| `S3_REGION` | S3 region | Default: `auto` (works for Supabase Storage / Cloudflare R2) |
+| `CORS_ORIGINS` | Comma-separated allowed origins | e.g. `https://your-vercel-app.vercel.app,https://yahyoha-ai-sourcing-hub.hf.space` |
+| `SENTRY_DSN` | Sentry error tracking DSN | For production error monitoring |
+| `CELERY_BROKER_URL` | Celery broker (same Upstash Redis) | Required if you deploy a separate Celery worker |
+| `CELERY_RESULT_BACKEND` | Celery result backend | Same Redis as broker |
+| `OCR_LANG` | PaddleOCR language model | `en` (Latin), `ch` (Chinese+English), or `arabic` (Arabic script) |
+
+---
+
+## 🚀 Vercel Frontend — Environment Variables
+
+| Variable | Description | Value |
+|----------|-------------|-------|
+| `VITE_API_URL` | Backend API base URL | `https://yahyoha-ai-sourcing-hub.hf.space/api/v1` |
+| `VITE_APP_NAME` | Application name | `AI-Sourcing Hub` |
+| `VITE_DEFAULT_LOCALE` | Default language | `ar` (Arabic) or `en` (English) |
+
+---
+
+## 🔍 Health Check
+
+After deploying, verify:
+
+```bash
+# Backend health
+curl https://yahyoha-ai-sourcing-hub.hf.space/health
+
+# API docs
+curl https://yahyoha-ai-sourcing-hub.hf.space/api/docs
+
+# Frontend (once Vercel is configured)
+# Visit your Vercel URL
+```
+
+Expected health output:
+```json
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "environment": "production",
+  "services": {
+    "database": "connected",
+    "redis": "connected",
+    "minio": "disconnected",
+    "celery": "disabled",
+    "llm": "not_configured"
+  }
+}
+```
+
+> **Note:** `minio: disconnected` is expected on HF Spaces unless you configure an external S3 provider. `celery: disabled` is expected — HF Spaces runs a single container. `llm: not_configured` will change once you add an LLM API key.
