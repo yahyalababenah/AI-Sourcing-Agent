@@ -39,9 +39,9 @@ export function TourBottomSheet({
     <div
       ref={dialogRef}
       role="dialog"
-      aria-modal="false"
+      aria-modal="true"
       aria-labelledby="tour-sheet-title"
-      className="fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl bg-white p-5 pb-6 shadow-xl transition-all duration-200 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl bg-white p-5 pb-6 shadow-xl transition-all duration-200 motion-reduce:transition-none lg:hidden"
     >
       {targetStatus === "waiting" ? (
         <div className="space-y-3">

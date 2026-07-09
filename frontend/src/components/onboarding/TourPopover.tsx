@@ -51,9 +51,9 @@ export function TourPopover({
     <div
       ref={dialogRef}
       role="dialog"
-      aria-modal="false"
+      aria-modal="true"
       aria-labelledby="tour-popover-title"
-      className="fixed z-[9999] rounded-2xl bg-white p-5 shadow-xl transition-all duration-200"
+      className="fixed z-[9999] rounded-2xl bg-white p-5 shadow-xl transition-all duration-200 motion-reduce:transition-none"
       style={{ top: position.top, left: position.left, width: POPOVER_WIDTH }}
     >
       {targetStatus === "waiting" ? (

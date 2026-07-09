@@ -44,7 +44,7 @@ export function WelcomeCarouselDesktop({
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-carousel-title"
-        className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-xl transition-all duration-200"
+        className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-xl transition-all duration-200 motion-reduce:transition-none"
       >
         <div className="mb-6 flex items-center justify-between text-[13px]">
           <button

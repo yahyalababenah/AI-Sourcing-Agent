@@ -22,7 +22,7 @@ export function NavGuardToast({ role, message, buttonLabel, onReturn }: NavGuard
   return createPortal(
     <div
       role="status"
-      className="fixed inset-x-4 bottom-4 z-[9999] mx-auto flex max-w-sm items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white shadow-xl transition-all duration-200 lg:inset-x-auto lg:start-6 lg:bottom-6"
+      className="fixed inset-x-4 bottom-4 z-[9999] mx-auto flex max-w-sm items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white shadow-xl transition-all duration-200 motion-reduce:transition-none lg:inset-x-auto lg:start-6 lg:bottom-6"
     >
       <span className="text-sm">{message}</span>
       <button
