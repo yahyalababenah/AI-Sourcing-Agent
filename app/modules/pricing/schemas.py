@@ -181,7 +181,7 @@ class JCAPCalculationInput(BaseModel):
 class PriceProductInput(BaseModel):
     """A product requiring price calculation."""
 
-    product_id: str
+    product_id: Optional[str] = None
     name: str
     quantity: int = Field(ge=1)
     unit_price_cny: float = Field(ge=0)
@@ -210,7 +210,7 @@ class PriceProductInput(BaseModel):
 class CalculatePriceRequest(BaseModel):
     """Price calculation request for an RFQ."""
 
-    rfq_id: str
+    rfq_id: Optional[str] = None
     target_currency: str = Field(default="JOD", max_length=10)
     destination_port: str = Field(..., max_length=100)
     products: list[PriceProductInput]
@@ -273,7 +273,7 @@ class ThreePhaseBreakdown(BaseModel):
 class CalculatePriceResponse(BaseModel):
     """Full price calculation result."""
 
-    rfq_id: str
+    rfq_id: Optional[str] = None
     target_currency: str
     exchange_rate_used: float
     line_items: list[LineItemResult]

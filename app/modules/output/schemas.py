@@ -50,7 +50,7 @@ class QuotationLineItemResponse(BaseModel):
 class QuotationCreate(BaseModel):
     """Create a quotation from calculated prices."""
 
-    rfq_id: str
+    rfq_id: Optional[str] = None
     target_currency: str = Field(default="JOD", max_length=10)
     exchange_rate_used: float
     line_items: list[QuotationLineItemSchema]
@@ -71,7 +71,7 @@ class QuotationResponse(BaseModel):
     """Quotation detail response."""
 
     id: UUID
-    rfq_id: UUID
+    rfq_id: Optional[UUID] = None
     agent_id: UUID
     quotation_number: str
     status: str
@@ -163,7 +163,7 @@ class QuotationGenerateRequest(BaseModel):
     then enqueues a Celery task for background PDF generation.
     """
 
-    rfq_id: str
+    rfq_id: Optional[str] = None
     target_currency: str = Field(default="JOD", max_length=10)
     exchange_rate_used: float
     line_items: list[QuotationLineItemSchema]

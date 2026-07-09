@@ -51,7 +51,7 @@ class Quotation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     rfq_id = Column(
-        UUID(as_uuid=True), ForeignKey("rfqs.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("rfqs.id"), nullable=True, index=True
     )
     agent_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
