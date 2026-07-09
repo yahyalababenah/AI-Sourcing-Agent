@@ -19,6 +19,7 @@ import { DocumentUploadPage } from "@/pages/documents/DocumentUploadPage";
 import { DocumentDetailPage } from "@/pages/documents/DocumentDetailPage";
 import { PricingRulesPage } from "@/pages/pricing/PricingRulesPage";
 import { PricingCalcPage } from "@/pages/pricing/PricingCalcPage";
+import { StandaloneCalcPage } from "@/pages/pricing/StandaloneCalcPage";
 import { QuotationListPage } from "@/pages/quotes/QuotationListPage";
 import { QuotationDetailPage } from "@/pages/quotes/QuotationDetailPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
@@ -201,6 +202,14 @@ export const sharedRoutes: RouteObject[] = [
     element: (
       <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
         <PricingCalcPage />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: ROUTES.PRICING.STANDALONE_CALC,
+    element: (
+      <RoleGuard roles={["agent", "admin"]} redirectTo={ROUTES.DASHBOARD}>
+        <StandaloneCalcPage />
       </RoleGuard>
     ),
   },
