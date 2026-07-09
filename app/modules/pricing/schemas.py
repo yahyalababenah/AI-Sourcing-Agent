@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ═══════════════════════════════════════════════════════════
@@ -74,7 +74,12 @@ class PricingRuleListResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════
 
 class HSCodeFeeScheduleCreate(BaseModel):
-    """HS-Code fee schedule creation/update request."""
+    """HS-Code fee schedule creation/update request.
+
+    NOTE — Legacy fields (duty_rate, vat_rate, service_fee, additional_fee,
+    is_active) are accepted on input for backward compatibility but are
+    DEPRECATED. New code MUST use the dedicated JCAP fields instead.
+    """
 
     hs_code: str = Field(..., max_length=50, pattern=r"^\d{6,12}$")
     description: Optional[str] = Field(None, max_length=500)
@@ -89,9 +94,36 @@ class HSCodeFeeScheduleCreate(BaseModel):
     is_verified: bool = False
     source_note: Optional[str] = None
 
+    # ── Legacy / backward-compat fields (DEPRECATED) ─────────────────────
+    duty_rate: Optional[float] = Field(
+        None, ge=0, le=100,
+        description="DEPRECATED: use duty_rate_001 instead",
+    )
+    vat_rate: Optional[float] = Field(
+        None, ge=0, le=100,
+        description="DEPRECATED: use vat_rate_020 instead",
+    )
+    service_fee: Optional[float] = Field(
+        None, ge=0,
+        description="DEPRECATED: use service_flat_fee_301 instead",
+    )
+    additional_fee: Optional[float] = Field(
+        None, ge=0,
+        description="DEPRECATED: use service_percent_070 / penalty_rate_018 instead",
+    )
+    is_active: Optional[bool] = Field(
+        None,
+        description="DEPRECATED: use is_verified instead",
+    )
+
 
 class HSCodeFeeScheduleResponse(BaseModel):
-    """HS-Code fee schedule detail response."""
+    """HS-Code fee schedule detail response.
+
+    NOTE — Legacy fields (duty_rate, vat_rate, service_fee, additional_fee,
+    is_active) are included for backward compatibility but are DEPRECATED.
+    New code MUST use the dedicated JCAP fields instead.
+    """
 
     id: UUID
     hs_code: str
@@ -104,6 +136,14 @@ class HSCodeFeeScheduleResponse(BaseModel):
     vat_rate_020: Optional[float] = None
     is_verified: bool
     source_note: Optional[str] = None
+
+    # ── Legacy / backward-compat fields (DEPRECATED) ─────────────────────
+    duty_rate: Optional[float] = None
+    vat_rate: Optional[float] = None
+    service_fee: Optional[float] = None
+    additional_fee: Optional[float] = None
+    is_active: Optional[bool] = None
+
     created_at: datetime
     updated_at: datetime
 
@@ -120,6 +160,23 @@ class HSCodeFeeScheduleListResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════
 # Pricing Calculation
 # ═══════════════════════════════════════════════════════════
+
+class JCAPCalculationInput(BaseModel):
+    """Metadata and license flags for JCAP-compliant landed-cost calculation."""
+
+    has_license: bool = Field(
+        default=True,
+        description="Whether the importer has confirmed the required license/conformity certificate",
+    )
+    is_jcap_simulated: bool = Field(
+        default=False,
+        description="Flag indicating this calculation was run through a JCAP simulation endpoint",
+    )
+    volume_cbm: Optional[float] = Field(
+        None, ge=0,
+        description="Explicit CBM volume from packing list; overrides weight-based estimate if provided",
+    )
+
 
 class PriceProductInput(BaseModel):
     """A product requiring price calculation."""
@@ -144,6 +201,10 @@ class PriceProductInput(BaseModel):
             "for an accurate freight estimate."
         ),
     )
+    volume_cbm: Optional[float] = Field(
+        None, ge=0,
+        description="Explicit CBM volume from packing list; overrides weight-based estimate if provided",
+    )
 
 
 class CalculatePriceRequest(BaseModel):
@@ -153,6 +214,14 @@ class CalculatePriceRequest(BaseModel):
     target_currency: str = Field(default="JOD", max_length=10)
     destination_port: str = Field(..., max_length=100)
     products: list[PriceProductInput]
+    has_license: Optional[bool] = Field(
+        default=None,
+        description="Global license flag applied to all products; overridden by per-product has_license if set",
+    )
+    volume_cbm: Optional[float] = Field(
+        None, ge=0,
+        description="Global CBM volume; overridden by per-product volume_cbm if provided",
+    )
 
 
 class LineItemResult(BaseModel):
@@ -187,6 +256,20 @@ class AppliedCustomRule(BaseModel):
     amount: float
 
 
+class ThreePhaseBreakdown(BaseModel):
+    """3-phase JCAP customs breakdown for a single line item."""
+
+    phase_1_duty: float = Field(0.0, description="Phase 1: duty_rate_001 applied to CIF")
+    phase_2_service: float = Field(
+        0.0,
+        description="Phase 2: service_flat_fee_301 + service_percent_070 on CIF",
+    )
+    phase_3_vat_penalty: float = Field(
+        0.0,
+        description="Phase 3: VAT on (CIF + duty) + conditional penalty_rate_018",
+    )
+
+
 class CalculatePriceResponse(BaseModel):
     """Full price calculation result."""
 
@@ -203,6 +286,14 @@ class CalculatePriceResponse(BaseModel):
     service_flat_fee_301_total: float = 0.0
     custom_fees_total: float = 0.0
     custom_rules_applied: list[AppliedCustomRule] = Field(default_factory=list)
+    is_jcap_simulated: bool = Field(
+        default=False,
+        description="Flag indicating this calculation used JCAP-simulated rates",
+    )
+    three_phase_breakdown: Optional[list[ThreePhaseBreakdown]] = Field(
+        None,
+        description="Per-line-item 3-phase customs breakdown (JCAP compliance detail)",
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -225,6 +316,10 @@ class QuickEstimateRequest(BaseModel):
         default=0.0,
         ge=0,
         description="Per-unit weight in kg (e.g. from CatalogProduct.weight_kg) for an accurate freight estimate.",
+    )
+    volume_cbm: Optional[float] = Field(
+        None, ge=0,
+        description="Explicit CBM volume from packing list; overrides weight-based estimate if provided",
     )
 
 
