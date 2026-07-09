@@ -42,5 +42,126 @@
     "save": "保存",
     "cancel": "取消",
     "close": "关闭"
+  },
+  "onboarding": {
+    "welcome": {
+      "agent": {
+        "cost": {
+          "title": "自信计算到岸成本",
+          "description": "运费、关税、税费一站式快速计算，无需纸质单据，无需猜测。"
+        },
+        "catalog": {
+          "title": "一键将产品目录转为商品",
+          "description": "上传您的目录文件，AI 将自动为您提取产品信息。"
+        },
+        "tracking": {
+          "title": "跟踪您的交易和货运",
+          "description": "所有请求、报价和货运信息集中一处，实时更新。"
+        }
+      },
+      "client": {
+        "discover": {
+          "title": "发现经过认证的供应商",
+          "description": "浏览全球市场，查看来自认证工厂的真实产品。"
+        },
+        "rfq": {
+          "title": "轻松发起询价",
+          "description": "用一句话描述您的需求，让代理为您准备报价。"
+        },
+        "tracking": {
+          "title": "跟踪订单直至到达亚喀巴",
+          "description": "从签约到到货，随时掌握订单所在位置。"
+        }
+      }
+    },
+    "steps": {
+      "agent": {
+        "navIntro": {
+          "title": "这是您的工作中心",
+          "description": "您需要的一切都在侧边栏中 —— 我们一起了解重点功能。"
+        },
+        "calculator": {
+          "title": "快速计算器",
+          "description": "几秒钟内计算任意产品的到岸成本，无需完整询价流程。",
+          "cta": "立即试用"
+        },
+        "upload": {
+          "title": "上传您的产品目录",
+          "description": "上传文件或产品图片，系统将自动提取数据供您稍后审核。",
+          "cta": "打开上传页面"
+        },
+        "inbox": {
+          "title": "客户来件请求",
+          "description": "进口商的请求会显示在这里，方便您快速准备报价。",
+          "cta": "查看请求"
+        },
+        "tracking": {
+          "title": "货运跟踪",
+          "description": "跟踪每一批货物从中国发出直至送达客户手中。",
+          "cta": "打开跟踪页面"
+        },
+        "chatProfile": {
+          "title": "消息与个人资料",
+          "description": "在这里与客户沟通，并在个人资料中管理您的账户信息。"
+        }
+      },
+      "client": {
+        "navIntro": {
+          "title": "这是您的主页",
+          "description": "您需要的一切都在侧边栏中 —— 我们一起了解重点功能。"
+        },
+        "marketplace": {
+          "title": "全球市场",
+          "description": "在发起询价之前，浏览认证供应商的真实产品。",
+          "cta": "浏览市场"
+        },
+        "rfq": {
+          "title": "发起新的询价",
+          "description": "用一句话描述您的需求，我们会将其转发给合适的代理。",
+          "cta": "立即试用"
+        },
+        "myRequests": {
+          "title": "我的请求",
+          "description": "在一处跟踪您的所有请求及收到的报价。",
+          "cta": "查看请求"
+        },
+        "tracking": {
+          "title": "货运跟踪",
+          "description": "订单确认后，在这里逐步跟踪直至货物送达。",
+          "cta": "打开跟踪页面"
+        },
+        "chat": {
+          "title": "消息",
+          "description": "如有任何问题或需要说明，可直接与代理沟通。"
+        }
+      }
+    },
+    "controls": {
+      "next": "下一步",
+      "back": "上一步",
+      "skipStep": "跳过此步骤",
+      "skipForever": "永久跳过",
+      "snooze": "稍后提醒我",
+      "finish": "结束向导",
+      "startTour": "开始导览"
+    },
+    "progress": {
+      "label": "已完成 {{completed}}/{{total}}",
+      "celebration": "快完成了 🎉"
+    },
+    "navGuard": {
+      "message": "您似乎离开了导览！",
+      "returnButton": "返回当前步骤"
+    },
+    "waiting": {
+      "message": "准备中..."
+    },
+    "completion": {
+      "title": "导览完成 🎉",
+      "subtitle": "您已经可以自信地使用本平台了。您可以随时在设置中重新开始导览。"
+    },
+    "settings": {
+      "restartTour": "重新开始导览"
+    }
   }
 }

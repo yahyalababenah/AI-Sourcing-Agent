@@ -42,5 +42,126 @@
     "save": "Save",
     "cancel": "Cancel",
     "close": "Close"
+  },
+  "onboarding": {
+    "welcome": {
+      "agent": {
+        "cost": {
+          "title": "Calculate landed cost with confidence",
+          "description": "Shipping + customs + tax in one quick calculator — no paperwork, no guessing."
+        },
+        "catalog": {
+          "title": "Turn your catalog into products in one tap",
+          "description": "Upload your catalog file and let AI extract the products for you."
+        },
+        "tracking": {
+          "title": "Track your deals and shipments",
+          "description": "Every request, quote, and shipment in one place, updated live."
+        }
+      },
+      "client": {
+        "discover": {
+          "title": "Discover verified suppliers",
+          "description": "Browse the global marketplace and see real products from verified factories."
+        },
+        "rfq": {
+          "title": "Request a quote easily",
+          "description": "Describe what you need in one simple sentence, and let your agent prepare a quote."
+        },
+        "tracking": {
+          "title": "Track your order all the way to Aqaba",
+          "description": "From signing to arrival, always know exactly where your order is."
+        }
+      }
+    },
+    "steps": {
+      "agent": {
+        "navIntro": {
+          "title": "This is your work hub",
+          "description": "Everything you need lives in this sidebar — let's walk through the essentials."
+        },
+        "calculator": {
+          "title": "Quick Calculator",
+          "description": "Calculate the landed cost of any product in seconds, no need for a full quote request.",
+          "cta": "Try it now"
+        },
+        "upload": {
+          "title": "Upload your catalog",
+          "description": "Upload a file or product photos and the system extracts the data automatically for you to review later.",
+          "cta": "Open upload page"
+        },
+        "inbox": {
+          "title": "Incoming client requests",
+          "description": "Importer requests land here so you can prepare quotes quickly.",
+          "cta": "Check it out"
+        },
+        "tracking": {
+          "title": "Shipment tracking",
+          "description": "Follow every shipment from China until it reaches your client.",
+          "cta": "Open tracking"
+        },
+        "chatProfile": {
+          "title": "Messages and your profile",
+          "description": "Chat with your clients from here, and manage your account from your profile."
+        }
+      },
+      "client": {
+        "navIntro": {
+          "title": "This is your home screen",
+          "description": "Everything you need lives in this sidebar — let's walk through the essentials."
+        },
+        "marketplace": {
+          "title": "Global Marketplace",
+          "description": "Browse real products from verified suppliers before requesting a quote.",
+          "cta": "Browse marketplace"
+        },
+        "rfq": {
+          "title": "Request a new quote",
+          "description": "Describe what you need in one simple sentence, and we'll route it to the right agent.",
+          "cta": "Try requesting"
+        },
+        "myRequests": {
+          "title": "My Requests",
+          "description": "Track all your requests and the quotes you've received in one place.",
+          "cta": "Check it out"
+        },
+        "tracking": {
+          "title": "Shipment tracking",
+          "description": "Once your order is confirmed, follow it step by step until it arrives.",
+          "cta": "Open tracking"
+        },
+        "chat": {
+          "title": "Messages",
+          "description": "Talk directly with your agent for any question or clarification."
+        }
+      }
+    },
+    "controls": {
+      "next": "Next",
+      "back": "Back",
+      "skipStep": "Skip this step",
+      "skipForever": "Skip for good",
+      "snooze": "Remind me later",
+      "finish": "Finish tour",
+      "startTour": "Start the tour"
+    },
+    "progress": {
+      "label": "You've completed {{completed}} of {{total}}",
+      "celebration": "Almost there 🎉"
+    },
+    "navGuard": {
+      "message": "Looks like you wandered off the tour!",
+      "returnButton": "Return to the current step"
+    },
+    "waiting": {
+      "message": "Getting ready..."
+    },
+    "completion": {
+      "title": "Tour complete 🎉",
+      "subtitle": "You're all set to use the platform with confidence. You can restart the tour anytime from Settings."
+    },
+    "settings": {
+      "restartTour": "Restart the onboarding tour"
+    }
   }
 }
