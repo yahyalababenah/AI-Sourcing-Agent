@@ -103,7 +103,7 @@ export function LoginPageDesktop() {
                 required
                 dir="ltr"
                 placeholder="ahmed@alnowar.jo"
-                className="w-full px-3 py-2.5 text-[13px] text-slate-900 border border-slate-200 rounded-md outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-slate-50"
+                className="w-full px-3 py-2.5 text-[13px] text-slate-900 border border-slate-200 rounded-lg outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-slate-50"
               />
             </div>
 
@@ -120,7 +120,7 @@ export function LoginPageDesktop() {
                   required
                   dir="ltr"
                   placeholder="••••••••"
-                  className="w-full px-3 py-2.5 text-[13px] text-slate-900 border border-slate-200 rounded-md outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 pe-10 bg-slate-50"
+                  className="w-full px-3 py-2.5 text-[13px] text-slate-900 border border-slate-200 rounded-lg outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 pe-10 bg-slate-50"
                   style={{ letterSpacing: "0.1em" }}
                 />
                 <button

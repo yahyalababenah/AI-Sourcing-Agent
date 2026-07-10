@@ -142,7 +142,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
             value={product.name}
             onChange={(e) => onUpdate(index, "name", e.target.value)}
             placeholder="اسم المنتج"
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-supplier-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-supplier-500 focus:outline-none"
           />
         </div>
 
@@ -163,7 +163,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
             value={product.quantity}
             onChange={(e) => onUpdate(index, "quantity", Math.max(1, Number(e.target.value)))}
             data-tour={isFirst ? "tour-calc-quantity" : undefined}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-center focus:border-supplier-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-center focus:border-supplier-500 focus:outline-none"
           />
         </div>
 
@@ -178,7 +178,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
             value={product.unitPriceCny}
             onChange={(e) => onUpdate(index, "unitPriceCny", Math.max(0, Number(e.target.value)))}
             data-tour={isFirst ? "tour-calc-price" : undefined}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-center focus:border-supplier-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-center focus:border-supplier-500 focus:outline-none"
           />
         </div>
 
@@ -190,7 +190,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
             step={0.01}
             value={product.weightKg}
             onChange={(e) => onUpdate(index, "weightKg", Math.max(0, Number(e.target.value)))}
-            className={`w-full rounded border px-3 py-2 text-sm text-center focus:border-supplier-500 focus:outline-none ${
+            className={`w-full rounded-lg border px-3 py-2.5 text-sm text-center focus:border-supplier-500 focus:outline-none ${
               product.weightKg <= 0 ? "border-amber-300 bg-amber-50" : "border-slate-300"
             }`}
           />
@@ -209,7 +209,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
               onUpdate(index, "volumeCbm", e.target.value ? Number(e.target.value) : undefined)
             }
             placeholder="تلقائي"
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-center focus:border-supplier-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-center focus:border-supplier-500 focus:outline-none"
           />
         </div>
 
@@ -285,7 +285,7 @@ export function StandaloneCalcPageMobile() {
             <select
               value={targetCurrency}
               onChange={(e) => setTargetCurrency(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
             >
               {CURRENCIES.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -301,7 +301,7 @@ export function StandaloneCalcPageMobile() {
               value={destinationPort}
               onChange={(e) => setDestinationPort(e.target.value)}
               placeholder="مثال: Aqaba, Jordan"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
             />
           </div>
         </div>

@@ -95,7 +95,7 @@ export function PricingRuleFormModal({ rule, onClose }: { rule?: PricingRule; on
               type="text"
               value={formData.name}
               onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
               required
             />
           </div>
@@ -106,7 +106,7 @@ export function PricingRuleFormModal({ rule, onClose }: { rule?: PricingRule; on
               value={formData.description || ""}
               onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
               rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
             />
           </div>
 
@@ -116,7 +116,7 @@ export function PricingRuleFormModal({ rule, onClose }: { rule?: PricingRule; on
               <select
                 value={formData.category}
                 onChange={(e) => setFormData((p) => ({ ...p, category: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
               >
                 {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -129,7 +129,7 @@ export function PricingRuleFormModal({ rule, onClose }: { rule?: PricingRule; on
               <select
                 value={formData.rule_type}
                 onChange={(e) => setFormData((p) => ({ ...p, rule_type: e.target.value as any }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
               >
                 {Object.entries(RULE_TYPE_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -146,7 +146,7 @@ export function PricingRuleFormModal({ rule, onClose }: { rule?: PricingRule; on
                 onChange={(e) => setFormData((p) => ({ ...p, formula: e.target.value }))}
                 dir="ltr"
                 rows={3}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm focus:border-slate-500 focus:outline-none"
                 placeholder={FORMULA_EXAMPLE}
               />
               <p className="mt-1 text-xs text-slate-400">
@@ -174,7 +174,7 @@ export function PricingRuleFormModal({ rule, onClose }: { rule?: PricingRule; on
                 step="0.01"
                 value={formData.value}
                 onChange={(e) => setFormData((p) => ({ ...p, value: parseFloat(e.target.value) || 0 }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
                 required
               />
               <p className="mt-1 text-xs text-slate-400">
@@ -191,7 +191,7 @@ export function PricingRuleFormModal({ rule, onClose }: { rule?: PricingRule; on
               type="number"
               value={formData.priority}
               onChange={(e) => setFormData((p) => ({ ...p, priority: parseInt(e.target.value) || 0 }))}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
             />
           </div>
 

@@ -266,7 +266,7 @@ export function StandaloneCalcPageDesktop() {
                 <select
                   value={targetCurrency}
                   onChange={(e) => setTargetCurrency(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
                 >
                   {CURRENCIES.map((c) => (
                     <option key={c.value} value={c.value}>
@@ -282,7 +282,7 @@ export function StandaloneCalcPageDesktop() {
                   value={destinationPort}
                   onChange={(e) => setDestinationPort(e.target.value)}
                   placeholder="مثال: Aqaba, Jordan"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-supplier-500 focus:outline-none"
                 />
               </div>
             </div>

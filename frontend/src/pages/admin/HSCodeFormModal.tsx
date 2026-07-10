@@ -97,7 +97,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
               value={formData.hs_code}
               onChange={(e) => setFormData((p) => ({ ...p, hs_code: e.target.value }))}
               disabled={!!entry}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100"
               placeholder="مثال: 85241210000"
               required
             />
@@ -109,7 +109,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
               value={formData.description || ""}
               onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
               rows={2}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
             />
           </div>
 
@@ -125,7 +125,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
                 max={100}
                 value={formData.duty_rate_001}
                 onChange={(e) => setFormData((p) => ({ ...p, duty_rate_001: parseFloat(e.target.value) || 0 }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
                 required
               />
             </div>
@@ -140,7 +140,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
                 onChange={(e) =>
                   setFormData((p) => ({ ...p, service_flat_fee_301: parseFloat(e.target.value) || 0 }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
               />
             </div>
           </div>
@@ -159,7 +159,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
                 onChange={(e) =>
                   setFormData((p) => ({ ...p, service_percent_070: parseFloat(e.target.value) || 0 }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
               />
             </div>
             <div>
@@ -175,7 +175,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
                 onChange={(e) =>
                   setFormData((p) => ({ ...p, penalty_rate_018: parseFloat(e.target.value) || 0 }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
               />
             </div>
           </div>
@@ -197,7 +197,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
                 }))
               }
               placeholder="16"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
             />
           </div>
 
@@ -234,7 +234,7 @@ export function HSCodeFormModal({ entry, onClose }: { entry?: HSCodeFeeSchedule;
               value={formData.source_note || ""}
               onChange={(e) => setFormData((p) => ({ ...p, source_note: e.target.value }))}
               placeholder="مثال: نتيجة محاكاة ضريبية حقيقية على JCAP بتاريخ ..."
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
             />
           </div>
 

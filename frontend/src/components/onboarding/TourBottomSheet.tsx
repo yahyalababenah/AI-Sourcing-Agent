@@ -100,16 +100,16 @@ export function TourBottomSheet({
           </h3>
           <p className="mb-4 text-sm leading-relaxed text-slate-600">{description}</p>
 
-          <div className="mb-3 flex items-center justify-between text-[13px]">
+          <div className="-mx-2 mb-2 flex items-center justify-between text-[13px]">
             <button
               onClick={onSkipStep}
-              className="text-slate-400 transition-colors duration-150 active:scale-[0.98]"
+              className="rounded-lg px-3 py-2.5 text-slate-400 transition-colors duration-150 active:scale-[0.98] active:bg-slate-50"
             >
               {t("onboarding.controls.skipStep")}
             </button>
             <button
               onClick={onSnooze}
-              className="text-slate-400 transition-colors duration-150 active:scale-[0.98]"
+              className="rounded-lg px-3 py-2.5 text-slate-400 transition-colors duration-150 active:scale-[0.98] active:bg-slate-50"
             >
               {t("onboarding.controls.snooze")}
             </button>

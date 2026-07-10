@@ -480,7 +480,7 @@ export function QuoteBuilderPage() {
                 value={manualUnitPrice}
                 onChange={(e) => setManualUnitPrice(e.target.value)}
                 placeholder="مثال: 45.00"
-                className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 dir="ltr"
               />
               <p className="mt-1 text-xs text-amber-600">
@@ -502,7 +502,7 @@ export function QuoteBuilderPage() {
                 value={freightInput}
                 onChange={(e) => setFreightInput(e.target.value)}
                 placeholder={autoFreight > 0 ? `${autoFreight.toFixed(2)} (محسوب تلقائياً)` : "أدخل تكلفة الشحن"}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
               {freightInput !== "" && (
                 <button
@@ -525,7 +525,7 @@ export function QuoteBuilderPage() {
               type="text"
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
 
@@ -536,7 +536,7 @@ export function QuoteBuilderPage() {
               type="text"
               value={deliveryTerms}
               onChange={(e) => setDeliveryTerms(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
 
@@ -549,7 +549,7 @@ export function QuoteBuilderPage() {
               max={365}
               value={validityDays}
               onChange={(e) => setValidityDays(Math.max(1, Number(e.target.value)))}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
 
@@ -561,7 +561,7 @@ export function QuoteBuilderPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="أي تفاصيل إضافية للعميل..."
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
             />
           </div>
         </div>

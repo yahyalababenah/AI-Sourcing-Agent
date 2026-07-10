@@ -110,7 +110,7 @@ function LegacyRFQCreateForm() {
               value={formData.client_name}
               onChange={(e) => handleChange("client_name", e.target.value)}
               required
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="أحمد محمد"
             />
           </div>
@@ -126,7 +126,7 @@ function LegacyRFQCreateForm() {
               type="text"
               value={formData.client_phone || ""}
               onChange={(e) => handleChange("client_phone", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="+962791234567"
               dir="ltr"
             />
@@ -143,7 +143,7 @@ function LegacyRFQCreateForm() {
             onChange={(e) => handleChange("client_request_arabic", e.target.value)}
             required
             rows={4}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             placeholder="اكتب وصف المنتجات المطلوبة بالتفصيل..."
           />
           <p className="mt-1 text-xs text-gray-400">
@@ -160,7 +160,7 @@ function LegacyRFQCreateForm() {
             type="text"
             value={formData.destination_port || ""}
             onChange={(e) => handleChange("destination_port", e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             placeholder="ميناء العقبة، الأردن"
           />
         </div>
@@ -173,7 +173,7 @@ function LegacyRFQCreateForm() {
           <select
             value={formData.target_currency || "USD"}
             onChange={(e) => handleChange("target_currency", e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           >
             <option value="USD">دولار أمريكي (USD)</option>
             <option value="JOD">دينار أردني (JOD)</option>

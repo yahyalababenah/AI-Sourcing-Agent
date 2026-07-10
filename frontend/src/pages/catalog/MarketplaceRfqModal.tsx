@@ -165,7 +165,7 @@ export function MarketplaceRfqModal({ product, open, onClose }: MarketplaceRfqMo
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-150 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-150 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               />
             </div>
             <div>
@@ -174,7 +174,7 @@ export function MarketplaceRfqModal({ product, open, onClose }: MarketplaceRfqMo
                 type="text"
                 value={destinationPort}
                 onChange={(e) => setDestinationPort(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-150 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-150 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                 placeholder="Aqaba"
               />
             </div>

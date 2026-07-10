@@ -31,7 +31,7 @@ export function TrackingStatusUpdatePanel({
               value={statusNotes}
               onChange={(e) => setStatusNotes(e.target.value)}
               placeholder="ملاحظات (اختياري)..."
-              className="min-w-[200px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-[13px] text-slate-900 outline-none transition-colors duration-150 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="min-w-[200px] flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-[13px] text-slate-900 outline-none transition-colors duration-150 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             />
             <button
               onClick={() => updateMutation.mutate(nextStatus)}

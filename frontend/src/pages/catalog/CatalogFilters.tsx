@@ -81,7 +81,7 @@ export function CatalogFilters({
         <select
           value={filters.category}
           onChange={(e) => update({ category: e.target.value })}
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
         >
           <option value="">جميع الفئات</option>
           {categories.map((cat) => (
@@ -104,7 +104,7 @@ export function CatalogFilters({
             placeholder="الحد الأدنى"
             value={filters.minPrice}
             onChange={(e) => update({ minPrice: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 [&::-webkit-inner-spin-button]:appearance-none"
           />
           <span className="text-gray-400">—</span>
           <input
@@ -113,7 +113,7 @@ export function CatalogFilters({
             placeholder="الحد الأقصى"
             value={filters.maxPrice}
             onChange={(e) => update({ maxPrice: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
       </div>
@@ -126,7 +126,7 @@ export function CatalogFilters({
         <select
           value={filters.supplierId}
           onChange={(e) => update({ supplierId: e.target.value })}
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
         >
           <option value="">جميع الموردين</option>
           {suppliers.map((s) => (

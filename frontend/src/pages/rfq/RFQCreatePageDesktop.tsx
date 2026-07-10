@@ -62,7 +62,7 @@ export function RFQCreatePageDesktop() {
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
               data-tour="tour-rfq-product-name"
-              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
               placeholder="كشافات إضاءة LED صناعية"
             />
           </div>
@@ -73,7 +73,7 @@ export function RFQCreatePageDesktop() {
               value={specifications}
               onChange={(e) => setSpecifications(e.target.value)}
               rows={4}
-              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
               placeholder="القدرة، درجة الإضاءة، مادة الجسم، معايير السلامة المطلوبة..."
             />
           </div>
@@ -89,7 +89,7 @@ export function RFQCreatePageDesktop() {
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 data-tour="tour-rfq-quantity"
-                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
                 placeholder="500"
                 dir="ltr"
               />
@@ -104,7 +104,7 @@ export function RFQCreatePageDesktop() {
                 step="0.01"
                 value={targetPriceCny}
                 onChange={(e) => setTargetPriceCny(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
                 placeholder="35"
                 dir="ltr"
               />
@@ -119,7 +119,7 @@ export function RFQCreatePageDesktop() {
                 type="text"
                 value={destinationPort}
                 onChange={(e) => setDestinationPort(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
                 placeholder="ميناء العقبة، الأردن"
               />
             </div>
@@ -128,7 +128,7 @@ export function RFQCreatePageDesktop() {
               <select
                 value={targetCurrency}
                 onChange={(e) => setTargetCurrency(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -146,7 +146,7 @@ export function RFQCreatePageDesktop() {
               accept="image/*"
               multiple
               onChange={(e) => handleImagesChange(e.target.files)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 file:ms-2 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-700"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-600 file:ms-2 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-700"
             />
             {images.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">

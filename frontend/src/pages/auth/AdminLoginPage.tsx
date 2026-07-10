@@ -75,7 +75,7 @@ export function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-lg border border-purple-700/30 bg-white/10 px-4 py-2.5 text-sm text-white placeholder-purple-300/50 transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                className="w-full rounded-lg border border-purple-700/30 bg-white/10 px-3 py-2.5 text-sm text-white placeholder-purple-300/50 transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                 placeholder="admin@example.com"
                 dir="ltr"
               />
@@ -92,7 +92,7 @@ export function AdminLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full rounded-lg border border-purple-700/30 bg-white/10 px-4 py-2.5 text-sm text-white placeholder-purple-300/50 transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                className="w-full rounded-lg border border-purple-700/30 bg-white/10 px-3 py-2.5 text-sm text-white placeholder-purple-300/50 transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                 placeholder="••••••••"
                 dir="ltr"
               />
