@@ -80,6 +80,14 @@ const agentSteps: TourStep[] = [
     target: "tour-sidebar-nav",
     route: ROUTES.AGENT.DASHBOARD,
   },
+
+  // ── Hands-on calculator walkthrough ──
+  // The rep's core job is quoting the real landed cost, so the tour walks
+  // the whole method — not just "type a number and press calculate", but the
+  // two fields that actually move the price: the HS code (customs duty) and
+  // the weight (freight). All share the calculator route, so GuidedTour moves
+  // the Spotlight between them without re-navigating; every target exists on
+  // page load (the result area shows an empty state), so none stall.
   {
     id: "agent-calculator",
     titleKey: "onboarding.steps.agent.calculator.title",
@@ -87,9 +95,20 @@ const agentSteps: TourStep[] = [
     target: "tour-nav-calculator",
     route: ROUTES.PRICING.STANDALONE_CALC,
   },
-  // Mini walkthrough of the calculator itself — same route as the step
-  // above, so GuidedTour just moves the Spotlight without navigating
-  // again. Walks the rep through their first real landed-cost calculation.
+  {
+    id: "agent-calc-shipment",
+    titleKey: "onboarding.steps.agent.calcShipment.title",
+    descriptionKey: "onboarding.steps.agent.calcShipment.description",
+    target: "tour-calc-shipment",
+    route: ROUTES.PRICING.STANDALONE_CALC,
+  },
+  {
+    id: "agent-calc-hscode",
+    titleKey: "onboarding.steps.agent.calcHsCode.title",
+    descriptionKey: "onboarding.steps.agent.calcHsCode.description",
+    target: "tour-calc-hscode",
+    route: ROUTES.PRICING.STANDALONE_CALC,
+  },
   {
     id: "agent-calculator-quantity",
     titleKey: "onboarding.steps.agent.calculatorQuantity.title",
@@ -102,6 +121,13 @@ const agentSteps: TourStep[] = [
     titleKey: "onboarding.steps.agent.calculatorPrice.title",
     descriptionKey: "onboarding.steps.agent.calculatorPrice.description",
     target: "tour-calc-price",
+    route: ROUTES.PRICING.STANDALONE_CALC,
+  },
+  {
+    id: "agent-calc-weight",
+    titleKey: "onboarding.steps.agent.calcWeight.title",
+    descriptionKey: "onboarding.steps.agent.calcWeight.description",
+    target: "tour-calc-weight",
     route: ROUTES.PRICING.STANDALONE_CALC,
   },
   {
@@ -118,12 +144,43 @@ const agentSteps: TourStep[] = [
     target: "tour-calc-result",
     route: ROUTES.PRICING.STANDALONE_CALC,
   },
+
+  // ── Tour of the rest of the workspace ──
+  // One concise stop per sidebar section so nothing is left unexplained.
+  {
+    id: "agent-marketplace",
+    titleKey: "onboarding.steps.agent.marketplace.title",
+    descriptionKey: "onboarding.steps.agent.marketplace.description",
+    target: "tour-nav-marketplace",
+    route: ROUTES.CATALOG.MARKETPLACE,
+  },
+  {
+    id: "agent-my-products",
+    titleKey: "onboarding.steps.agent.myProducts.title",
+    descriptionKey: "onboarding.steps.agent.myProducts.description",
+    target: "tour-nav-my-products",
+    route: ROUTES.SUPPLIER.MY_PRODUCTS,
+  },
   {
     id: "agent-upload",
     titleKey: "onboarding.steps.agent.upload.title",
     descriptionKey: "onboarding.steps.agent.upload.description",
     target: "tour-nav-upload",
     route: ROUTES.DOCUMENTS.UPLOAD,
+  },
+  {
+    id: "agent-review",
+    titleKey: "onboarding.steps.agent.review.title",
+    descriptionKey: "onboarding.steps.agent.review.description",
+    target: "tour-nav-review",
+    route: ROUTES.SUPPLIER.REVIEW,
+  },
+  {
+    id: "agent-purchase-requests",
+    titleKey: "onboarding.steps.agent.purchaseRequests.title",
+    descriptionKey: "onboarding.steps.agent.purchaseRequests.description",
+    target: "tour-nav-purchase-requests",
+    route: ROUTES.RFQ.LIST,
   },
   {
     id: "agent-inbox",
@@ -133,11 +190,25 @@ const agentSteps: TourStep[] = [
     route: ROUTES.RFQ.SUPPLIER_INBOX,
   },
   {
+    id: "agent-quotes",
+    titleKey: "onboarding.steps.agent.quotes.title",
+    descriptionKey: "onboarding.steps.agent.quotes.description",
+    target: "tour-nav-quotes",
+    route: ROUTES.QUOTES.LIST,
+  },
+  {
     id: "agent-tracking",
     titleKey: "onboarding.steps.agent.tracking.title",
     descriptionKey: "onboarding.steps.agent.tracking.description",
     target: "tour-nav-orders",
     route: ROUTES.ORDERS.LIST,
+  },
+  {
+    id: "agent-reels",
+    titleKey: "onboarding.steps.agent.reels.title",
+    descriptionKey: "onboarding.steps.agent.reels.description",
+    target: "tour-nav-reels",
+    route: ROUTES.AGENT.REELS,
   },
   {
     id: "agent-chat-profile",

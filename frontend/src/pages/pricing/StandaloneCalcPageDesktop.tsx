@@ -132,7 +132,7 @@ function ProductRow({ product, index, hsCodeList, onUpdate, onRemove, canRemove 
           className="w-36 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-supplier-500 focus:outline-none"
         />
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" data-tour={isFirst ? "tour-calc-hscode" : undefined}>
         <HSCodeDropdown
           hsCode={product.hsCode}
           hsCodeList={hsCodeList}
@@ -160,7 +160,7 @@ function ProductRow({ product, index, hsCodeList, onUpdate, onRemove, canRemove 
           className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-supplier-500 focus:outline-none"
         />
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" data-tour={isFirst ? "tour-calc-weight" : undefined}>
         <input
           type="number"
           min={0}
@@ -258,7 +258,7 @@ export function StandaloneCalcPageDesktop() {
         {/* Main column */}
         <div className="space-y-6">
           {/* Shipment info */}
-          <div className="card p-6">
+          <div className="card p-6" data-tour="tour-calc-shipment">
             <h2 className="mb-4 text-lg font-semibold text-slate-900">بيانات الشحنة</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>

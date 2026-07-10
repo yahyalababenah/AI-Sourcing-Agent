@@ -26,18 +26,18 @@ interface NavItem {
 
 const AGENT_NAV: NavItem[] = [
   { to: ROUTES.AGENT.DASHBOARD,      labelKey: "nav.home",                  icon: LayoutDashboard },
-  { to: ROUTES.RFQ.LIST,             labelKey: "nav.purchaseRequests",      icon: ClipboardList },
+  { to: ROUTES.RFQ.LIST,             labelKey: "nav.purchaseRequests",      icon: ClipboardList, dataTour: "tour-nav-purchase-requests" },
   { to: ROUTES.RFQ.SUPPLIER_INBOX,   labelKey: "nav.incomingClientRequests",icon: Users, dataTour: "tour-nav-supplier-inbox" },
-  { to: ROUTES.CATALOG.MARKETPLACE,  labelKey: "nav.marketplace",           icon: Store },
-  { to: ROUTES.SUPPLIER.MY_PRODUCTS, labelKey: "nav.myProducts",            icon: Package },
+  { to: ROUTES.CATALOG.MARKETPLACE,  labelKey: "nav.marketplace",           icon: Store, dataTour: "tour-nav-marketplace" },
+  { to: ROUTES.SUPPLIER.MY_PRODUCTS, labelKey: "nav.myProducts",            icon: Package, dataTour: "tour-nav-my-products" },
   { to: ROUTES.DOCUMENTS.UPLOAD,     labelKey: "nav.uploadDocument",        icon: Upload, dataTour: "tour-nav-upload" },
-  { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.productReview",         icon: ClipboardCheck },
+  { to: ROUTES.SUPPLIER.REVIEW,      labelKey: "nav.productReview",         icon: ClipboardCheck, dataTour: "tour-nav-review" },
   { to: ROUTES.PRICING.CALCULATE,    labelKey: "nav.calculator",            icon: Calculator },
   { to: ROUTES.PRICING.STANDALONE_CALC, labelKey: "nav.standaloneCalculator", icon: Zap, dataTour: "tour-nav-calculator" },
-  { to: ROUTES.QUOTES.LIST,          labelKey: "nav.quotes",                icon: FileText },
+  { to: ROUTES.QUOTES.LIST,          labelKey: "nav.quotes",                icon: FileText, dataTour: "tour-nav-quotes" },
   { to: ROUTES.ORDERS.LIST,          labelKey: "nav.shipmentTracking",      icon: Truck, dataTour: "tour-nav-orders" },
   { to: ROUTES.CHAT.LIST,            labelKey: "nav.chat",                  icon: MessageCircle, dataTour: "tour-nav-chat" },
-  { to: ROUTES.AGENT.REELS,          labelKey: "nav.reels",                 icon: Clapperboard },
+  { to: ROUTES.AGENT.REELS,          labelKey: "nav.reels",                 icon: Clapperboard, dataTour: "tour-nav-reels" },
 ];
 
 const CLIENT_NAV: NavItem[] = [

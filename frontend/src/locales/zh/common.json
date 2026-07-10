@@ -84,6 +84,14 @@
           "title": "快速计算器",
           "description": "几秒钟内计算任意产品的到岸成本，无需完整询价流程。"
         },
+        "calcShipment": {
+          "title": "先填运输信息",
+          "description": "选择结果货币并填写到达港口（如亚喀巴）——运费和关税都以此为基础。"
+        },
+        "calcHsCode": {
+          "title": "HS 编码决定关税",
+          "description": "搜索并选择产品的 HS 编码。它决定关税税率——不填则按通用 5% 计算，可能不准确。"
+        },
         "calculatorQuantity": {
           "title": "输入数量",
           "description": "填写客户想购买该产品的件数。"
@@ -92,25 +100,53 @@
           "title": "输入单价",
           "description": "与工厂商定的人民币（CNY）单价。"
         },
+        "calcWeight": {
+          "title": "重量决定运费",
+          "description": "填写单件重量（千克）。国际运费据此计算——留空则按最低值估算，与实际相差较大。"
+        },
         "calculatorSubmit": {
           "title": "计算到岸成本",
           "description": "点击这里，系统会在几秒内自动算出运费、关税和税费。"
         },
         "calculatorResult": {
           "title": "这是您的第一份到岸成本！🎉",
-          "description": "这是客户需支付的最终总额 —— 可直接分享，或转为完整报价单。"
+          "description": "这个总额包含商品、运费、保险、关税、增值税和你的佣金。在此卡片可将其转为正式报价并发送。"
+        },
+        "marketplace": {
+          "title": "全球市场",
+          "description": "浏览已审核的中国供应商产品，并直接为客户发起报价。"
+        },
+        "myProducts": {
+          "title": "我的产品",
+          "description": "你上传的或从目录中提取的所有产品都在这里管理。"
         },
         "upload": {
           "title": "上传您的产品目录",
           "description": "上传文件或产品图片，系统将自动提取数据供您稍后审核。"
         },
+        "review": {
+          "title": "审核提取的产品",
+          "description": "上传目录后，系统在此提取产品，供你更正、审核并批准后再上线。"
+        },
+        "purchaseRequests": {
+          "title": "采购请求",
+          "description": "你为客户管理的请求——从首次询价到成交全程跟进。"
+        },
         "inbox": {
           "title": "客户来件请求",
           "description": "进口商的请求会显示在这里，方便您快速准备报价。"
         },
+        "quotes": {
+          "title": "你的报价",
+          "description": "你创建的每一份报价及其状态：已发送、已接受或审核中。"
+        },
         "tracking": {
           "title": "货运跟踪",
           "description": "跟踪每一批货物从中国发出直至送达客户手中。"
+        },
+        "reels": {
+          "title": "短片工作室",
+          "description": "发布工厂产品短片。衡量成功的是它带来的询价数，而非观看量。"
         },
         "chatProfile": {
           "title": "消息与个人资料",

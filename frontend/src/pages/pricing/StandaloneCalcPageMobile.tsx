@@ -146,7 +146,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
           />
         </div>
 
-        <div className="col-span-2">
+        <div className="col-span-2" data-tour={isFirst ? "tour-calc-hscode" : undefined}>
           <label className="mb-1 block text-xs font-medium text-slate-600">رمز HS</label>
           <HSCodeDropdown
             hsCode={product.hsCode}
@@ -182,7 +182,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
           />
         </div>
 
-        <div>
+        <div data-tour={isFirst ? "tour-calc-weight" : undefined}>
           <label className="mb-1 block text-xs font-medium text-slate-600">الوزن (كغ)</label>
           <input
             type="number"
@@ -277,7 +277,7 @@ export function StandaloneCalcPageMobile() {
       </div>
 
       {/* Shipment info */}
-      <div className="card p-4">
+      <div className="card p-4" data-tour="tour-calc-shipment">
         <h2 className="mb-4 text-base font-semibold text-slate-900">بيانات الشحنة</h2>
         <div className="grid grid-cols-1 gap-4">
           <div>

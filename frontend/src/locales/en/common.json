@@ -84,6 +84,14 @@
           "title": "Quick Calculator",
           "description": "Calculate the landed cost of any product in seconds, no need for a full quote request."
         },
+        "calcShipment": {
+          "title": "Start with the shipment",
+          "description": "Pick the currency you want the result in and the destination port (e.g. Aqaba) — freight and customs both build on these."
+        },
+        "calcHsCode": {
+          "title": "The HS code sets the duty",
+          "description": "Search and pick the product's HS code. It decides the customs rate — without it a generic 5% is applied, which may be off."
+        },
         "calculatorQuantity": {
           "title": "Enter the quantity",
           "description": "How many units does the client want to buy of this product?"
@@ -92,25 +100,53 @@
           "title": "Enter the unit price",
           "description": "The price per unit in Chinese Yuan (CNY), as agreed with the factory."
         },
+        "calcWeight": {
+          "title": "Weight sets the freight",
+          "description": "Enter the unit weight in kg. International freight is calculated from it — leave it empty and it falls back to a rough minimum."
+        },
         "calculatorSubmit": {
           "title": "Calculate the landed cost",
           "description": "Tap here and the system will work out shipping, customs, and tax automatically in seconds."
         },
         "calculatorResult": {
           "title": "That's your first landed cost! 🎉",
-          "description": "This is the final total your client pays — ready to share or turn into a full quote."
+          "description": "This total adds up the product, freight, insurance, customs, VAT and your commission. From this card you turn it into a formal quote and send it."
+        },
+        "marketplace": {
+          "title": "Global marketplace",
+          "description": "Browse approved Chinese-supplier products and start a client quote straight from one."
+        },
+        "myProducts": {
+          "title": "My products",
+          "description": "Everything you've uploaded or that was extracted from your catalog lives here to manage."
         },
         "upload": {
           "title": "Upload your catalog",
           "description": "Upload a file or product photos and the system extracts the data automatically for you to review later."
         },
+        "review": {
+          "title": "Review extracted products",
+          "description": "After a catalog upload, the system extracts products here for you to correct and approve before they go live."
+        },
+        "purchaseRequests": {
+          "title": "Purchase requests",
+          "description": "The requests you manage for clients — follow each from first ask to closed deal."
+        },
         "inbox": {
           "title": "Incoming client requests",
           "description": "Importer requests land here so you can prepare quotes quickly."
         },
+        "quotes": {
+          "title": "Your quotes",
+          "description": "Every quote you've created and its status: sent, accepted, or under review."
+        },
         "tracking": {
           "title": "Shipment tracking",
           "description": "Follow every shipment from China until it reaches your client."
+        },
+        "reels": {
+          "title": "Shots studio",
+          "description": "Post short clips of factory products. Success is measured by the RFQs they generate, not views."
         },
         "chatProfile": {
           "title": "Messages and your profile",
