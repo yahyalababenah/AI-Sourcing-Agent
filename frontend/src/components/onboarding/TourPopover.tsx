@@ -55,7 +55,7 @@ export function TourPopover({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-popover-title"
-      className="fixed z-[9999] rounded-2xl bg-white p-5 shadow-xl transition-[top,left] duration-200 motion-reduce:transition-none"
+      className="fixed z-[9999] overscroll-contain rounded-2xl bg-white p-5 shadow-xl transition-[top,left] duration-200 motion-reduce:transition-none"
       style={{ top: position.top, left: position.left, width: POPOVER_WIDTH }}
     >
       {targetStatus === "waiting" ? (

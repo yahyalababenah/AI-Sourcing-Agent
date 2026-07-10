@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
@@ -5,6 +6,15 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { roleAccent } from "./roleAccent";
 import type { TourStepPanelProps } from "./tourStepTypes";
+
+/** CSS var MobileDrawer reads (falls back to 0px when unset) so its panel
+ *  shrinks to sit clear above this sheet instead of the sheet covering the
+ *  drawer's lower nav items and footer (profile/settings/logout) — the
+ *  "agent-nav-intro"/"client-nav-intro" step spotlights the *entire* nav,
+ *  and a fixed-position sheet layered on top would otherwise make whatever
+ *  it happens to cover physically unreachable regardless of scrolling,
+ *  since the drawer's footer sits outside the nav's own scroll box. */
+const TOUR_SHEET_HEIGHT_VAR = "--tour-sheet-height";
 
 /**
  * Mobile guided-tour step panel — a bottom sheet instead of a positioned
@@ -34,16 +44,37 @@ export function TourBottomSheet({
   const { t } = useTranslation();
   const accent = roleAccent[role];
   const dialogRef = useFocusTrap<HTMLDivElement>(targetStatus === "found");
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publishHeight = () => root.style.setProperty(TOUR_SHEET_HEIGHT_VAR, `${el.offsetHeight}px`);
+    publishHeight();
+    // ResizeObserver isn't in jsdom (or ancient browsers) — the one-shot
+    // publishHeight() above still covers the common case, just without
+    // tracking live height changes (e.g. a snoozed→resumed skeleton swap).
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(publishHeight) : null;
+    observer?.observe(el);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty(TOUR_SHEET_HEIGHT_VAR);
+    };
+  }, [targetStatus]);
 
   if (targetStatus === "timeout") return null;
 
   return createPortal(
     <div
-      ref={dialogRef}
+      ref={(node) => {
+        dialogRef.current = node;
+        sheetRef.current = node;
+      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-sheet-title"
-      className="onboard-pop fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl bg-white p-5 pb-6 shadow-xl lg:hidden"
+      className="onboard-pop fixed inset-x-0 bottom-0 z-[9999] overscroll-contain rounded-t-2xl bg-white p-5 pb-6 shadow-xl lg:hidden"
     >
       {targetStatus === "waiting" ? (
         <div className="space-y-3">

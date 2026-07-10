@@ -23,7 +23,7 @@ export function CompletionCardDesktop({ role, onDismiss }: CompletionCardDesktop
         role="dialog"
         aria-modal="true"
         aria-labelledby="completion-card-title"
-        className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl transition-all duration-200 motion-reduce:transition-none"
+        className="w-full max-w-sm overscroll-contain rounded-2xl bg-white p-8 text-center shadow-xl transition-all duration-200 motion-reduce:transition-none"
       >
         <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${accent.dotInactive}`}>
           <PartyPopper className={`h-7 w-7 ${accent.text}`} />

@@ -163,7 +163,8 @@
       "skipForever": "Skip for good",
       "snooze": "Remind me later",
       "finish": "Finish tour",
-      "startTour": "Start the tour"
+      "startTour": "Start the tour",
+      "goToSlide": "Go to slide {{number}}"
     },
     "progress": {
       "label": "You've completed {{completed}} of {{total}}",

@@ -163,7 +163,8 @@
       "skipForever": "تخطّي نهائياً",
       "snooze": "ذكّرني لاحقاً",
       "finish": "إنهاء الجولة",
-      "startTour": "ابدأ الجولة"
+      "startTour": "ابدأ الجولة",
+      "goToSlide": "الانتقال إلى الشريحة {{number}}"
     },
     "progress": {
       "label": "أنجزت {{completed}} من {{total}}",

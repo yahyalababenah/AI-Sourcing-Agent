@@ -45,7 +45,7 @@ export function WelcomeCarouselDesktop({
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-carousel-title"
-        className="onboard-pop relative w-full max-w-lg overflow-hidden rounded-3xl bg-white p-9 shadow-2xl"
+        className="onboard-pop relative w-full max-w-lg overflow-hidden overscroll-contain rounded-3xl bg-white p-9 shadow-2xl"
       >
         {/* Decorative glow blobs — purely visual, gives the card depth/life */}
         <div aria-hidden className={`pointer-events-none absolute -top-16 -end-16 h-48 w-48 rounded-full opacity-20 blur-3xl ${accent.glow}`} />
@@ -80,7 +80,8 @@ export function WelcomeCarouselDesktop({
             <button
               key={s.id}
               onClick={() => goTo(i)}
-              aria-label={`${i + 1}`}
+              aria-label={t("onboarding.controls.goToSlide", { number: i + 1 })}
+              aria-current={i === index}
               className={`h-2 rounded-full transition-all duration-300 ease-out ${
                 i === index ? `w-8 ${accent.dot}` : `w-2 ${accent.dotInactive}`
               }`}

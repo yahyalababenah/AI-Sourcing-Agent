@@ -101,7 +101,7 @@ export function Sidebar({ role, bare = false }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" data-tour="tour-sidebar-nav">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-3 py-4" data-tour="tour-sidebar-nav">
         {items.map((item) => (
           <NavLink
             key={item.to}

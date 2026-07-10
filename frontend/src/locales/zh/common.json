@@ -163,7 +163,8 @@
       "skipForever": "永久跳过",
       "snooze": "稍后提醒我",
       "finish": "结束向导",
-      "startTour": "开始导览"
+      "startTour": "开始导览",
+      "goToSlide": "转到第 {{number}} 张幻灯片"
     },
     "progress": {
       "label": "已完成 {{completed}}/{{total}}",

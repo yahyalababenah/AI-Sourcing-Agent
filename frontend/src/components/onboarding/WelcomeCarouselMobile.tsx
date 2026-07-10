@@ -35,7 +35,7 @@ export function WelcomeCarouselMobile({
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-carousel-title-mobile"
-        className="relative flex h-full flex-col p-6"
+        className="relative flex h-full flex-col overscroll-contain p-6"
       >
         {/* Decorative glow blobs — purely visual, gives the screen depth/life */}
         <div aria-hidden className={`pointer-events-none absolute -top-10 -end-16 h-56 w-56 rounded-full opacity-20 blur-3xl ${accent.glow}`} />
@@ -72,7 +72,8 @@ export function WelcomeCarouselMobile({
             <button
               key={s.id}
               onClick={() => goTo(i)}
-              aria-label={`${i + 1}`}
+              aria-label={t("onboarding.controls.goToSlide", { number: i + 1 })}
+              aria-current={i === index}
               className={`h-2 rounded-full transition-all duration-300 ${
                 i === index ? `w-8 ${accent.dot}` : `w-2 ${accent.dotInactive}`
               }`}

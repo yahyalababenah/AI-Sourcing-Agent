@@ -30,7 +30,13 @@ export function MobileDrawer({ role }: MobileDrawerProps) {
       <div
         dir="rtl"
         aria-hidden={!drawerOpen}
-        className={`fixed top-0 start-0 bottom-0 w-[270px] z-50 flex flex-col bg-white shadow-xl lg:hidden transition-transform duration-200 ease-out ${
+        // bottom sits above the guided tour's mobile TourBottomSheet (which
+        // publishes --tour-sheet-height while mounted, see TourBottomSheet.tsx)
+        // instead of the sheet just being layered on top of the drawer's
+        // lower nav items and footer (profile/settings/logout) — those live
+        // outside the nav's own scroll box, so a fixed overlay covering them
+        // would make them unreachable, not just visually obscured.
+        className={`fixed top-0 start-0 bottom-[var(--tour-sheet-height,0px)] w-[270px] z-50 flex flex-col bg-white shadow-xl lg:hidden transition-[transform,bottom] duration-200 ease-out ${
           drawerOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         }`}
       >

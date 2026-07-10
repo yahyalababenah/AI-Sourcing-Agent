@@ -20,7 +20,7 @@ export function CompletionCardMobile({ role, onDismiss }: CompletionCardMobilePr
         role="dialog"
         aria-modal="true"
         aria-labelledby="completion-card-title-mobile"
-        className="rounded-t-2xl bg-white p-6 pb-8 text-center shadow-xl transition-all duration-200 motion-reduce:transition-none"
+        className="overscroll-contain rounded-t-2xl bg-white p-6 pb-8 text-center shadow-xl transition-all duration-200 motion-reduce:transition-none"
       >
         <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${accent.dotInactive}`}>
           <PartyPopper className={`h-7 w-7 ${accent.text}`} />
