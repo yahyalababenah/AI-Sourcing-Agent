@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, ShieldCheck, BadgeCheck, MessageCircle, Pencil, Video } from "lucide-react";
+import { Play, ShieldCheck, MessageCircle, Pencil, Video, ImagePlus } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ReelTile } from "@/components/ui/ReelTile";
 import { useSupplierProfileData } from "./useSupplierProfileData";
+import { useProfileImageUpload } from "./useProfileImageUpload";
+import { ProfileAvatar } from "./ProfileAvatar";
+import { ImagePickButton } from "./ImagePickButton";
 import { SupplierProfileEditForm } from "./SupplierProfileEditForm";
 import { SupplierProductTile } from "./SupplierProductTile";
 
@@ -24,8 +27,11 @@ export function SupplierProfileDesktop() {
   const [tab, setTab] = useState<Tab>("products");
   const {
     user,
+    repName,
     factoryName,
     isVerified,
+    avatarUrl,
+    bannerUrl,
     products,
     productsLoading,
     location,
@@ -41,6 +47,7 @@ export function SupplierProfileDesktop() {
     save,
     isSaving,
   } = useSupplierProfileData();
+  const { uploadAvatar, uploadBanner, uploading } = useProfileImageUpload();
 
   const goToInbox = () => navigate(ROUTES.RFQ.SUPPLIER_INBOX);
 
@@ -48,7 +55,11 @@ export function SupplierProfileDesktop() {
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="card overflow-hidden p-0">
         {/* Cover */}
-        <div className="relative h-40 bg-gradient-to-br from-supplier-900 to-supplier-600">
+        <div
+          className="relative h-40 bg-supplier-800 bg-gradient-to-br from-supplier-900 to-supplier-600 bg-cover bg-center"
+          style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : undefined}
+        >
+          {bannerUrl && <div className="absolute inset-0 bg-slate-900/25" />}
           <button
             onClick={() => navigate(ROUTES.AGENT.REELS)}
             className="absolute start-6 top-5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white transition-colors duration-150 hover:bg-white/25 active:scale-[0.98]"
@@ -56,27 +67,41 @@ export function SupplierProfileDesktop() {
             <Play className="h-3.5 w-3.5" fill="currentColor" />
             شاهد جولة داخل المصنع
           </button>
-          <div className="absolute -bottom-10 start-8 flex h-20 w-20 items-center justify-center rounded-full bg-white text-xl font-bold text-supplier-700 ring-4 ring-white">
-            {initialsOf(factoryName)}
+          <ImagePickButton
+            onPick={uploadBanner}
+            loading={uploading === "banner_url"}
+            ariaLabel="تغيير صورة الغلاف"
+            className="absolute end-6 top-5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white transition-colors duration-150 hover:bg-white/25 active:scale-[0.98] disabled:opacity-70"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+            تغيير الغلاف
+          </ImagePickButton>
+          <div className="absolute -bottom-10 start-8">
+            <ProfileAvatar
+              src={avatarUrl}
+              initials={initialsOf(repName)}
+              sizeClass="h-20 w-20"
+              textClass="text-xl text-supplier-700"
+              onPick={uploadAvatar}
+              uploading={uploading === "avatar_url"}
+            />
           </div>
         </div>
 
         <div className="px-6 pb-6 pt-12">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-slate-900">{factoryName}</h1>
-              <p className="mt-0.5 text-sm text-slate-500">مصنع · {location}</p>
+              <h1 className="text-xl font-bold text-slate-900">{repName}</h1>
+              <p className="mt-0.5 text-sm text-slate-500">
+                مندوب مبيعات{factoryName ? ` · يمثّل ${factoryName}` : ""}
+              </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {isVerified && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-supplier-50 px-2.5 py-1 text-xs font-medium text-supplier-600">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    مورد موثّق
+                    مندوب موثّق
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  ISO 9001
-                </span>
               </div>
             </div>
 
@@ -130,8 +155,12 @@ export function SupplierProfileDesktop() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
         <div className="card space-y-4 p-5">
-          <h2 className="text-sm font-semibold text-slate-900">بيانات المصنع</h2>
+          <h2 className="text-sm font-semibold text-slate-900">المصنع الذي أمثّله</h2>
           <div className="space-y-3 text-sm">
+            <div>
+              <p className="text-xs text-slate-400">اسم المصنع</p>
+              <p className="mt-0.5 font-medium text-slate-900">{factoryName}</p>
+            </div>
             <div>
               <p className="text-xs text-slate-400">الموقع في الصين</p>
               <p className="mt-0.5 font-medium text-slate-900">{location}</p>
@@ -145,7 +174,7 @@ export function SupplierProfileDesktop() {
               <p className="mt-0.5 font-medium text-slate-900">{factoryAddress}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400">البريد الإلكتروني</p>
+              <p className="text-xs text-slate-400">بريد المندوب</p>
               <p className="mt-0.5 font-medium text-slate-900" dir="ltr">
                 {user?.email ?? "—"}
               </p>

@@ -111,6 +111,8 @@ export function useClientProfileData() {
     companyName: profile?.company_name || user?.full_name || "شركة غير مسمّاة",
     preferredPort: profile?.preferred_port || "—",
     contactNumber: profile?.contact_number || "—",
+    avatarUrl: profile?.avatar_url || null,
+    bannerUrl: profile?.banner_url || null,
     isActive: !!user?.is_active,
     completedDealsCount,
     avgOrderValue,

@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, ShieldCheck, BadgeCheck, Pencil, Video } from "lucide-react";
+import { Play, ShieldCheck, Pencil, Video, ImagePlus } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ReelTile } from "@/components/ui/ReelTile";
 import { useSupplierProfileData } from "./useSupplierProfileData";
+import { useProfileImageUpload } from "./useProfileImageUpload";
+import { ProfileAvatar } from "./ProfileAvatar";
+import { ImagePickButton } from "./ImagePickButton";
 import { SupplierProfileEditForm } from "./SupplierProfileEditForm";
 import { SupplierProductTile } from "./SupplierProductTile";
 
@@ -22,11 +25,13 @@ export function SupplierProfileMobile() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("products");
   const {
+    repName,
     factoryName,
     isVerified,
+    avatarUrl,
+    bannerUrl,
     products,
     productsLoading,
-    location,
     closedDealsCount,
     avgResponseLabel,
     isEditing,
@@ -37,13 +42,18 @@ export function SupplierProfileMobile() {
     save,
     isSaving,
   } = useSupplierProfileData();
+  const { uploadAvatar, uploadBanner, uploading } = useProfileImageUpload();
 
   const goToInbox = () => navigate(ROUTES.RFQ.SUPPLIER_INBOX);
 
   return (
     <div className="space-y-4">
       <div className="card overflow-hidden p-0">
-        <div className="relative h-32 bg-gradient-to-br from-supplier-900 to-supplier-600">
+        <div
+          className="relative h-32 bg-supplier-800 bg-gradient-to-br from-supplier-900 to-supplier-600 bg-cover bg-center"
+          style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : undefined}
+        >
+          {bannerUrl && <div className="absolute inset-0 bg-slate-900/25" />}
           <button
             onClick={() => navigate(ROUTES.AGENT.REELS)}
             className="absolute start-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-white/25 active:scale-[0.98]"
@@ -51,25 +61,39 @@ export function SupplierProfileMobile() {
             <Play className="h-3 w-3" fill="currentColor" />
             جولة داخل المصنع
           </button>
-          <div className="absolute -bottom-8 start-5 flex h-16 w-16 items-center justify-center rounded-full bg-white text-lg font-bold text-supplier-700 ring-4 ring-white">
-            {initialsOf(factoryName)}
+          <ImagePickButton
+            onPick={uploadBanner}
+            loading={uploading === "banner_url"}
+            ariaLabel="تغيير صورة الغلاف"
+            className="absolute end-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-white/25 active:scale-[0.98] disabled:opacity-70"
+          >
+            <ImagePlus className="h-3 w-3" />
+            الغلاف
+          </ImagePickButton>
+          <div className="absolute -bottom-8 start-5">
+            <ProfileAvatar
+              src={avatarUrl}
+              initials={initialsOf(repName)}
+              sizeClass="h-16 w-16"
+              textClass="text-lg text-supplier-700"
+              onPick={uploadAvatar}
+              uploading={uploading === "avatar_url"}
+            />
           </div>
         </div>
 
         <div className="px-4 pb-4 pt-10">
-          <h1 className="text-lg font-bold text-slate-900">{factoryName}</h1>
-          <p className="mt-0.5 text-xs text-slate-500">مصنع · {location}</p>
+          <h1 className="text-lg font-bold text-slate-900">{repName}</h1>
+          <p className="mt-0.5 text-xs text-slate-500">
+            مندوب مبيعات{factoryName ? ` · يمثّل ${factoryName}` : ""}
+          </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {isVerified && (
               <span className="inline-flex items-center gap-1 rounded-full bg-supplier-50 px-2 py-1 text-[11px] font-medium text-supplier-600">
                 <ShieldCheck className="h-3 w-3" />
-                مورد موثّق
+                مندوب موثّق
               </span>
             )}
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
-              <BadgeCheck className="h-3 w-3" />
-              ISO 9001
-            </span>
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2">

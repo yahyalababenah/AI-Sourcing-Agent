@@ -58,12 +58,11 @@ describe("SupplierProfileMobile", () => {
     vi.restoreAllMocks();
   });
 
-  it("hides the verified badge for a non-verified supplier but still shows ISO 9001 and honest dash stats", async () => {
+  it("headlines the rep's name, hides the verified badge for a non-verified rep, and shows honest dash stats", async () => {
     renderWithProviders(<SupplierProfileMobile />);
 
-    expect(await screen.findByText("Future Factory Ltd")).toBeInTheDocument();
-    expect(screen.queryByText("مورد موثّق")).not.toBeInTheDocument();
-    expect(screen.getByText("ISO 9001")).toBeInTheDocument();
+    expect(await screen.findByText("أحمد")).toBeInTheDocument(); // the sales rep, not the factory
+    expect(screen.queryByText("مندوب موثّق")).not.toBeInTheDocument();
     expect(await screen.findByText("—")).toBeInTheDocument(); // no quotes yet => honest dash response time
   });
 
@@ -72,9 +71,9 @@ describe("SupplierProfileMobile", () => {
     const user = userEvent.setup();
     renderWithProviders(<SupplierProfileMobile />);
 
-    await screen.findByText("Future Factory Ltd");
+    await screen.findByText("أحمد");
     await user.click(screen.getByText("تعديل الملف"));
 
-    expect(await screen.findByText("تعديل بيانات المصنع")).toBeInTheDocument();
+    expect(await screen.findByText("تعديل الملف الشخصي")).toBeInTheDocument();
   });
 });

@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { History, ShieldCheck, Compass, Bookmark, ClipboardList } from "lucide-react";
+import { History, ShieldCheck, Compass, Bookmark, ClipboardList, ImagePlus } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { useClientProfileData, STATUS_PILL, type ClientRfqStatus } from "./useClientProfileData";
+import { useProfileImageUpload } from "./useProfileImageUpload";
+import { ProfileAvatar } from "./ProfileAvatar";
+import { ImagePickButton } from "./ImagePickButton";
 import { ClientProfileEditForm } from "./ClientProfileEditForm";
 
 // Reference: handoff-designs/importer-profile-mobile.html — same content as
@@ -26,6 +29,8 @@ export function ClientProfileMobile() {
   const {
     companyName,
     preferredPort,
+    avatarUrl,
+    bannerUrl,
     completedDealsCount,
     avgOrderValue,
     activeRfqs,
@@ -37,17 +42,38 @@ export function ClientProfileMobile() {
     save,
     isSaving,
   } = useClientProfileData();
+  const { uploadAvatar, uploadBanner, uploading } = useProfileImageUpload();
 
   return (
     <div className="space-y-4">
       <div className="card overflow-hidden p-0">
-        <div className="relative h-32 bg-gradient-to-br from-importer-900 to-importer-600">
+        <div
+          className="relative h-32 bg-importer-800 bg-gradient-to-br from-importer-900 to-importer-600 bg-cover bg-center"
+          style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : undefined}
+        >
+          {bannerUrl && <div className="absolute inset-0 bg-slate-900/25" />}
           <span className="absolute start-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white">
             <History className="h-3 w-3" />
             سجل الاستيراد الكامل
           </span>
-          <div className="absolute -bottom-8 start-5 flex h-16 w-16 items-center justify-center rounded-full bg-white text-lg font-bold text-importer-700 ring-4 ring-white">
-            {initialsOf(companyName)}
+          <ImagePickButton
+            onPick={uploadBanner}
+            loading={uploading === "banner_url"}
+            ariaLabel="تغيير صورة الغلاف"
+            className="absolute end-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-white/25 active:scale-[0.98] disabled:opacity-70"
+          >
+            <ImagePlus className="h-3 w-3" />
+            الغلاف
+          </ImagePickButton>
+          <div className="absolute -bottom-8 start-5">
+            <ProfileAvatar
+              src={avatarUrl}
+              initials={initialsOf(companyName)}
+              sizeClass="h-16 w-16"
+              textClass="text-lg text-importer-700"
+              onPick={uploadAvatar}
+              uploading={uploading === "avatar_url"}
+            />
           </div>
         </div>
 

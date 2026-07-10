@@ -58,8 +58,8 @@ describe("ProfilePage role gateway", () => {
     vi.mocked(catalogService.search).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 24, total_pages: 0 });
 
     renderWithProviders(<ProfilePage />);
-    expect(await screen.findByText("Future Factory Ltd")).toBeInTheDocument();
-    expect(screen.getByText("مورد موثّق")).toBeInTheDocument();
+    expect(await screen.findByText("أحمد")).toBeInTheDocument(); // rep name headlines the showcase
+    expect(screen.getByText("مندوب موثّق")).toBeInTheDocument();
     expect(screen.queryByText("بيانات المورد")).not.toBeInTheDocument(); // legacy form heading, no longer shown
   });
 

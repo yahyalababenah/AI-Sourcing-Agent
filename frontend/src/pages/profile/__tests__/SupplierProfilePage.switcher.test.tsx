@@ -48,16 +48,16 @@ describe("SupplierProfilePage switcher", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the desktop layout (بيانات المصنع sidebar) at >=1024px", async () => {
+  it("renders the desktop layout (المصنع الذي أمثّله sidebar) at >=1024px", async () => {
     mockMatchMedia(true);
     renderWithProviders(<SupplierProfilePage />);
-    expect(await screen.findByText("بيانات المصنع")).toBeInTheDocument();
+    expect(await screen.findByText("المصنع الذي أمثّله")).toBeInTheDocument();
   });
 
   it("renders the mobile stacked layout below 1024px", async () => {
     mockMatchMedia(false);
     renderWithProviders(<SupplierProfilePage />);
-    await screen.findByText("Future Factory Ltd");
-    expect(screen.queryByText("بيانات المصنع")).not.toBeInTheDocument();
+    await screen.findByText("أحمد");
+    expect(screen.queryByText("المصنع الذي أمثّله")).not.toBeInTheDocument();
   });
 });

@@ -1,9 +1,9 @@
 import { Loader2, Save, X } from "lucide-react";
 
 interface SupplierProfileEditFormProps {
-  form: { factory_name: string; location_in_china: string; specialty: string; factory_address: string; phone: string };
+  form: { full_name: string; factory_name: string; location_in_china: string; specialty: string; factory_address: string; phone: string };
   onChange: (
-    key: "factory_name" | "location_in_china" | "specialty" | "factory_address" | "phone",
+    key: "full_name" | "factory_name" | "location_in_china" | "specialty" | "factory_address" | "phone",
     value: string,
   ) => void;
   onSave: () => void;
@@ -42,7 +42,13 @@ function Field({
 export function SupplierProfileEditForm({ form, onChange, onSave, onCancel, isSaving }: SupplierProfileEditFormProps) {
   return (
     <div className="card space-y-4 p-5">
-      <h2 className="text-sm font-semibold text-slate-900">تعديل بيانات المصنع</h2>
+      <h2 className="text-sm font-semibold text-slate-900">تعديل الملف الشخصي</h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="اسم المندوب" value={form.full_name} onChange={(v) => onChange("full_name", v)} />
+        <Field label="رقم الهاتف" value={form.phone} onChange={(v) => onChange("phone", v)} placeholder="+962791234567" />
+      </div>
+
+      <h3 className="pt-1 text-xs font-semibold text-slate-500">المصنع الذي أمثّله</h3>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="اسم المصنع" value={form.factory_name} onChange={(v) => onChange("factory_name", v)} />
         <Field
@@ -58,7 +64,6 @@ export function SupplierProfileEditForm({ form, onChange, onSave, onCancel, isSa
           placeholder="الإلكترونيات، المعدات الصناعية..."
         />
         <Field label="عنوان المصنع" value={form.factory_address} onChange={(v) => onChange("factory_address", v)} />
-        <Field label="رقم الهاتف" value={form.phone} onChange={(v) => onChange("phone", v)} placeholder="+8613800000000" />
       </div>
       <div className="flex items-center justify-end gap-2">
         <button

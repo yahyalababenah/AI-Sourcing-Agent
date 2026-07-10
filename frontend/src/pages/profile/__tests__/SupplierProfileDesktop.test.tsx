@@ -105,12 +105,12 @@ describe("SupplierProfileDesktop", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the factory name, verified + ISO badges, and honest KPI stats derived from real RFQs/quotes", async () => {
+  it("headlines the rep's name, the factory they represent, the verified badge, and honest KPI stats", async () => {
     renderWithProviders(<SupplierProfileDesktop />);
 
-    expect(await screen.findByText("Future Factory Ltd")).toBeInTheDocument();
-    expect(screen.getByText("مورد موثّق")).toBeInTheDocument();
-    expect(screen.getByText("ISO 9001")).toBeInTheDocument();
+    expect(await screen.findByText("أحمد")).toBeInTheDocument(); // rep name headlines
+    expect(screen.getByText("Future Factory Ltd")).toBeInTheDocument(); // factory shown in its own section
+    expect(screen.getByText("مندوب موثّق")).toBeInTheDocument();
     expect(screen.getByText("0.82%")).toBeInTheDocument();
     expect(await screen.findByText("1")).toBeInTheDocument(); // one closed deal
   });

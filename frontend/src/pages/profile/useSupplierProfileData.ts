@@ -10,6 +10,7 @@ import { useReelsStudioData } from "@/pages/reels/useReelsStudioData";
 import type { SupplierProfile, User } from "@/types/auth";
 
 interface SupplierProfileEditFields {
+  full_name: string;
   factory_name: string;
   location_in_china: string;
   specialty: string;
@@ -31,6 +32,7 @@ export function useSupplierProfileData() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState<SupplierProfileEditFields>({
+    full_name: user?.full_name ?? "",
     factory_name: profile?.factory_name ?? "",
     location_in_china: profile?.location_in_china ?? "",
     specialty: profile?.specialty ?? "",
@@ -78,6 +80,7 @@ export function useSupplierProfileData() {
 
   const startEditing = () => {
     setForm({
+      full_name: user?.full_name ?? "",
       factory_name: profile?.factory_name ?? "",
       location_in_china: profile?.location_in_china ?? "",
       specialty: profile?.specialty ?? "",
@@ -103,8 +106,13 @@ export function useSupplierProfileData() {
 
   return {
     user,
+    // The user is a Jordanian sales rep (CLAUDE.md); their own name headlines
+    // the profile, while the factory they represent is shown as a sub-section.
+    repName: user?.full_name || factoryName || "مندوب مبيعات",
     factoryName,
     isVerified,
+    avatarUrl: profile?.avatar_url || null,
+    bannerUrl: profile?.banner_url || null,
     products,
     productsLoading,
     location: profile?.location_in_china || "—",

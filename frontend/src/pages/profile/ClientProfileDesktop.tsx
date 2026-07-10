@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { History, ShieldCheck, MessageCircle, Pencil, Compass, Bookmark } from "lucide-react";
+import { History, ShieldCheck, MessageCircle, Pencil, Compass, Bookmark, ImagePlus } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useClientProfileData } from "./useClientProfileData";
+import { useProfileImageUpload } from "./useProfileImageUpload";
+import { ProfileAvatar } from "./ProfileAvatar";
+import { ImagePickButton } from "./ImagePickButton";
 import { ClientProfileEditForm } from "./ClientProfileEditForm";
 
 // Reference: handoff-designs/importer-profile.html
@@ -17,6 +20,8 @@ export function ClientProfileDesktop() {
     companyName,
     preferredPort,
     contactNumber,
+    avatarUrl,
+    bannerUrl,
     isActive,
     completedDealsCount,
     avgOrderValue,
@@ -28,18 +33,39 @@ export function ClientProfileDesktop() {
     save,
     isSaving,
   } = useClientProfileData();
+  const { uploadAvatar, uploadBanner, uploading } = useProfileImageUpload();
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="card overflow-hidden p-0">
         {/* Cover */}
-        <div className="relative h-40 bg-gradient-to-br from-importer-900 to-importer-600">
+        <div
+          className="relative h-40 bg-importer-800 bg-gradient-to-br from-importer-900 to-importer-600 bg-cover bg-center"
+          style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : undefined}
+        >
+          {bannerUrl && <div className="absolute inset-0 bg-slate-900/25" />}
           <span className="absolute start-6 top-5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white">
             <History className="h-3.5 w-3.5" />
             سجل الاستيراد الكامل
           </span>
-          <div className="absolute -bottom-10 start-8 flex h-20 w-20 items-center justify-center rounded-full bg-white text-xl font-bold text-importer-700 ring-4 ring-white">
-            {initialsOf(companyName)}
+          <ImagePickButton
+            onPick={uploadBanner}
+            loading={uploading === "banner_url"}
+            ariaLabel="تغيير صورة الغلاف"
+            className="absolute end-6 top-5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white transition-colors duration-150 hover:bg-white/25 active:scale-[0.98] disabled:opacity-70"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+            تغيير الغلاف
+          </ImagePickButton>
+          <div className="absolute -bottom-10 start-8">
+            <ProfileAvatar
+              src={avatarUrl}
+              initials={initialsOf(companyName)}
+              sizeClass="h-20 w-20"
+              textClass="text-xl text-importer-700"
+              onPick={uploadAvatar}
+              uploading={uploading === "avatar_url"}
+            />
           </div>
         </div>
 

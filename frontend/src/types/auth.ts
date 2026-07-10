@@ -39,12 +39,18 @@ export interface SupplierProfile {
   business_license_url?: string | null;
   factory_address?: string | null;
   verification_status: string;
+  /** Owner-uploaded profile picture / cover, stored as data URLs (see useProfileImageUpload). */
+  avatar_url?: string | null;
+  banner_url?: string | null;
 }
 
 export interface ClientProfile {
   company_name: string;
   preferred_port?: string | null;
   contact_number?: string | null;
+  /** Owner-uploaded profile picture / cover, stored as data URLs (see useProfileImageUpload). */
+  avatar_url?: string | null;
+  banner_url?: string | null;
 }
 
 /** Interactive onboarding tour lifecycle — mirrors the backend's OnboardingStatus
