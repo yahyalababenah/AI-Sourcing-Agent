@@ -216,6 +216,14 @@ describe("GuidedTour", () => {
     expect(useUIStore.getState().drawerOpen).toBe(true);
   });
 
+  it("closes the mobile drawer for a page-anchored step so it can't cover the highlighted field", () => {
+    const pageStep = agentSteps.find((s) => s.id === "agent-calculator-quantity")!;
+    useUIStore.setState({ drawerOpen: true });
+    setActiveStep(pageStep.id);
+    renderTour(pageStep.route);
+    expect(useUIStore.getState().drawerOpen).toBe(false);
+  });
+
   it("does not force the drawer open for the nav-guard 'wandered off' state", async () => {
     setActiveStep(agentSteps[0].id);
     renderTour(ROUTES.AGENT.DASHBOARD);

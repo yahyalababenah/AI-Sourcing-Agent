@@ -74,8 +74,11 @@ export function TourBottomSheet({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-sheet-title"
-      className="onboard-pop fixed inset-x-0 bottom-0 z-[9999] overscroll-contain rounded-t-2xl bg-white p-5 pb-6 shadow-xl lg:hidden"
+      className="onboard-pop fixed inset-x-0 bottom-0 z-[9999] max-h-[80vh] overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl lg:hidden"
     >
+      {/* Grab handle — signals this is a sheet docked to the bottom edge. */}
+      <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-slate-200" />
+
       {targetStatus === "waiting" ? (
         <div className="space-y-3">
           <Skeleton className="h-4 w-2/3 rounded" />

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 import { useUIStore } from "@/stores/uiStore";
 import { authService } from "@/services/authService";
-import { getTourSteps, type TourStep } from "@/constants/onboardingSteps";
+import { getTourSteps, isSidebarStep, type TourStep } from "@/constants/onboardingSteps";
 import { useTourTarget } from "@/hooks/useTourTarget";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Spotlight } from "./Spotlight";
@@ -77,16 +77,38 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
-  // Every current tour step targets the Sidebar (tour-sidebar-nav /
-  // tour-nav-*), which on mobile only exists on-screen inside the
-  // MobileDrawer. Without this, useTourTarget would resolve a rect that's
-  // real but translated off-screen (the drawer's closed state doesn't
-  // unmount it, just slides it out) — so keep the drawer open for as long
-  // as a step is active on its own route on a small screen.
+  // Mobile drawer choreography. Sidebar-anchored steps (tour-sidebar-nav /
+  // tour-nav-*) live inside the MobileDrawer, which stays translated (not
+  // unmounted) when closed — so useTourTarget would otherwise resolve a real
+  // but off-screen rect. Open the drawer for those. But the page-anchored
+  // mini-walkthrough steps (tour-calc-* / tour-rfq-*) target fields *on the
+  // page underneath*; an open 270px drawer would slide in and cover the very
+  // field being highlighted (the reported bug). Close it for those so the
+  // field is visible and tappable.
   useEffect(() => {
-    if (isDesktop || !onSameRoute) return;
-    useUIStore.getState().openDrawer();
+    if (isDesktop || !onSameRoute || !currentStep) return;
+    const ui = useUIStore.getState();
+    if (isSidebarStep(currentStep)) ui.openDrawer();
+    else ui.closeDrawer();
   }, [isDesktop, onSameRoute, currentStep]);
+
+  // Bring the highlighted target into the visible band on mobile: nav items
+  // can sit below the fold inside the drawer's scroll, and on-page fields can
+  // be hidden behind the docked bottom sheet. Desktop popovers reposition
+  // themselves, so this is mobile-only. Waits out the drawer's open/close
+  // transition first, then centres the target (scrollIntoView walks every
+  // scrollable ancestor, so it handles both the drawer nav and the window).
+  useEffect(() => {
+    if (isDesktop || !onSameRoute || !currentStep || targetStatus !== "found") return;
+    const selector = `[data-tour="${currentStep.target}"]`;
+    const id = window.setTimeout(() => {
+      const el = Array.from(document.querySelectorAll<HTMLElement>(selector)).find(
+        (n) => n.offsetWidth > 0 || n.offsetHeight > 0,
+      );
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 240);
+    return () => window.clearTimeout(id);
+  }, [isDesktop, onSameRoute, currentStep, targetStatus]);
 
   function advance(step: TourStep, markComplete: boolean) {
     if (markComplete) completeStep(step.id);

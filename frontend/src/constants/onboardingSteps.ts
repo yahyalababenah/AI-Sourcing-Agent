@@ -222,6 +222,19 @@ const stepsByRole: Partial<Record<UserRole, TourStep[]>> = {
   client: clientSteps,
 };
 
+/**
+ * A step is "sidebar-anchored" when it highlights the sidebar nav or one of
+ * its links (the `tour-sidebar-nav` / `tour-nav-*` convention). This matters
+ * on mobile: the Sidebar only exists on-screen inside the MobileDrawer, so
+ * GuidedTour opens the drawer for these steps — and, just as importantly,
+ * *closes* it for the page-anchored mini-walkthrough steps (`tour-calc-*` /
+ * `tour-rfq-*`), whose targets sit on the feature page itself where an open
+ * drawer would slide in and cover the very field being highlighted.
+ */
+export function isSidebarStep(step: TourStep): boolean {
+  return step.target === "tour-sidebar-nav" || step.target.startsWith("tour-nav-");
+}
+
 /** Returns the ordered guided-tour steps for a role, or an empty list (admin — no tour yet, see T16). */
 export function getTourSteps(role: UserRole | null): TourStep[] {
   if (!role) return [];
