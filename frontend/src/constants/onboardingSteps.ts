@@ -18,10 +18,14 @@ export interface WelcomeSlide {
  * just pointing at sidebar links from the dashboard (feedback: take the
  * user *inside* each feature, don't have them look at it from outside).
  *
- * `target` matches a `data-tour="<target>"` attribute on the sidebar link
- * for this feature — the Sidebar renders on every route inside
- * AgentLayout/ClientLayout, so it stays a valid Spotlight anchor even
- * while standing on the feature page itself ("you are here").
+ * `target` matches a `data-tour="<target>"` attribute — usually the
+ * sidebar link for this feature (the Sidebar renders on every route inside
+ * AgentLayout/ClientLayout, so it stays a valid Spotlight anchor even while
+ * standing on the feature page itself, "you are here"), but a follow-up
+ * step can instead target a real field/button *on* that same page (same
+ * `route` as the step before it, so GuidedTour doesn't navigate again) —
+ * that's how the tour walks the user through actually completing their
+ * first calculation/request instead of just landing on the page.
  */
 export interface TourStep {
   id: string;
@@ -83,6 +87,37 @@ const agentSteps: TourStep[] = [
     target: "tour-nav-calculator",
     route: ROUTES.PRICING.STANDALONE_CALC,
   },
+  // Mini walkthrough of the calculator itself — same route as the step
+  // above, so GuidedTour just moves the Spotlight without navigating
+  // again. Walks the rep through their first real landed-cost calculation.
+  {
+    id: "agent-calculator-quantity",
+    titleKey: "onboarding.steps.agent.calculatorQuantity.title",
+    descriptionKey: "onboarding.steps.agent.calculatorQuantity.description",
+    target: "tour-calc-quantity",
+    route: ROUTES.PRICING.STANDALONE_CALC,
+  },
+  {
+    id: "agent-calculator-price",
+    titleKey: "onboarding.steps.agent.calculatorPrice.title",
+    descriptionKey: "onboarding.steps.agent.calculatorPrice.description",
+    target: "tour-calc-price",
+    route: ROUTES.PRICING.STANDALONE_CALC,
+  },
+  {
+    id: "agent-calculator-submit",
+    titleKey: "onboarding.steps.agent.calculatorSubmit.title",
+    descriptionKey: "onboarding.steps.agent.calculatorSubmit.description",
+    target: "tour-calc-button",
+    route: ROUTES.PRICING.STANDALONE_CALC,
+  },
+  {
+    id: "agent-calculator-result",
+    titleKey: "onboarding.steps.agent.calculatorResult.title",
+    descriptionKey: "onboarding.steps.agent.calculatorResult.description",
+    target: "tour-calc-result",
+    route: ROUTES.PRICING.STANDALONE_CALC,
+  },
   {
     id: "agent-upload",
     titleKey: "onboarding.steps.agent.upload.title",
@@ -133,6 +168,30 @@ const clientSteps: TourStep[] = [
     titleKey: "onboarding.steps.client.rfq.title",
     descriptionKey: "onboarding.steps.client.rfq.description",
     target: "tour-nav-new-rfq",
+    route: ROUTES.RFQ.CREATE,
+  },
+  // Mini walkthrough of the RFQ form itself — same route as the step
+  // above, so GuidedTour just moves the Spotlight without navigating
+  // again. Walks the importer through submitting their first real request.
+  {
+    id: "client-rfq-product-name",
+    titleKey: "onboarding.steps.client.rfqProductName.title",
+    descriptionKey: "onboarding.steps.client.rfqProductName.description",
+    target: "tour-rfq-product-name",
+    route: ROUTES.RFQ.CREATE,
+  },
+  {
+    id: "client-rfq-quantity",
+    titleKey: "onboarding.steps.client.rfqQuantity.title",
+    descriptionKey: "onboarding.steps.client.rfqQuantity.description",
+    target: "tour-rfq-quantity",
+    route: ROUTES.RFQ.CREATE,
+  },
+  {
+    id: "client-rfq-submit",
+    titleKey: "onboarding.steps.client.rfqSubmit.title",
+    descriptionKey: "onboarding.steps.client.rfqSubmit.description",
+    target: "tour-rfq-submit",
     route: ROUTES.RFQ.CREATE,
   },
   {

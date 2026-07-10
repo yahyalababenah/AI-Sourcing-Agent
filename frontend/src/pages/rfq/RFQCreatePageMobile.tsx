@@ -50,6 +50,7 @@ export function RFQCreatePageMobile() {
               type="text"
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
+              data-tour="tour-rfq-product-name"
               className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
               placeholder="كشافات إضاءة LED صناعية"
             />
@@ -75,6 +76,7 @@ export function RFQCreatePageMobile() {
               min="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
+              data-tour="tour-rfq-quantity"
               className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm transition-colors duration-150 focus:border-importer-500 focus:outline-none focus:ring-1 focus:ring-importer-500"
               placeholder="500"
               dir="ltr"
@@ -167,6 +169,7 @@ export function RFQCreatePageMobile() {
           <button
             type="submit"
             disabled={isPending}
+            data-tour="tour-rfq-submit"
             className="flex-1 rounded-lg bg-importer-500 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-importer-600 active:scale-[0.98] disabled:opacity-50"
           >
             {isPending ? "جاري الإرسال..." : "إرسال طلب عرض السعر"}

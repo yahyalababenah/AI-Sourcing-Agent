@@ -17,12 +17,14 @@ vi.mock("@/hooks/useTourTarget");
 const FAKE_RECT = { top: 10, left: 10, width: 80, height: 30, right: 90, bottom: 40, x: 10, y: 10, toJSON() {} } as DOMRect;
 
 const agentSteps = getTourSteps("agent");
+const clientSteps = getTourSteps("client");
 
-function setActiveStep(stepId: string) {
-  const step = agentSteps.find((s) => s.id === stepId)!;
+function setActiveStep(stepId: string, role: "agent" | "client" = "agent") {
+  const steps = role === "agent" ? agentSteps : clientSteps;
+  const step = steps.find((s) => s.id === stepId)!;
   useOnboardingStore.setState({
     userId: "user-1",
-    role: "agent",
+    role,
     hasSeenWelcome: true,
     status: "active",
     activeStepId: step.id,
@@ -49,7 +51,7 @@ function WanderAwayTrigger() {
   );
 }
 
-function renderTour(initialRoute: string, onTourFinished = vi.fn()) {
+function renderTour(initialRoute: string, onTourFinished = vi.fn(), role: "agent" | "client" = "agent") {
   return renderWithProviders(
     <Routes>
       <Route
@@ -58,7 +60,7 @@ function renderTour(initialRoute: string, onTourFinished = vi.fn()) {
           <>
             <CurrentPathProbe />
             <WanderAwayTrigger />
-            <GuidedTour role="agent" onTourFinished={onTourFinished} />
+            <GuidedTour role={role} onTourFinished={onTourFinished} />
           </>
         }
       />
@@ -130,6 +132,24 @@ describe("GuidedTour", () => {
     });
     const nextStep = agentSteps[agentSteps.findIndex((s) => s.id === calculatorStep.id) + 1];
     expect(useOnboardingStore.getState().activeStepId).toBe(nextStep.id);
+  });
+
+  it("moves between mini-walkthrough steps on the same feature page without navigating again", async () => {
+    const quantityStep = agentSteps.find((s) => s.id === "agent-calculator-quantity")!;
+    const priceStep = agentSteps.find((s) => s.id === "agent-calculator-price")!;
+    expect(quantityStep.route).toBe(priceStep.route); // same page, sanity check
+
+    setActiveStep(quantityStep.id);
+    renderTour(quantityStep.route);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    expect(screen.getByTestId("current-path")).toHaveTextContent(quantityStep.route);
+
+    fireEvent.click(screen.getByText("التالي"));
+
+    // Still on the calculator page — only the highlighted step changed.
+    expect(useOnboardingStore.getState().activeStepId).toBe(priceStep.id);
+    expect(screen.getByTestId("current-path")).toHaveTextContent(priceStep.route);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("shows the nav-guard warning when the user wanders to an unrelated route", async () => {
@@ -216,5 +236,38 @@ describe("GuidedTour", () => {
 
     expect(useOnboardingStore.getState().completedSteps).not.toContain(agentSteps[0].id);
     expect(useOnboardingStore.getState().activeStepId).toBe(agentSteps[1].id);
+  });
+
+  describe("client RFQ submit forgiveness", () => {
+    it("treats leaving the RFQ create page from the submit step as a successful submission, not wandering", async () => {
+      const submitStep = clientSteps.find((s) => s.id === "client-rfq-submit")!;
+      const nextStep = clientSteps[clientSteps.findIndex((s) => s.id === submitStep.id) + 1];
+      setActiveStep(submitStep.id, "client");
+      renderTour(submitStep.route, vi.fn(), "client");
+
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+      // Simulates the real create-RFQ mutation's onSuccess navigating to the
+      // new request's own detail page (a dynamic route the tour doesn't know).
+      fireEvent.click(screen.getByTestId("wander-away"));
+
+      // No "wandered off" warning — the step silently completes and advances.
+      expect(screen.queryByText("يبدو أنك ابتعدت عن الجولة!")).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(useOnboardingStore.getState().completedSteps).toContain(submitStep.id);
+        expect(useOnboardingStore.getState().activeStepId).toBe(nextStep.id);
+      });
+    });
+
+    it("still warns normally when wandering off from an earlier RFQ step (not the submit step)", async () => {
+      const quantityStep = clientSteps.find((s) => s.id === "client-rfq-quantity")!;
+      setActiveStep(quantityStep.id, "client");
+      renderTour(quantityStep.route, vi.fn(), "client");
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId("wander-away"));
+
+      expect(screen.getByText("يبدو أنك ابتعدت عن الجولة!")).toBeInTheDocument();
+    });
   });
 });

@@ -52,4 +52,14 @@ describe("RFQCreatePageMobile", () => {
     expect(await screen.findByText("يرجى إدخال اسم المنتج")).toBeInTheDocument();
     expect(intakeService.create).not.toHaveBeenCalled();
   });
+
+  // See RFQCreatePageDesktop.test.tsx — same onboarding-anchor contract, mobile layout.
+  it("marks the product name, quantity, and submit fields for the onboarding tour", () => {
+    useAuthStore.setState({ role: "client", user: CLIENT_USER });
+    const { container } = renderWithProviders(<RFQCreatePageMobile />);
+
+    expect(container.querySelector('[data-tour="tour-rfq-product-name"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-rfq-quantity"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-rfq-submit"]')).toBeInTheDocument();
+  });
 });

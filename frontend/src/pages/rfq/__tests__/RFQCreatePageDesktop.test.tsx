@@ -87,4 +87,17 @@ describe("RFQCreatePageDesktop", () => {
       );
     });
   });
+
+  // The interactive onboarding tour's guided walkthrough anchors to these
+  // data-tour ids (see constants/onboardingSteps.ts's client-rfq-* mini-
+  // walkthrough) — a renamed/removed attribute here would silently break
+  // the "submit your first request" tour steps without any type error.
+  it("marks the product name, quantity, and submit fields for the onboarding tour", () => {
+    useAuthStore.setState({ role: "client", user: CLIENT_USER });
+    const { container } = renderWithProviders(<RFQCreatePageDesktop />);
+
+    expect(container.querySelector('[data-tour="tour-rfq-product-name"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-rfq-quantity"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour="tour-rfq-submit"]')).toBeInTheDocument();
+  });
 });

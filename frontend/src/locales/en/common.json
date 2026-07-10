@@ -84,6 +84,22 @@
           "title": "Quick Calculator",
           "description": "Calculate the landed cost of any product in seconds, no need for a full quote request."
         },
+        "calculatorQuantity": {
+          "title": "Enter the quantity",
+          "description": "How many units does the client want to buy of this product?"
+        },
+        "calculatorPrice": {
+          "title": "Enter the unit price",
+          "description": "The price per unit in Chinese Yuan (CNY), as agreed with the factory."
+        },
+        "calculatorSubmit": {
+          "title": "Calculate the landed cost",
+          "description": "Tap here and the system will work out shipping, customs, and tax automatically in seconds."
+        },
+        "calculatorResult": {
+          "title": "That's your first landed cost! 🎉",
+          "description": "This is the final total your client pays — ready to share or turn into a full quote."
+        },
         "upload": {
           "title": "Upload your catalog",
           "description": "Upload a file or product photos and the system extracts the data automatically for you to review later."
@@ -113,6 +129,18 @@
         "rfq": {
           "title": "Request a new quote",
           "description": "Describe what you need in one simple sentence, and we'll route it to the right agent."
+        },
+        "rfqProductName": {
+          "title": "Describe the product",
+          "description": "Write the product name clearly so the agent understands it right away."
+        },
+        "rfqQuantity": {
+          "title": "Set the quantity",
+          "description": "How many units do you need? This number is essential for an accurate quote."
+        },
+        "rfqSubmit": {
+          "title": "Send your first request! 🎉",
+          "description": "Tap here to send it — a real quote from an agent will be on its way shortly."
         },
         "myRequests": {
           "title": "My Requests",

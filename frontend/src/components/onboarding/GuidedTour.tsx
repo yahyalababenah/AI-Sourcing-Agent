@@ -33,7 +33,10 @@ interface GuidedTourProps {
  *  1. on `step.route` → full spotlight + popover/sheet as normal.
  *  2. anywhere else   → the user genuinely wandered off (an unrelated
  *     link, browser back); show the NavGuardToast "wandered off" warning
- *     (plan §2.7-b) with a button back to the step.
+ *     (plan §2.7-b) with a button back to the step. One exception: leaving
+ *     the RFQ submit step means the request was just created successfully
+ *     (the app navigated to its own detail page) — that's forgiveness
+ *     completion, not wandering, so it advances silently instead.
  */
 export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
   const { t } = useTranslation();
@@ -55,6 +58,7 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
 
   const autoSkippedStepIdRef = useRef<string | null>(null);
   const navigatedForStepIdRef = useRef<string | null>(null);
+  const rfqSubmitAdvancedRef = useRef(false);
 
   const onSameRoute = currentStep ? location.pathname === currentStep.route : false;
 
@@ -112,6 +116,23 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, onSameRoute]);
 
+  // Forgiveness completion path for the RFQ submit step: submitting the
+  // form navigates to the newly created request's own detail page
+  // (ROUTES.RFQ.DETAIL(id), a dynamic route the tour doesn't know about) —
+  // that's a *success*, not the user wandering off. Detect leaving
+  // step.route while on this step and advance instead of warning.
+  useEffect(() => {
+    if (!currentStep || currentStep.id !== "client-rfq-submit") return;
+    if (onSameRoute) {
+      rfqSubmitAdvancedRef.current = false;
+      return;
+    }
+    if (rfqSubmitAdvancedRef.current) return;
+    rfqSubmitAdvancedRef.current = true;
+    advance(currentStep, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, onSameRoute]);
+
   // Auto-skip a step whose target never renders (plan §2.7-a) — mark it
   // complete anyway so progress keeps moving; there's nothing the user can
   // do about a DOM element that never shows up. Guarded by a ref (not a
@@ -145,8 +166,11 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
     navigate(step.route);
   };
 
-  // The user genuinely wandered off (an unrelated link, browser back).
-  if (!onSameRoute) {
+  // The user genuinely wandered off (an unrelated link, browser back) —
+  // except leaving the RFQ submit step, which means the request was just
+  // created successfully (see the forgiveness effect above); render
+  // nothing for that one tick while it advances instead of warning.
+  if (!onSameRoute && step.id !== "client-rfq-submit") {
     return (
       <NavGuardToast
         role={role}
@@ -156,6 +180,7 @@ export function GuidedTour({ role, onTourFinished }: GuidedTourProps) {
       />
     );
   }
+  if (!onSameRoute) return null;
 
   const panelProps = {
     role,

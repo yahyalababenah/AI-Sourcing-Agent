@@ -84,6 +84,22 @@
           "title": "快速计算器",
           "description": "几秒钟内计算任意产品的到岸成本，无需完整询价流程。"
         },
+        "calculatorQuantity": {
+          "title": "输入数量",
+          "description": "填写客户想购买该产品的件数。"
+        },
+        "calculatorPrice": {
+          "title": "输入单价",
+          "description": "与工厂商定的人民币（CNY）单价。"
+        },
+        "calculatorSubmit": {
+          "title": "计算到岸成本",
+          "description": "点击这里，系统会在几秒内自动算出运费、关税和税费。"
+        },
+        "calculatorResult": {
+          "title": "这是您的第一份到岸成本！🎉",
+          "description": "这是客户需支付的最终总额 —— 可直接分享，或转为完整报价单。"
+        },
         "upload": {
           "title": "上传您的产品目录",
           "description": "上传文件或产品图片，系统将自动提取数据供您稍后审核。"
@@ -113,6 +129,18 @@
         "rfq": {
           "title": "发起新的询价",
           "description": "用一句话描述您的需求，我们会将其转发给合适的代理。"
+        },
+        "rfqProductName": {
+          "title": "描述产品",
+          "description": "清楚地写出您想进口的产品名称，方便代理立即理解。"
+        },
+        "rfqQuantity": {
+          "title": "确定数量",
+          "description": "您需要多少件？这个数字对准确报价至关重要。"
+        },
+        "rfqSubmit": {
+          "title": "发送您的第一个请求！🎉",
+          "description": "点击这里发送请求 —— 代理很快会发来真实报价。"
         },
         "myRequests": {
           "title": "我的请求",

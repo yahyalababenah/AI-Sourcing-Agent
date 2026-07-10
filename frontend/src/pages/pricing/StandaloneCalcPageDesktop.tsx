@@ -120,6 +120,7 @@ interface ProductRowProps {
 
 function ProductRow({ product, index, hsCodeList, onUpdate, onRemove, canRemove }: ProductRowProps) {
   const lineTotal = product.quantity * product.unitPriceCny;
+  const isFirst = index === 0;
   return (
     <tr className="transition-colors duration-150 hover:bg-slate-50">
       <td className="px-3 py-2">
@@ -144,6 +145,7 @@ function ProductRow({ product, index, hsCodeList, onUpdate, onRemove, canRemove 
           min={1}
           value={product.quantity}
           onChange={(e) => onUpdate(index, "quantity", Math.max(1, Number(e.target.value)))}
+          data-tour={isFirst ? "tour-calc-quantity" : undefined}
           className="w-20 rounded border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-supplier-500 focus:outline-none"
         />
       </td>
@@ -154,6 +156,7 @@ function ProductRow({ product, index, hsCodeList, onUpdate, onRemove, canRemove 
           step={0.01}
           value={product.unitPriceCny}
           onChange={(e) => onUpdate(index, "unitPriceCny", Math.max(0, Number(e.target.value)))}
+          data-tour={isFirst ? "tour-calc-price" : undefined}
           className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-supplier-500 focus:outline-none"
         />
       </td>
@@ -340,6 +343,7 @@ export function StandaloneCalcPageDesktop() {
               <button
                 onClick={() => calculateMutation.mutate()}
                 disabled={calculateMutation.isPending}
+                data-tour="tour-calc-button"
                 className="btn-primary"
               >
                 {calculateMutation.isPending ? (
@@ -361,7 +365,7 @@ export function StandaloneCalcPageDesktop() {
         </div>
 
         {/* Sidebar — result summary */}
-        <div className="h-fit lg:sticky lg:top-6">
+        <div className="h-fit lg:sticky lg:top-6" data-tour="tour-calc-result">
           {hasResult ? (
             <StandaloneResultCard
               result={result}

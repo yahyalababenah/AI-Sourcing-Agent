@@ -120,6 +120,7 @@ interface ProductCardProps {
 
 function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove }: ProductCardProps) {
   const lineTotal = product.quantity * product.unitPriceCny;
+  const isFirst = index === 0;
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-start justify-between">
@@ -161,6 +162,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
             min={1}
             value={product.quantity}
             onChange={(e) => onUpdate(index, "quantity", Math.max(1, Number(e.target.value)))}
+            data-tour={isFirst ? "tour-calc-quantity" : undefined}
             className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-center focus:border-supplier-500 focus:outline-none"
           />
         </div>
@@ -175,6 +177,7 @@ function ProductCard({ product, index, hsCodeList, onUpdate, onRemove, canRemove
             step={0.01}
             value={product.unitPriceCny}
             onChange={(e) => onUpdate(index, "unitPriceCny", Math.max(0, Number(e.target.value)))}
+            data-tour={isFirst ? "tour-calc-price" : undefined}
             className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-center focus:border-supplier-500 focus:outline-none"
           />
         </div>
@@ -338,6 +341,7 @@ export function StandaloneCalcPageMobile() {
           <button
             onClick={() => calculateMutation.mutate()}
             disabled={calculateMutation.isPending}
+            data-tour="tour-calc-button"
             className="btn-primary w-full"
           >
             {calculateMutation.isPending ? (
@@ -356,14 +360,14 @@ export function StandaloneCalcPageMobile() {
 
       {/* Result */}
       {hasResult ? (
-        <>
+        <div className="space-y-6" data-tour="tour-calc-result">
           <MobileResultCard
             result={result}
             onCreateQuote={() => createQuoteMutation.mutate()}
             isCreatingQuote={createQuoteMutation.isPending}
           />
           <MobileDetailBreakdown result={result} productInputs={products} />
-        </>
+        </div>
       ) : (
         <EmptyState
           icon={Calculator}
