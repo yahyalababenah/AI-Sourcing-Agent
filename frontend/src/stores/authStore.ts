@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import type { User, UserRole } from "@/types/auth";
 import { getAccessToken, setAccessToken, setRefreshToken, clearTokens } from "@/lib/auth";
+import { getDevUser } from "@/lib/devAuth";
+
+// Dev-only: a fake user seeded from .env.local so role-protected pages are
+// reachable without a backend. Always null in production builds (lib/devAuth.ts).
+const devUser = getDevUser();
 
 interface AuthState {
   /** The currently authenticated user, or null. */
@@ -23,10 +28,10 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
+  user: devUser,
   accessToken: getAccessToken(),
-  isAuthenticated: !!getAccessToken(),
-  role: null,
+  isAuthenticated: !!devUser || !!getAccessToken(),
+  role: devUser?.role ?? null,
 
   setAuth: (user, accessToken, refreshToken) => {
     setAccessToken(accessToken);

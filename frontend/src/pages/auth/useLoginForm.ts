@@ -5,7 +5,7 @@ export type RoleTab = "client" | "agent" | "admin";
 
 export const ROLE_TABS: { role: RoleTab; label: string }[] = [
   { role: "client", label: "مستورد" },
-  { role: "agent", label: "مورد" },
+  { role: "agent", label: "مورد/مندوب مبيعات" },
   { role: "admin", label: "الإدارة" },
 ];
 
